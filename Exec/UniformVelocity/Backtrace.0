@@ -1,0 +1,57 @@
+Host Name: CNS-3
+=== If no file names and line numbers are shown below, one can run
+            addr2line -Cpfie my_exefile my_line_address
+    to convert `my_line_address` (e.g., 0x4a6b) into file name and line number.
+    Or one can use amrex/Tools/Backtrace/parse_bt.py.
+
+=== Please note that the line number reported by addr2line may not be accurate.
+    One can use
+            readelf -wl my_exefile | grep my_line_address'
+    to find out the offset for that line.
+
+ 0: ./main2d.gnu.DEBUG.MPI.ex(+0x299548) [0x56020ec15548]
+    amrex::BLBackTrace::print_backtrace_info(_IO_FILE*) at /home/stevemillmore/Research/Codes/AMReX/advection-equation-in-amrex-2023/Exec/UniformVelocity/../../../amrex/Src/Base/AMReX_BLBackTrace.cpp:189
+
+ 1: ./main2d.gnu.DEBUG.MPI.ex(+0x29902d) [0x56020ec1502d]
+    amrex::BLBackTrace::handler(int) at /home/stevemillmore/Research/Codes/AMReX/advection-equation-in-amrex-2023/Exec/UniformVelocity/../../../amrex/Src/Base/AMReX_BLBackTrace.cpp:99
+
+ 2: ./main2d.gnu.DEBUG.MPI.ex(+0xdbe79) [0x56020ea57e79]
+    amrex::ParallelDescriptor::Abort(int, bool) at /home/stevemillmore/Research/Codes/AMReX/advection-equation-in-amrex-2023/Exec/UniformVelocity/../../../amrex/Src/Base/AMReX_ParallelDescriptor.cpp:219
+
+ 3: ./main2d.gnu.DEBUG.MPI.ex(+0x5152c) [0x56020e9cd52c]
+    amrex::Error_host(char const*, char const*) at /home/stevemillmore/Research/Codes/AMReX/advection-equation-in-amrex-2023/Exec/UniformVelocity/../../../amrex/Src/Base/AMReX.cpp:240
+
+ 4: ./main2d.gnu.DEBUG.MPI.ex(+0x51459) [0x56020e9cd459]
+    amrex::Abort(char const*) at /home/stevemillmore/Research/Codes/AMReX/advection-equation-in-amrex-2023/Exec/UniformVelocity/../../../amrex/Src/Base/AMReX.H:161
+ (inlined by) amrex::Abort(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&) at /home/stevemillmore/Research/Codes/AMReX/advection-equation-in-amrex-2023/Exec/UniformVelocity/../../../amrex/Src/Base/AMReX.cpp:211
+
+ 5: ./main2d.gnu.DEBUG.MPI.ex(+0x2324e) [0x56020e99f24e]
+    amrex::Array4<double>::index_assert(int, int, int, int) const at /home/stevemillmore/Research/Codes/AMReX/advection-equation-in-amrex-2023/Exec/UniformVelocity/../../../amrex/Src/Base/AMReX_Array4.H:249 (discriminator 3)
+
+ 6: ./main2d.gnu.DEBUG.MPI.ex(+0x16e5f) [0x56020e992e5f]
+    double& amrex::Array4<double>::operator()<double, 0>(int, int, int) const at /home/stevemillmore/Research/Codes/AMReX/advection-equation-in-amrex-2023/Exec/UniformVelocity/../../../amrex/Src/Base/AMReX_Array4.H:134
+ (inlined by) operator() at /home/stevemillmore/Research/Codes/AMReX/advection-equation-in-amrex-2023/Exec/UniformVelocity/../../Source/AmrLevelAdv.cpp:427
+
+ 7: ./main2d.gnu.DEBUG.MPI.ex(+0x1b516) [0x56020e997516]
+    decltype ({parm#1}(0, 0, 0)) amrex::detail::call_f<AmrLevelAdv::advance(double, double, int, int)::{lambda(int, int, int)#1}>(AmrLevelAdv::advance(double, double, int, int)::{lambda(int, int, int)#1} const&, int, int, int) at /home/stevemillmore/Research/Codes/AMReX/advection-equation-in-amrex-2023/Exec/UniformVelocity/../../../amrex/Src/Base/AMReX_GpuLaunchFunctsC.H:30
+
+ 8: ./main2d.gnu.DEBUG.MPI.ex(+0x1aa70) [0x56020e996a70]
+    void amrex::ParallelFor<AmrLevelAdv::advance(double, double, int, int)::{lambda(int, int, int)#1}>(amrex::Box const&, AmrLevelAdv::advance(double, double, int, int)::{lambda(int, int, int)#1}&&) at /home/stevemillmore/Research/Codes/AMReX/advection-equation-in-amrex-2023/Exec/UniformVelocity/../../../amrex/Src/Base/AMReX_GpuLaunchFunctsC.H:167 (discriminator 2)
+
+ 9: ./main2d.gnu.DEBUG.MPI.ex(+0x17c83) [0x56020e993c83]
+    AmrLevelAdv::advance(double, double, int, int) at /home/stevemillmore/Research/Codes/AMReX/advection-equation-in-amrex-2023/Exec/UniformVelocity/../../Source/AmrLevelAdv.cpp:444 (discriminator 2)
+
+10: ./main2d.gnu.DEBUG.MPI.ex(+0x3da133) [0x56020ed56133]
+    amrex::Amr::timeStep(int, double, int, int, double) at /home/stevemillmore/Research/Codes/AMReX/advection-equation-in-amrex-2023/Exec/UniformVelocity/../../../amrex/Src/Amr/AMReX_Amr.cpp:2022
+
+11: ./main2d.gnu.DEBUG.MPI.ex(+0x3da996) [0x56020ed56996]
+    amrex::Amr::coarseTimeStep(double) at /home/stevemillmore/Research/Codes/AMReX/advection-equation-in-amrex-2023/Exec/UniformVelocity/../../../amrex/Src/Amr/AMReX_Amr.cpp:2133
+
+12: ./main2d.gnu.DEBUG.MPI.ex(+0x50d7c) [0x56020e9ccd7c]
+    main at /home/stevemillmore/Research/Codes/AMReX/advection-equation-in-amrex-2023/Exec/UniformVelocity/../../Source/main.cpp:52
+
+13: /lib/x86_64-linux-gnu/libc.so.6(__libc_start_main+0xf3) [0x7fe82ff27083]
+
+14: ./main2d.gnu.DEBUG.MPI.ex(+0x15d3e) [0x56020e991d3e]
+    ?? ??:0
+
