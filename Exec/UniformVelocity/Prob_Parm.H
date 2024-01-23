@@ -6,7 +6,8 @@
 // Define the struct to contain problem-specific variables here.
 struct ProbParm
 {
-    amrex::Real adv_vel[AMREX_SPACEDIM] = {AMREX_D_DECL(1.0, 1.0, 1.0)}; // Default values
+    amrex::Real adv_vel[AMREX_SPACEDIM]
+        = { AMREX_D_DECL(1.0, 1.0, 1.0) }; // Default values
 };
 
 #endif

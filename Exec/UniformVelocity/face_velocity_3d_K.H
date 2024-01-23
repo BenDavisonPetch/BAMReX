@@ -1,20 +1,18 @@
 #ifndef FACE_VELOCITY_3D_H_
 #define FACE_VELOCITY_3D_H_
 
-#include <AMReX_FArrayBox.H>
 #include <AMReX_Array.H>
+#include <AMReX_FArrayBox.H>
 
 #include "AmrLevelAdv.H"
 #include "Prob_Parm.H"
 
 AMREX_GPU_HOST
 AMREX_FORCE_INLINE
-void get_face_velocity(amrex::Real /*time*/,
-                       amrex::FArrayBox& vx,
-                       amrex::FArrayBox& vy,
-                       amrex::FArrayBox& vz,
-                       amrex::GpuArray<amrex::Real,3> const& /*dx*/,
-                       amrex::GpuArray<amrex::Real,3> const& /*prob_lo*/)
+void get_face_velocity(amrex::Real /*time*/, amrex::FArrayBox &vx,
+                       amrex::FArrayBox &vy, amrex::FArrayBox &vz,
+                       amrex::GpuArray<amrex::Real, 3> const & /*dx*/,
+                       amrex::GpuArray<amrex::Real, 3> const & /*prob_lo*/)
 {
     using namespace amrex;
 
