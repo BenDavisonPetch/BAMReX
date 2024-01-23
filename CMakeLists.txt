@@ -2,8 +2,6 @@ cmake_minimum_required(VERSION 3.16)
 
 project(amrex_cfd)
 
-set(AMReX_ROOT ~/bin/amrex-omp-debug)
-
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,7 +14,7 @@ file(CREATE_LINK ${CMAKE_BINARY_DIR}/compile_commands.json
 
 # Finding packages
 find_package(AMReX PATHS ${AMReX_ROOT}/lib/cmake/AMReX/AMReXConfig.cmake
-                   REQUIRED 1D)
+                   REQUIRED 1D 2D)
 find_package(MPI REQUIRED)
 
 target_link_libraries(AMReX::amrex_1d INTERFACE ${MPI_LIBRARIES})

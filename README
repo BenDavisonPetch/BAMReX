@@ -2,7 +2,7 @@
 ```shell
 $ mkdir build
 $ cd build
-$ cmake ..
+$ cmake .. -DAMReX_ROOT=/path/to/cmake/built/amrex
 $ cd Exec/UniformVelocity
 $ make -j
 $ ./uniform_velocity inputs
