@@ -5,7 +5,7 @@
 
 #include "AmrLevelAdv.H"
 #include "tagging_K.H"
-//#include "Prob.H"
+#include "Prob.H"
 //#include "Kernels.H"
 
 using namespace amrex;
@@ -183,58 +183,60 @@ void AmrLevelAdv::variableCleanUp()
  */
 void AmrLevelAdv::initData()
 {
-    // amrex::Print works like std::cout, but in parallel only prints
-    // from the root processor
-    if (verbose)
-    {
-        amrex::Print() << "Initializing the data at level " << level
-                       << std::endl;
-    }
+    MultiFab& S_new = get_new_data(Phi_Type);
+    initdata(S_new, geom);
+    // // amrex::Print works like std::cout, but in parallel only prints
+    // // from the root processor
+    // if (verbose)
+    // {
+    //     amrex::Print() << "Initializing the data at level " << level
+    //                    << std::endl;
+    // }
 
-    // GpuArrays are fixed size vectors which can be used on GPU
-    // The geom object contains a lot of information about the grid, including
-    // dx...
-    const GpuArray<Real, AMREX_SPACEDIM> dx = geom.CellSizeArray();
-    // ... and ProbLoArray - the physical coordinates of the start of the
-    // domain
-    const GpuArray<Real, AMREX_SPACEDIM> prob_lo = geom.ProbLoArray();
+    // // GpuArrays are fixed size vectors which can be used on GPU
+    // // The geom object contains a lot of information about the grid, including
+    // // dx...
+    // const GpuArray<Real, AMREX_SPACEDIM> dx = geom.CellSizeArray();
+    // // ... and ProbLoArray - the physical coordinates of the start of the
+    // // domain
+    // const GpuArray<Real, AMREX_SPACEDIM> prob_lo = geom.ProbLoArray();
 
-    // Create a local multifab which can store the initial data, and set
-    // it as the global 'new_data' (i.e. data at the current time level)
-    MultiFab &S_new = get_new_data(Phi_Type);
+    // // Create a local multifab which can store the initial data, and set
+    // // it as the global 'new_data' (i.e. data at the current time level)
+    // MultiFab &S_new = get_new_data(Phi_Type);
 
-    // Loop over all the multifabs (patches) at this level
-    for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
-    {
+    // // Loop over all the multifabs (patches) at this level
+    // for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
+    // {
 
-        const Box &box = mfi.validbox();
-        // The Array4 can be accessed, on CPU and GPU, through its indices,
-        // e.g. arr(i,j,k) This determines and Array4 of the initial data which
-        // exists on our current multifab
-        const Array4<Real> &phi = S_new.array(mfi);
+    //     const Box &box = mfi.validbox();
+    //     // The Array4 can be accessed, on CPU and GPU, through its indices,
+    //     // e.g. arr(i,j,k) This determines and Array4 of the initial data which
+    //     // exists on our current multifab
+    //     const Array4<Real> &phi = S_new.array(mfi);
 
-        // Populate MultiFab data
-        // The ParallelFor is a loop structure that works on CPU (as a regular
-        // loop) or on GPU (assigning things appropriately)
-        ParallelFor(box,
-                    [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-                    {
-                        Real r2 = 0;
-                        // AMREX_D_DECL will only use the entries up to
-                        // the current dimension
-                        const GpuArray<int, AMREX_SPACEDIM> idx{ AMREX_D_DECL(
-                            i, j, k) };
+    //     // Populate MultiFab data
+    //     // The ParallelFor is a loop structure that works on CPU (as a regular
+    //     // loop) or on GPU (assigning things appropriately)
+    //     ParallelFor(box,
+    //                 [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+    //                 {
+    //                     Real r2 = 0;
+    //                     // AMREX_D_DECL will only use the entries up to
+    //                     // the current dimension
+    //                     const GpuArray<int, AMREX_SPACEDIM> idx{ AMREX_D_DECL(
+    //                         i, j, k) };
 
-                        for (unsigned int d = 0; d < AMREX_SPACEDIM; ++d)
-                        {
-                            Real posn
-                                = prob_lo[d] + (idx[d] + Real(0.5)) * dx[d];
-                            r2 += posn * posn;
-                        }
+    //                     for (unsigned int d = 0; d < AMREX_SPACEDIM; ++d)
+    //                     {
+    //                         Real posn
+    //                             = prob_lo[d] + (idx[d] + Real(0.5)) * dx[d];
+    //                         r2 += posn * posn;
+    //                     }
 
-                        phi(i, j, k) = 1 + std::exp(-r2 / 0.01);
-                    });
-    }
+    //                     phi(i, j, k) = 1 + std::exp(-r2 / 0.01);
+    //                 });
+    // }
 
     if (verbose)
     {

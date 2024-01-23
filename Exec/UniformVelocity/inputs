@@ -40,7 +40,7 @@ amr.plot_file = output/advection1/advect_plt
 adv.do_tracers = 0
 
 # PROBLEM-SPECIFIC PARAMETERS
-prob.adv_vel =  1.0  1.0  1.0
+prob.adv_vel =  -1.0  1.0  1.0
 
 # ERROR TAGGING
 tagging.phierr =  1.01  1.1   1.5
