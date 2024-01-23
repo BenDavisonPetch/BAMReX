@@ -1,14 +1,13 @@
-Advection_AmrLevel: This test contains an AMR advection code that advects a
-single scalar field with a velocity field that is specified on faces.
-
-It is a C++ AMReX-based code designed to run in parallel using
-MPI/OMP. 
-
-It uses source code from the amrex/Src/Base, Boundary, AmrCore, and
-Amr directories.
-
-The directory Exec/UniformVelocity includes a makefile and a sample inputs file.
-Plotfiles are generated that can be viewed with amrvis2d / amrvis3d
-(CCSE's native vis / spreadsheet tool, downloadable separately from ccse.lbl.gov)
-or with VisIt.
-
+# Building
+```shell
+$ mkdir build
+$ cd build
+$ cmake ..
+$ cd Exec/UniformVelocity
+$ make -j
+$ ./uniform_velocity inputs
+```
+## Visualisation
+```shell
+$ amrvis2d -a output/advection1/advect_plt*
+```
