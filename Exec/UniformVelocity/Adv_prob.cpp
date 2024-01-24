@@ -13,12 +13,10 @@ extern "C"
     {
         // Read the prob block from the input file using ParmParse
         amrex::ParmParse           pp("prob");
-        amrex::Vector<amrex::Real> adv_vel(AMREX_SPACEDIM);
-        pp.queryarr("adv_vel", adv_vel);
-        for (int i = 0; i < AMREX_SPACEDIM; ++i)
-        {
-            AmrLevelAdv::h_prob_parm->adv_vel[i] = adv_vel[i];
-        }
+        amrex::Real adiabatic;
+        pp.query("adiabatic", adiabatic);
+
+        AmrLevelAdv::h_prob_parm->adiabatic = adiabatic;
 
         // Transfer the problem-specific data to the GPU
         amrex::Gpu::copy(amrex::Gpu::hostToDevice, AmrLevelAdv::h_prob_parm,

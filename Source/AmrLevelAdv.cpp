@@ -1,8 +1,11 @@
+#include <AMReX_BC_TYPES.H>
 #include <AMReX_GpuMemory.H>
 #include <AMReX_ParmParse.H>
+#include <AMReX_SPACE.H>
 #include <AMReX_TagBox.H>
 #include <AMReX_VisMF.H>
 
+#include "Fluxes/Fluxes.H"
 #include "AmrLevelAdv.H"
 #include "Prob.H"
 #include "tagging_K.H"
@@ -15,8 +18,8 @@ Real AmrLevelAdv::cfl
     = 0.9; // Default value - can be overwritten in settings file
 int AmrLevelAdv::do_reflux = 1;
 
-int AmrLevelAdv::NUM_STATE = 1; // One variable in the state
-int AmrLevelAdv::NUM_GROW  = 3; // number of ghost cells
+int AmrLevelAdv::NUM_STATE = 2 + AMREX_SPACEDIM; // Euler eqns
+int AmrLevelAdv::NUM_GROW  = 3;                  // number of ghost cells
 
 // Mechanism for getting code to work on GPU
 ProbParm *AmrLevelAdv::h_prob_parm = nullptr;
@@ -139,7 +142,7 @@ void AmrLevelAdv::variableSetUp()
     // (foextrap)
     for (int i = 0; i < BL_SPACEDIM; ++i)
     {
-        lo_bc[i] = hi_bc[i] = BCType::int_dir; // periodic boundaries
+        lo_bc[i] = hi_bc[i] = BCType::foextrap; // transmissive boundaries
     }
 
     // Object for storing all the boundary conditions
@@ -162,7 +165,12 @@ void AmrLevelAdv::variableSetUp()
     // advection. phi: Name of the variable - appears in output to identify
     // what is being plotted bc: Boundary condition object for this variable
     // (defined above) bndryfunc: The boundary condition function set above
-    desc_lst.setComponent(Phi_Type, 0, "phi", bc, bndryfunc);
+    desc_lst.setComponent(Phi_Type, 0, "density", bc, bndryfunc);
+    AMREX_D_TERM(desc_lst.setComponent(Phi_Type, 1, "mom_x", bc, bndryfunc);
+                 , desc_lst.setComponent(Phi_Type, 2, "mom_y", bc, bndryfunc);
+                 , desc_lst.setComponent(Phi_Type, 3, "mom_z", bc, bndryfunc);)
+    desc_lst.setComponent(Phi_Type, 1 + AMREX_SPACEDIM, "energy", bc,
+                          bndryfunc);
 }
 
 /**
@@ -361,24 +369,28 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
         for (MFIter mfi(Sborder, true); mfi.isValid(); ++mfi)
         {
             const Box &bx     = mfi.tilebox();
-            const Box &bxGrow = mfi.tilebox().growHi(d, 1);
 
             // Indexable arrays for the data, and the directional flux
             // Based on the vertex-centred definition of the flux array, the
             // data array runs from e.g. [0,N] and the flux array from [0,N+1]
-            const auto &arr     = Sborder.array(mfi);
-            const auto &fluxArr = fluxes[d].array(mfi);
-            const Real  v       = vel[d];
+            const auto &arr       = Sborder.array(mfi);
+            const auto &fluxArr   = fluxes[d].array(mfi);
+            // const Real  v         = vel[d];
 
-            ParallelFor(bxGrow,
-                        [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-                        {
-                            // Conservative flux for the first-order
-                            // backward difference method
-                            fluxArr(i, j, k)
-                                = v
-                                  * arr(i - iOffset, j - jOffset, k - kOffset);
-                        });
+            // ParallelFor(bxGrow,
+            //             [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
+            //             noexcept
+            //             {
+            //                 // Conservative flux for the first-order
+            //                 // backward difference method
+            //                 fluxArr(i, j, k)
+            //                     = v
+            //                       * arr(i - iOffset, j - jOffset, k -
+            //                       kOffset);
+            //             });
+
+            // Compute FORCE flux
+            compute_force_flux(d, time, bx, fluxArr, arr, dx, dt);
 
             // const Dim3 lo = lbound(bx);
             // const Dim3 hi = ubound(bx);
@@ -397,6 +409,8 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
             // }
 
             // exit(0);
+
+            // Conservative update
             ParallelFor(bx,
                         [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
                         {
