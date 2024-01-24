@@ -13,4 +13,4 @@ add_executable(uniform_velocity ${UNIFORM_VELOCITY_SRC})
 target_link_libraries(uniform_velocity AMReX::amrex_2d)
 
 file(CREATE_LINK ${CMAKE_CURRENT_SOURCE_DIR}/inputs
-                 ${CMAKE_BINARY_DIR}/Exec/UniformVelocity/inputs SYMBOLIC)
+                 ${CMAKE_BINARY_DIR}/Exec/RiemannProblem/inputs SYMBOLIC)
