@@ -422,16 +422,16 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
             if (verbose) Print() << "\t\tPerforming update" << std::endl;
 
             // Conservative update
-            ParallelFor(bx,
-                        [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+            ParallelFor(bx, NUM_STATE,
+                        [=] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept
                         {
                             // Conservative update formula
-                            arr(i, j, k)
-                                = arr(i, j, k)
+                            arr(i, j, k, n)
+                                = arr(i, j, k, n)
                                   - (dt / dx[d])
                                         * (fluxArr(i + iOffset, j + jOffset,
-                                                   k + kOffset)
-                                           - fluxArr(i, j, k));
+                                                   k + kOffset, n)
+                                           - fluxArr(i, j, k, n));
                         });
             if (verbose) Print() << "\t\tDone!" << std::endl;
         }
