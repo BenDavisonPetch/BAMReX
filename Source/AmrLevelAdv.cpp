@@ -5,6 +5,7 @@
 #include <AMReX_TagBox.H>
 #include <AMReX_VisMF.H>
 
+#include "Euler/Euler.H"
 #include "Fluxes/Fluxes.H"
 #include "AmrLevelAdv.H"
 #include "Prob.H"
@@ -132,21 +133,22 @@ void AmrLevelAdv::variableSetUp()
                            StateDescriptor::Point, storedGhostZones, NUM_STATE,
                            &cell_cons_interp);
 
-    // Set up boundary conditions, all boundaries can be set
-    // independently, including for individual variables, but lo (left) and hi
-    // (right) are useful ways to store them, for consistent access notation
-    // for the boundary locations
-    int lo_bc[BL_SPACEDIM];
-    int hi_bc[BL_SPACEDIM];
-    // AMReX has pre-set BCs, including periodic (int_dir) and transmissive
-    // (foextrap)
-    for (int i = 0; i < BL_SPACEDIM; ++i)
-    {
-        lo_bc[i] = hi_bc[i] = BCType::foextrap; // transmissive boundaries
-    }
+    Geometry const *gg = AMReX::top()->getDefaultGeometry();
 
     // Object for storing all the boundary conditions
-    BCRec bc(lo_bc, hi_bc);
+    BCRec bc;
+    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir)
+    {
+        if (gg->isPeriodic(dir))
+        {
+            bc.setHi(dir, BCType::int_dir);
+            bc.setLo(dir, BCType::int_dir);
+        }
+        else {
+            bc.setHi(dir, BCType::foextrap);
+            bc.setLo(dir, BCType::foextrap);
+        }
+    }
 
     // BndryFunc: Function for setting boundary conditions.  For basic
     // BCs, AMReX can handle these automatically; nullfill means that
@@ -277,6 +279,7 @@ void AmrLevelAdv::init()
 //  This function is the one that actually calls the flux functions.
 Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
 {
+    if (verbose) Print() << "Starting advance:" << std::endl;
     MultiFab &S_mm = get_new_data(Phi_Type);
 
     // Note that some useful commands exist - the maximum and minumum
@@ -358,8 +361,11 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
     // takes care of boundary conditions too
     FillPatcherFill(Sborder, 0, NUM_STATE, NUM_GROW, time, Phi_Type, 0);
 
+    if (verbose) Print() << "\tFilled ghost states" << std::endl;
+
     for (int d = 0; d < amrex::SpaceDim; d++)
     {
+        if(verbose) Print() << "\tComputing update for direction " << d << std::endl;
 
         const int iOffset = (d == 0 ? 1 : 0);
         const int jOffset = (d == 1 ? 1 : 0);
@@ -389,8 +395,11 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
             //                       kOffset);
             //             });
 
+            if (verbose) Print() << "\t\tComputing force flux..." << std::endl;
             // Compute FORCE flux
             compute_force_flux(d, time, bx, fluxArr, arr, dx, dt);
+
+            if(verbose) Print() << "\t\tDone!" << std::endl;
 
             // const Dim3 lo = lbound(bx);
             // const Dim3 hi = ubound(bx);
@@ -410,6 +419,8 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
 
             // exit(0);
 
+            if (verbose) Print() << "\t\tPerforming update" << std::endl;
+
             // Conservative update
             ParallelFor(bx,
                         [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
@@ -422,6 +433,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
                                                    k + kOffset)
                                            - fluxArr(i, j, k));
                         });
+            if (verbose) Print() << "\t\tDone!" << std::endl;
         }
         // We need to compute boundary conditions again after each update
         Sborder.FillBoundary(geom.periodicity());
@@ -447,6 +459,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
             // number of data indices that will be multiplied
             fluxes[d].mult(scaleFactor, 0, NUM_STATE);
         }
+        if (verbose) Print() << "\tDirection update complete" << std::endl;
     }
 
     // The updated data is now copied to the S_new multifab.  This means
@@ -504,6 +517,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
         }
     }
 
+    if(verbose) Print() << "Advance complete!" << std::endl;
     return dt;
 }
 
@@ -523,15 +537,13 @@ Real AmrLevelAdv::estTimeStep(Real)
     const Real                  cur_time = state[Phi_Type].curTime();
     const MultiFab             &S_new    = get_new_data(Phi_Type);
 
-    // This should not really be hard coded
-    const Real velMag = sqrt(Real(AMREX_SPACEDIM));
+    Real wave_speed = max_wave_speed(cur_time, S_new);
+
     for (unsigned int d = 0; d < amrex::SpaceDim; ++d)
     {
-        dt_est = std::min(dt_est, dx[d] / velMag);
+        dt_est = std::min(dt_est, dx[d] / wave_speed);
     }
-
-    // Ensure that we really do have the minimum across all processors
-    ParallelDescriptor::ReduceRealMin(dt_est);
+    
     dt_est *= cfl;
 
     if (verbose)
@@ -863,13 +875,13 @@ void AmrLevelAdv::read_params()
         amrex::Abort("Please set geom.coord_sys = 0");
     }
 
-    // This tutorial code only supports periodic boundaries.
-    // The periodicity is read from the settings file in AMReX source code, but
-    // can be accessed here
-    if (!gg->isAllPeriodic())
-    {
-        amrex::Abort("Please set geom.is_periodic = 1 1 1");
-    }
+    // // This tutorial code only supports periodic boundaries.
+    // // The periodicity is read from the settings file in AMReX source code, but
+    // // can be accessed here
+    // if (!gg->isAllPeriodic())
+    // {
+    //     amrex::Abort("Please set geom.is_periodic = 1 1 1");
+    // }
 
     // Read tagging parameters from tagging block in the input file.
     // See Src_nd/Tagging_params.cpp for the function implementation.

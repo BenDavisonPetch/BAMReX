@@ -1,5 +1,9 @@
 
 #include <AMReX_MultiFab.H>
+#include <AMReX_ParmParse.H>
+
+#include "AmrLevelAdv.H"
+#include "Euler/Euler.H"
 
 /**
  * Initialize Data on Multifab
@@ -17,31 +21,38 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
     const GpuArray<Real, AMREX_SPACEDIM> dx      = geom.CellSizeArray();
     const GpuArray<Real, AMREX_SPACEDIM> prob_lo = geom.ProbLoArray();
 
+    Real density_L, velocity_L, pressure_L, density_R, velocity_R, pressure_R;
+
+    ParmParse pp("init");
+    pp.get("density_L", density_L);
+    pp.get("velocity_L", velocity_L);
+    pp.get("pressure_L", pressure_L);
+    pp.get("density_R", density_R);
+    pp.get("velocity_R", velocity_R);
+    pp.get("pressure_R", pressure_R);
+
+    const double adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
+
+    GpuArray<const Real, MAX_STATE_SIZE> primv_L{density_L,AMREX_D_DECL(velocity_L,0,0),pressure_L};
+    GpuArray<const Real, MAX_STATE_SIZE> primv_R{density_R,AMREX_D_DECL(velocity_R,0,0),pressure_R};
+
+    const auto consv_L = conservative_from_primitive(primv_L, adiabatic);
+    const auto consv_R = conservative_from_primitive(primv_R, adiabatic);
+
     for (MFIter mfi(S_tmp); mfi.isValid(); ++mfi)
     {
         const Box          &box = mfi.validbox();
         const Array4<Real> &phi = S_tmp.array(mfi);
 
         // Populate MultiFab data
-        ParallelFor(box,
-                    [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+        ParallelFor(box, AmrLevelAdv::NUM_STATE,
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
                     {
                         Real x = prob_lo[0] + (i + Real(0.5)) * dx[0];
-                        Real y = prob_lo[1] + (j + Real(0.5)) * dx[1];
-
-#if (AMREX_SPACEDIM == 2)
-
-                        Real r2 = ((x - Real(0.0)) * (x - Real(0.0))
-                                   + (y - Real(0.0)) * (y - Real(0.0)))
-                                  / Real(0.01);
-                        phi(i, j, k) = Real(1.0) + std::exp(-r2);
-
-#elif (AMREX_SPACEDIM == 3)
-
-            Real z = prob_lo[2] + (k + Real(0.5)) * dx[2];
-            Real r2 = ((x-Real(0.0))*(x-Real(0.0)) + (y-Real(0.0))*(y-Real(0.0)) + (z-Real(0.0))*(z-Real(0.0))) / Real(0.01);
-            phi(i,j,k) = Real(1.0) + std::exp(-r2);
-#endif
+                        if (x < 0.5)
+                            phi(i,j,k,n) = consv_L[n];
+                        else
+                            phi(i,j,k,n) = consv_R[n];
                     });
     }
 }

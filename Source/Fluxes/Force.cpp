@@ -41,6 +41,7 @@ void compute_force_flux(
         = tmpfab.array(AmrLevelAdv::NUM_STATE * 2, AmrLevelAdv::NUM_STATE);
     Array4<Real> half_updated_primv_values
         = tmpfab.array(AmrLevelAdv::NUM_STATE * 3, AmrLevelAdv::NUM_STATE);
+
     // compute primitive values and flux function values
     compute_primitive_values(time, ghost_bx, primv_values, consv_values);
     compute_flux_function(dir, time, ghost_bx, flux_func_values, primv_values,
@@ -52,7 +53,7 @@ void compute_force_flux(
 
     // add half of the Lax Friedrichs flux to the force flux
     ParallelFor(
-        flux_bx,
+        flux_bx, AmrLevelAdv::NUM_STATE,
         [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
         {
             flux(i, j, k, n)
@@ -68,7 +69,7 @@ void compute_force_flux(
         });
 
     ParallelFor(
-        ghost_bx,
+        flux_bx, AmrLevelAdv::NUM_STATE,
         [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
         {
             half_updated_values(i, j, k, n)
@@ -80,17 +81,18 @@ void compute_force_flux(
                               - flux_func_values(i - i_offset, j - j_offset,
                                                  k - k_offset, n)));
         });
-
-    compute_primitive_values(time, ghost_bx, half_updated_primv_values,
+    
+    compute_primitive_values(time, flux_bx, half_updated_primv_values,
                              half_updated_values);
 
-    compute_flux_function(dir, time, ghost_bx, flux_func_values,
+    compute_flux_function(dir, time, flux_bx, flux_func_values,
                           half_updated_primv_values, half_updated_values);
 
     // Now flux_func_values contains the Richtmeyer flux, so we add half to the
     // total flux.
-    ParallelFor(flux_bx, [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
+    ParallelFor(flux_bx, AmrLevelAdv::NUM_STATE,
+                [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
                 { flux(i, j, k, n) += 0.5 * flux_func_values(i, j, k, n); });
-
+    
     // and we're done
 }

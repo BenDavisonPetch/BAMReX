@@ -1,16 +1,25 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 max_step = 1000000
-stop_time = 7.0
+stop_time = 0.25
+
+# PROBLEM-SPECIFIC PARAMETERS
+prob.adiabatic  = 1.4
+init.density_L  = 1.0
+init.velocity_L = 0.0
+init.pressure_L = 1.0
+init.density_R  = 0.125
+init.velocity_R = 0.0
+init.pressure_R = 0.1
 
 # PROBLEM SIZE & GEOMETRY
-geometry.is_periodic =  1  1  1
+geometry.is_periodic =  0  0  0
 geometry.coord_sys   =  0       # 0 => cart
-geometry.prob_lo     = -1.0 -1.0 -1.0 
+geometry.prob_lo     =  0.0  0.0  0.0 
 geometry.prob_hi     =  1.0  1.0  1.0
 amr.n_cell           =  64   64   64
 
 # TIME STEP CONTROL
-adv.cfl            = 0.9     # cfl number for hyperbolic system
+adv.cfl            = 0.5     # cfl number for hyperbolic system
 
 # VERBOSITY
 adv.v              = 1       # verbosity in Adv
@@ -38,9 +47,6 @@ amr.plot_file = output/advection1/advect_plt
 
 # TRACER PARTICLES
 adv.do_tracers = 0
-
-# PROBLEM-SPECIFIC PARAMETERS
-prob.adiabatic = 1.67
 
 # ERROR TAGGING
 tagging.phierr =  1.01  1.1   1.5
