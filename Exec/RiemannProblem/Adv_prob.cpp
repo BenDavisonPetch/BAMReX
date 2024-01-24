@@ -12,8 +12,8 @@ extern "C"
                         const amrex::Real * /*probhi*/)
     {
         // Read the prob block from the input file using ParmParse
-        amrex::ParmParse           pp("prob");
-        amrex::Real adiabatic;
+        amrex::ParmParse pp("prob");
+        amrex::Real      adiabatic;
         pp.query("adiabatic", adiabatic);
 
         AmrLevelAdv::h_prob_parm->adiabatic = adiabatic;

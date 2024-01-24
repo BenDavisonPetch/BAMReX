@@ -33,8 +33,12 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
 
     const double adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
 
-    GpuArray<const Real, MAX_STATE_SIZE> primv_L{density_L,AMREX_D_DECL(velocity_L,0,0),pressure_L};
-    GpuArray<const Real, MAX_STATE_SIZE> primv_R{density_R,AMREX_D_DECL(velocity_R,0,0),pressure_R};
+    GpuArray<const Real, MAX_STATE_SIZE> primv_L{
+        density_L, AMREX_D_DECL(velocity_L, 0, 0), pressure_L
+    };
+    GpuArray<const Real, MAX_STATE_SIZE> primv_R{
+        density_R, AMREX_D_DECL(velocity_R, 0, 0), pressure_R
+    };
 
     const auto consv_L = conservative_from_primitive(primv_L, adiabatic);
     const auto consv_R = conservative_from_primitive(primv_R, adiabatic);
@@ -50,9 +54,9 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
                     {
                         Real x = prob_lo[0] + (i + Real(0.5)) * dx[0];
                         if (x < 0.5)
-                            phi(i,j,k,n) = consv_L[n];
+                            phi(i, j, k, n) = consv_L[n];
                         else
-                            phi(i,j,k,n) = consv_R[n];
+                            phi(i, j, k, n) = consv_R[n];
                     });
     }
 }

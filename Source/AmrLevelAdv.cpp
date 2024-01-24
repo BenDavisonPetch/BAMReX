@@ -5,9 +5,9 @@
 #include <AMReX_TagBox.H>
 #include <AMReX_VisMF.H>
 
+#include "AmrLevelAdv.H"
 #include "Euler/Euler.H"
 #include "Fluxes/Fluxes.H"
-#include "AmrLevelAdv.H"
 #include "Prob.H"
 #include "tagging_K.H"
 //#include "Kernels.H"
@@ -144,7 +144,8 @@ void AmrLevelAdv::variableSetUp()
             bc.setHi(dir, BCType::int_dir);
             bc.setLo(dir, BCType::int_dir);
         }
-        else {
+        else
+        {
             bc.setHi(dir, BCType::foextrap);
             bc.setLo(dir, BCType::foextrap);
         }
@@ -279,7 +280,8 @@ void AmrLevelAdv::init()
 //  This function is the one that actually calls the flux functions.
 Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
 {
-    if (verbose) Print() << "Starting advance:" << std::endl;
+    if (verbose)
+        Print() << "Starting advance:" << std::endl;
     MultiFab &S_mm = get_new_data(Phi_Type);
 
     // Note that some useful commands exist - the maximum and minumum
@@ -361,11 +363,13 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
     // takes care of boundary conditions too
     FillPatcherFill(Sborder, 0, NUM_STATE, NUM_GROW, time, Phi_Type, 0);
 
-    if (verbose) Print() << "\tFilled ghost states" << std::endl;
+    if (verbose)
+        Print() << "\tFilled ghost states" << std::endl;
 
     for (int d = 0; d < amrex::SpaceDim; d++)
     {
-        if(verbose) Print() << "\tComputing update for direction " << d << std::endl;
+        if (verbose)
+            Print() << "\tComputing update for direction " << d << std::endl;
 
         const int iOffset = (d == 0 ? 1 : 0);
         const int jOffset = (d == 1 ? 1 : 0);
@@ -374,13 +378,13 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
         // Loop over all the patches at this level
         for (MFIter mfi(Sborder, true); mfi.isValid(); ++mfi)
         {
-            const Box &bx     = mfi.tilebox();
+            const Box &bx = mfi.tilebox();
 
             // Indexable arrays for the data, and the directional flux
             // Based on the vertex-centred definition of the flux array, the
             // data array runs from e.g. [0,N] and the flux array from [0,N+1]
-            const auto &arr       = Sborder.array(mfi);
-            const auto &fluxArr   = fluxes[d].array(mfi);
+            const auto &arr     = Sborder.array(mfi);
+            const auto &fluxArr = fluxes[d].array(mfi);
             // const Real  v         = vel[d];
 
             // ParallelFor(bxGrow,
@@ -395,11 +399,13 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
             //                       kOffset);
             //             });
 
-            if (verbose) Print() << "\t\tComputing force flux..." << std::endl;
+            if (verbose)
+                Print() << "\t\tComputing force flux..." << std::endl;
             // Compute FORCE flux
             compute_force_flux(d, time, bx, fluxArr, arr, dx, dt);
 
-            if(verbose) Print() << "\t\tDone!" << std::endl;
+            if (verbose)
+                Print() << "\t\tDone!" << std::endl;
 
             // const Dim3 lo = lbound(bx);
             // const Dim3 hi = ubound(bx);
@@ -419,11 +425,13 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
 
             // exit(0);
 
-            if (verbose) Print() << "\t\tPerforming update" << std::endl;
+            if (verbose)
+                Print() << "\t\tPerforming update" << std::endl;
 
             // Conservative update
             ParallelFor(bx, NUM_STATE,
-                        [=] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept
+                        [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
+                            noexcept
                         {
                             // Conservative update formula
                             arr(i, j, k, n)
@@ -433,7 +441,8 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
                                                    k + kOffset, n)
                                            - fluxArr(i, j, k, n));
                         });
-            if (verbose) Print() << "\t\tDone!" << std::endl;
+            if (verbose)
+                Print() << "\t\tDone!" << std::endl;
         }
         // We need to compute boundary conditions again after each update
         Sborder.FillBoundary(geom.periodicity());
@@ -459,7 +468,8 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
             // number of data indices that will be multiplied
             fluxes[d].mult(scaleFactor, 0, NUM_STATE);
         }
-        if (verbose) Print() << "\tDirection update complete" << std::endl;
+        if (verbose)
+            Print() << "\tDirection update complete" << std::endl;
     }
 
     // The updated data is now copied to the S_new multifab.  This means
@@ -517,7 +527,8 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
         }
     }
 
-    if(verbose) Print() << "Advance complete!" << std::endl;
+    if (verbose)
+        Print() << "Advance complete!" << std::endl;
     return dt;
 }
 
@@ -543,7 +554,7 @@ Real AmrLevelAdv::estTimeStep(Real)
     {
         dt_est = std::min(dt_est, dx[d] / wave_speed);
     }
-    
+
     dt_est *= cfl;
 
     if (verbose)
@@ -876,7 +887,8 @@ void AmrLevelAdv::read_params()
     }
 
     // // This tutorial code only supports periodic boundaries.
-    // // The periodicity is read from the settings file in AMReX source code, but
+    // // The periodicity is read from the settings file in AMReX source code,
+    // but
     // // can be accessed here
     // if (!gg->isAllPeriodic())
     // {

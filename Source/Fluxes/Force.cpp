@@ -81,7 +81,7 @@ void compute_force_flux(
                               - flux_func_values(i - i_offset, j - j_offset,
                                                  k - k_offset, n)));
         });
-    
+
     compute_primitive_values(time, flux_bx, half_updated_primv_values,
                              half_updated_values);
 
@@ -93,6 +93,6 @@ void compute_force_flux(
     ParallelFor(flux_bx, AmrLevelAdv::NUM_STATE,
                 [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
                 { flux(i, j, k, n) += 0.5 * flux_func_values(i, j, k, n); });
-    
+
     // and we're done
 }
