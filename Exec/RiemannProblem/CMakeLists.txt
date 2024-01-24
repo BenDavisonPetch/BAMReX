@@ -1,4 +1,4 @@
-# Exec/UniformVelocity/CMakeLists.txt
+# Exec/RiemannProblem/CMakeLists.txt
 
 set(UNIFORM_VELOCITY_SRC ${SRC}
                          Adv_prob.cpp

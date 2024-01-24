@@ -1,3 +1,3 @@
 # Exec/CMakeLists.txt
 
-add_subdirectory(UniformVelocity)
+add_subdirectory(RiemannProblem)
