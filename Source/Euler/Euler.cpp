@@ -1,6 +1,7 @@
 #include "Euler.H"
 #include "AmrLevelAdv.H"
 
+#include <AMReX_BLassert.H>
 #include <AMReX_GpuQualifiers.H>
 #include <AMReX_MFParallelFor.H>
 
@@ -80,7 +81,7 @@ void compute_flux_function(
 AMREX_GPU_HOST
 amrex::Real max_wave_speed(amrex::Real time, const amrex::MultiFab &S_new)
 {
-    const Real adiabatic  = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Real adiabatic  = AmrLevelAdv::d_prob_parm->adiabatic;
     Real       wave_speed = 0;
 
     for (MFIter mfi(S_new, true); mfi.isValid(); ++mfi)
@@ -100,11 +101,15 @@ amrex::Real max_wave_speed(amrex::Real time, const amrex::MultiFab &S_new)
         ParallelFor(bx,
                     [=, &wave_speed] AMREX_GPU_DEVICE(int i, int j, int k)
                     {
-                        wave_speed = std::max(
-                            wave_speed,
-                            std::sqrt(adiabatic
-                                      * primv_arr(i, j, k, 1 + AMREX_SPACEDIM)
-                                      / primv_arr(i, j, k, 0)));
+                        const Real velocity = std::sqrt(AMREX_D_TERM(
+                            primv_arr(i, j, k, 1) * primv_arr(i, j, k, 1),
+                            +primv_arr(i, j, k, 2) * primv_arr(i, j, k, 2),
+                            +primv_arr(i, j, k, 3) * primv_arr(i, j, k, 3)));
+                        wave_speed          = std::max(
+                                     wave_speed,
+                                     std::sqrt(adiabatic
+                                               * primv_arr(i, j, k, 1 + AMREX_SPACEDIM)
+                                               / primv_arr(i, j, k, 0)) + velocity);
                     });
     }
 

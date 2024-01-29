@@ -19,7 +19,7 @@ geometry.prob_hi     =  1.0  1.0  1.0
 amr.n_cell           =  500  500  500
 
 # TIME STEP CONTROL
-adv.cfl            = 0.5     # cfl number for hyperbolic system
+adv.cfl            = 0.8     # cfl number for hyperbolic system
 
 adv.do_reflux = 0
 
