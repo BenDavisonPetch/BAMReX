@@ -30,9 +30,9 @@ void compute_primitive_values(
 
             // Calculate u squared
             double u_sq = AMREX_D_TERM(
-                primv_values(i, j, k, 0) * primv_values(i, j, k, 0),
-                +primv_values(i, j, k, 1) * primv_values(i, j, k, 1),
-                +primv_values(i, j, k, 2) * primv_values(i, j, k, 2));
+                primv_values(i, j, k, 1) * primv_values(i, j, k, 1),
+                +primv_values(i, j, k, 2) * primv_values(i, j, k, 2),
+                +primv_values(i, j, k, 3) * primv_values(i, j, k, 3));
 
             // pressure
             primv_values(i, j, k, 1 + AMREX_SPACEDIM)

@@ -55,9 +55,9 @@ amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> conservative_from_primitive(
     const double vol_internal_energy = pressure / (adiabatic - 1);
 
     // Calculate u squared
-    double u_sq = AMREX_D_TERM(primv_vals[0] * primv_vals[0],
-                               +primv_vals[1] * primv_vals[1],
-                               +primv_vals[2] * primv_vals[2]);
+    double u_sq = AMREX_D_TERM(primv_vals[1] * primv_vals[1],
+                               +primv_vals[2] * primv_vals[2],
+                               +primv_vals[3] * primv_vals[3]);
 
     // energy
     consv_vals[1 + AMREX_SPACEDIM]
