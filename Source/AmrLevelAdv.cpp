@@ -20,7 +20,7 @@ Real AmrLevelAdv::cfl
 int AmrLevelAdv::do_reflux = 1;
 
 int AmrLevelAdv::NUM_STATE = 2 + AMREX_SPACEDIM; // Euler eqns
-int AmrLevelAdv::NUM_GROW  = 3;                  // number of ghost cells
+int AmrLevelAdv::NUM_GROW  = 1;                  // number of ghost cells
 
 // Mechanism for getting code to work on GPU
 ProbParm *AmrLevelAdv::h_prob_parm = nullptr;
@@ -352,9 +352,6 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
         fluxes[j].define(ba, dmap, NUM_STATE, 0);
     }
 
-    // Advection velocity
-    const GpuArray<Real, AMREX_SPACEDIM> vel{ AMREX_D_DECL(1.0, 1.0, 1.0) };
-
     // State with ghost cells - this is used to compute fluxes and perform the
     // update.
     MultiFab Sborder(grids, dmap, NUM_STATE, NUM_GROW);
@@ -549,6 +546,8 @@ Real AmrLevelAdv::estTimeStep(Real)
     const MultiFab             &S_new    = get_new_data(Phi_Type);
 
     Real wave_speed = max_wave_speed(cur_time, S_new);
+
+    if (verbose) Print() << "Maximum wave speed: " << wave_speed << std::endl;
 
     for (unsigned int d = 0; d < amrex::SpaceDim; ++d)
     {
