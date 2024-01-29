@@ -6,7 +6,7 @@
 // Define the struct to contain problem-specific variables here.
 struct ProbParm
 {
-    amrex::Real adiabatic = 1.4;
+    amrex::Real adiabatic;
 };
 
 #endif

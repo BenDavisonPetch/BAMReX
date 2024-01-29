@@ -13,8 +13,8 @@ extern "C"
     {
         // Read the prob block from the input file using ParmParse
         amrex::ParmParse pp("prob");
-        amrex::Real      adiabatic;
-        pp.query("adiabatic", adiabatic);
+        amrex::Real      adiabatic = 1.4;
+        pp.get("adiabatic", adiabatic);
 
         AmrLevelAdv::h_prob_parm->adiabatic = adiabatic;
 
