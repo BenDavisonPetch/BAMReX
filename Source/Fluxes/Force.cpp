@@ -2,6 +2,7 @@
 #include "Euler/Euler.H"
 #include "Fluxes/Fluxes.H"
 
+#include <AMReX_Box.H>
 #include <AMReX_FArrayBox.H>
 #include <AMReX_REAL.H>
 
@@ -51,7 +52,8 @@ void compute_force_flux(
     int j_offset = (dir == 1) ? 1 : 0;
     int k_offset = (dir == 2) ? 1 : 0;
 
-    // add half of the Lax Friedrichs flux to the force flux
+    // add half of the Lax Friedrichs flux to the force flux,
+    // and compute half updated values
     ParallelFor(
         flux_bx, AmrLevelAdv::NUM_STATE,
         [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
@@ -66,20 +68,16 @@ void compute_force_flux(
                            * (flux_func_values(i - i_offset, j - j_offset,
                                                k - k_offset, n)
                               + flux_func_values(i, j, k, n)));
-        });
 
-    ParallelFor(
-        flux_bx, AmrLevelAdv::NUM_STATE,
-        [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-        {
             half_updated_values(i, j, k, n)
                 = 0.5
-                  * ((consv_values(i - i_offset, j - j_offset, k - k_offset, n)
-                      + consv_values(i, j, k, n))
-                     - dt / dx
-                           * (flux_func_values(i, j, k, n)
-                              - flux_func_values(i - i_offset, j - j_offset,
-                                                 k - k_offset, n)));
+                      * (consv_values(i - i_offset, j - j_offset, k - k_offset,
+                                      n)
+                         + consv_values(i, j, k, n))
+                  + (dt / (2 * dx))
+                        * (flux_func_values(i - i_offset, j - j_offset,
+                                            k - k_offset, n)
+                           - flux_func_values(i, j, k, n));
         });
 
     compute_primitive_values(time, flux_bx, half_updated_primv_values,
