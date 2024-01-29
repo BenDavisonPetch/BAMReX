@@ -27,4 +27,11 @@ void compute_force_flux(
     const amrex::Array4<const amrex::Real>          &consv_values,
     amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr, amrex::Real dt);
 
+AMREX_GPU_HOST
+void compute_LF_flux(const int dir, amrex::Real time, const amrex::Box &bx,
+                     const amrex::Array4<amrex::Real>       &flux,
+                     const amrex::Array4<const amrex::Real> &consv_values,
+                     amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr,
+                     amrex::Real                                      dt);
+
 #endif

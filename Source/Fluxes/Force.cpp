@@ -94,3 +94,35 @@ void compute_force_flux(
 
     // and we're done
 }
+
+AMREX_GPU_HOST
+void compute_LF_flux(const int dir, amrex::Real time, const amrex::Box &bx,
+                     const amrex::Array4<amrex::Real>       &flux,
+                     const amrex::Array4<const amrex::Real> &consv_values,
+                     amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr,
+                     amrex::Real                                      dt)
+{
+    const Real dx = dx_arr[dir];
+
+    const Box& ghost_bx = grow(bx, AmrLevelAdv::NUM_GROW);
+    const Box& flux_bx = surroundingNodes(bx, dir);
+
+    FArrayBox tmpfab;
+    tmpfab.resize(ghost_bx, AmrLevelAdv::NUM_STATE * 2);
+    Elixir tmpeli = tmpfab.elixir();
+
+    const Array4<Real>& primv_values = tmpfab.array(0, AmrLevelAdv::NUM_STATE);
+    const Array4<Real>& flux_func_values = tmpfab.array(AmrLevelAdv::NUM_STATE, AmrLevelAdv::NUM_STATE);
+
+    compute_primitive_values(time, ghost_bx, primv_values, consv_values);
+    compute_flux_function(dir, time, ghost_bx, flux_func_values, primv_values, consv_values);
+
+    int i_off = (dir == 0) ? 1 : 0;
+    int j_off = (dir == 1) ? 1 : 0;
+    int k_off = (dir == 2) ? 1 : 0;
+
+    ParallelFor(flux_bx, AmrLevelAdv::NUM_STATE, [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
+    {
+        flux(i,j,k,n) = 0.5 * dx / dt * (consv_values(i-i_off, j-j_off, k-k_off,n) - consv_values(i,j,k,n)) + 0.5 * (flux_func_values(i-i_off, j-j_off, k-k_off,n) + flux_func_values(i,j,k,n));
+    });
+}
