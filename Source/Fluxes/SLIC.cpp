@@ -91,7 +91,6 @@ void compute_SLIC_flux(const int dir, amrex::Real time, const amrex::Box &bx,
                         = consv_values(i, j, k, n) + 0.5 * limiter * delta;
                 });
 
-    Print() << "\t\t\tReconstructed" << std::endl;
 
     //
     // Half time-step update
@@ -119,12 +118,10 @@ void compute_SLIC_flux(const int dir, amrex::Real time, const amrex::Box &bx,
                         * (flux_func_R(i, j, k, n) - flux_func_L(i, j, k, n));
         });
 
-    Print() << "\t\t\tHalf time step updated" << std::endl;
 
     //
     // Compute force flux from half time stepped values
     //
     compute_force_flux_LR(dir, time, bx, flux, half_stepped_R, half_stepped_L,
                           dx_arr, dt);
-    Print() << "\t\t\tFORCE calculated" << std::endl;
 }

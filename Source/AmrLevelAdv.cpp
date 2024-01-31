@@ -1,7 +1,9 @@
+#include <AMReX_BCUtil.H>
 #include <AMReX_BC_TYPES.H>
 #include <AMReX_GpuMemory.H>
 #include <AMReX_ParmParse.H>
 #include <AMReX_SPACE.H>
+#include <AMReX_StateDescriptor.H>
 #include <AMReX_TagBox.H>
 #include <AMReX_VisMF.H>
 
@@ -444,7 +446,11 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
                 Print() << "\t\tDone!" << std::endl;
         }
         // We need to compute boundary conditions again after each update
+        // FillBoundary does periodic conditions
         Sborder.FillBoundary(geom.periodicity());
+        // This one does non-periodic conditions
+        FillDomainBoundary(Sborder, geom,
+                           get_state_data(Phi_Type).descriptor()->getBCs());
 
         // The fluxes now need scaling for the reflux command.
         // This scaling is by the size of the boundary through which the flux
@@ -549,7 +555,8 @@ Real AmrLevelAdv::estTimeStep(Real)
 
     Real wave_speed = max_wave_speed(cur_time, S_new);
 
-    if (verbose) Print() << "Maximum wave speed: " << wave_speed << std::endl;
+    if (verbose)
+        Print() << "Maximum wave speed: " << wave_speed << std::endl;
 
     for (unsigned int d = 0; d < amrex::SpaceDim; ++d)
     {
