@@ -49,7 +49,7 @@ amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> conservative_from_primitive(
     // momentum
     AMREX_D_TERM(consv_vals[1] = primv_vals[0] * primv_vals[1];
                  , consv_vals[2] = primv_vals[0] * primv_vals[2];
-                 , consv_vals[3] = primv_Vals[0] * primv_vals[3];)
+                 , consv_vals[3] = primv_vals[0] * primv_vals[3];)
 
     const double pressure            = primv_vals[1 + AMREX_SPACEDIM];
     const double vol_internal_energy = pressure / (adiabatic - 1);
