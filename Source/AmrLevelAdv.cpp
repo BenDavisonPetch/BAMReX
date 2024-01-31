@@ -20,7 +20,7 @@ Real AmrLevelAdv::cfl
 int AmrLevelAdv::do_reflux = 1;
 
 int AmrLevelAdv::NUM_STATE = 2 + AMREX_SPACEDIM; // Euler eqns
-int AmrLevelAdv::NUM_GROW  = 1;                  // number of ghost cells
+int AmrLevelAdv::NUM_GROW  = 2;                  // number of ghost cells
 
 // Mechanism for getting code to work on GPU
 ProbParm *AmrLevelAdv::h_prob_parm = nullptr;
@@ -397,9 +397,11 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
             //             });
 
             if (verbose)
-                Print() << "\t\tComputing force flux..." << std::endl;
+                Print() << "\t\tComputing flux..." << std::endl;
             // Compute FORCE flux
-            compute_force_flux(d, time, bx, fluxArr, arr, dx, dt);
+            // compute_force_flux(d, time, bx, fluxArr, arr, dx, dt);
+            // Compute SLIC flux
+            compute_SLIC_flux(d, time, bx, fluxArr, arr, dx, dt);
 
             if (verbose)
                 Print() << "\t\tDone!" << std::endl;
