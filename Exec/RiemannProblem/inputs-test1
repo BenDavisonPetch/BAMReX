@@ -10,6 +10,7 @@ init.pressure_L = 1.0
 init.density_R  = 0.125
 init.velocity_R = 0.0
 init.pressure_R = 0.1
+init.rotation   = 90 # Rotation of initial slice in degrees
 
 # PROBLEM SIZE & GEOMETRY
 geometry.is_periodic =  0  0  0
