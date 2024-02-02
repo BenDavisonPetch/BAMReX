@@ -31,17 +31,15 @@ void compute_SLIC_flux(const int dir, amrex::Real time, const amrex::Box &bx,
     // We size the temporary fab to cover the same indices as convs_values,
     // i.e. including ghost cells
     const int NSTATE = AmrLevelAdv::NUM_STATE;
-    tmpfab.resize(bx_g1, NSTATE * 8);
+    tmpfab.resize(bx_g1, NSTATE * 6);
     Elixir tmpeli = tmpfab.elixir();
 
     Array4<Real> reconstructed_L = tmpfab.array(0, NSTATE);
     Array4<Real> reconstructed_R = tmpfab.array(NSTATE, NSTATE);
-    Array4<Real> primv_L         = tmpfab.array(2 * NSTATE, NSTATE);
-    Array4<Real> primv_R         = tmpfab.array(3 * NSTATE, NSTATE);
-    Array4<Real> flux_func_L     = tmpfab.array(4 * NSTATE, NSTATE);
-    Array4<Real> flux_func_R     = tmpfab.array(5 * NSTATE, NSTATE);
-    Array4<Real> half_stepped_L  = tmpfab.array(6 * NSTATE, NSTATE);
-    Array4<Real> half_stepped_R  = tmpfab.array(7 * NSTATE, NSTATE);
+    Array4<Real> flux_func_L     = tmpfab.array(2 * NSTATE, NSTATE);
+    Array4<Real> flux_func_R     = tmpfab.array(3 * NSTATE, NSTATE);
+    Array4<Real> half_stepped_L  = tmpfab.array(4 * NSTATE, NSTATE);
+    Array4<Real> half_stepped_R  = tmpfab.array(5 * NSTATE, NSTATE);
 
     int i_off = (dir == 0) ? 1 : 0;
     int j_off = (dir == 1) ? 1 : 0;
@@ -91,16 +89,11 @@ void compute_SLIC_flux(const int dir, amrex::Real time, const amrex::Box &bx,
                         = consv_values(i, j, k, n) + 0.5 * limiter * delta;
                 });
 
-
     //
     // Half time-step update
     //
-    compute_primitive_values(time, bx_g1, primv_L, reconstructed_L);
-    compute_primitive_values(time, bx_g1, primv_R, reconstructed_R);
-    compute_flux_function(dir, time, bx_g1, flux_func_L, primv_L,
-                          reconstructed_L);
-    compute_flux_function(dir, time, bx_g1, flux_func_R, primv_R,
-                          reconstructed_R);
+    compute_flux_function(dir, time, bx_g1, flux_func_L, reconstructed_L);
+    compute_flux_function(dir, time, bx_g1, flux_func_R, reconstructed_R);
 
     double hdtdx = 0.5 * dt / dx;
 
@@ -117,7 +110,6 @@ void compute_SLIC_flux(const int dir, amrex::Real time, const amrex::Box &bx,
                   - hdtdx
                         * (flux_func_R(i, j, k, n) - flux_func_L(i, j, k, n));
         });
-
 
     //
     // Compute force flux from half time stepped values

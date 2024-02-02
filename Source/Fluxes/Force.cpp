@@ -41,7 +41,7 @@ void compute_force_flux_LR(
     // We size the temporary fab to cover the same indices as convs_values,
     // i.e. including ghost cells We only need to store
     const int NSTATE = AmrLevelAdv::NUM_STATE;
-    tmpfab.resize(ghost_bx, NSTATE * 4);
+    tmpfab.resize(ghost_bx, NSTATE * 3);
     Elixir tmpeli = tmpfab.elixir();
 
     // We're going to reuse this to store the flux function evaluated on the
@@ -49,16 +49,13 @@ void compute_force_flux_LR(
     // force flux
     Array4<Real> flux_func_values_L  = tmpfab.array(0, NSTATE);
     Array4<Real> flux_func_values_R  = tmpfab.array(NSTATE, NSTATE);
-    Array4<Real> primv_values        = tmpfab.array(NSTATE * 2, NSTATE);
-    Array4<Real> half_updated_values = tmpfab.array(NSTATE * 3, NSTATE);
+    Array4<Real> half_updated_values = tmpfab.array(NSTATE * 2, NSTATE);
 
     // compute primitive values and flux function values
-    compute_primitive_values(time, ghost_bx, primv_values, consv_values_L);
     compute_flux_function(dir, time, ghost_bx, flux_func_values_L,
-                          primv_values, consv_values_L);
-    compute_primitive_values(time, ghost_bx, primv_values, consv_values_R);
+                          consv_values_L);
     compute_flux_function(dir, time, ghost_bx, flux_func_values_R,
-                          primv_values, consv_values_R);
+                          consv_values_R);
 
     int i_offset = (dir == 0) ? 1 : 0;
     int j_offset = (dir == 1) ? 1 : 0;
@@ -92,10 +89,8 @@ void compute_force_flux_LR(
                            - flux_func_values_R(i, j, k, n));
         });
 
-    compute_primitive_values(time, flux_bx, primv_values, half_updated_values);
-
     // we just reuse the L flux func values
-    compute_flux_function(dir, time, flux_bx, flux_func_values_L, primv_values,
+    compute_flux_function(dir, time, flux_bx, flux_func_values_L,
                           half_updated_values);
 
     // Now flux_func_values contains the Richtmeyer flux, so we add half to the
@@ -120,16 +115,13 @@ void compute_LF_flux(const int dir, amrex::Real time, const amrex::Box &bx,
     const Box &flux_bx  = surroundingNodes(bx, dir);
 
     FArrayBox tmpfab;
-    tmpfab.resize(ghost_bx, AmrLevelAdv::NUM_STATE * 2);
+    tmpfab.resize(ghost_bx, AmrLevelAdv::NUM_STATE);
     Elixir tmpeli = tmpfab.elixir();
 
-    const Array4<Real> &primv_values = tmpfab.array(0, AmrLevelAdv::NUM_STATE);
     const Array4<Real> &flux_func_values
-        = tmpfab.array(AmrLevelAdv::NUM_STATE, AmrLevelAdv::NUM_STATE);
+        = tmpfab.array(0, AmrLevelAdv::NUM_STATE);
 
-    compute_primitive_values(time, ghost_bx, primv_values, consv_values);
-    compute_flux_function(dir, time, ghost_bx, flux_func_values, primv_values,
-                          consv_values);
+    compute_flux_function(dir, time, ghost_bx, flux_func_values, consv_values);
 
     int i_off = (dir == 0) ? 1 : 0;
     int j_off = (dir == 1) ? 1 : 0;
