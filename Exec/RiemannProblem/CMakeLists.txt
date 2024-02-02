@@ -10,7 +10,7 @@ include_directories(.
 
 add_executable(riemann_prob ${RIEMANN_PROBLEM_SRC})
 
-target_link_libraries(riemann_prob AMReX::amrex_2d)
+target_link_libraries(riemann_prob AMReX::amrex_1d)
 
 file(CREATE_LINK ${CMAKE_CURRENT_SOURCE_DIR}/inputs-test1
                  ${CMAKE_BINARY_DIR}/Exec/RiemannProblem/inputs-test1 SYMBOLIC)
