@@ -174,7 +174,7 @@ void AmrLevelAdv::variableSetUp()
     AMREX_D_TERM(desc_lst.setComponent(Phi_Type, 1, "mom_x", bc, bndryfunc);
                  , desc_lst.setComponent(Phi_Type, 2, "mom_y", bc, bndryfunc);
                  , desc_lst.setComponent(Phi_Type, 3, "mom_z", bc, bndryfunc);)
-    desc_lst.setComponent(Phi_Type, 1 + AMREX_SPACEDIM, "energy", bc,
+    desc_lst.setComponent(Phi_Type, 1 + AMREX_SPACEDIM, "energy", bc, 
                           bndryfunc);
 }
 

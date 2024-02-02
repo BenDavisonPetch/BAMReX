@@ -39,7 +39,7 @@ amrex::Real max_wave_speed(amrex::Real time, const amrex::MultiFab &S_new);
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
-amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> conservative_from_primitive(
+amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> consv_from_primv(
     const amrex::GpuArray<const amrex::Real, MAX_STATE_SIZE> &primv_vals,
     const amrex::Real                                         adiabatic)
 {

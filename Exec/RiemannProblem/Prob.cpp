@@ -54,8 +54,8 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
     };
 #endif
 
-    const auto consv_L = conservative_from_primitive(primv_L, adiabatic);
-    const auto consv_R = conservative_from_primitive(primv_R, adiabatic);
+    const auto consv_L = consv_from_primv(primv_L, adiabatic);
+    const auto consv_R = consv_from_primv(primv_R, adiabatic);
 
     for (MFIter mfi(S_tmp); mfi.isValid(); ++mfi)
     {

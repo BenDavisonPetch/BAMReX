@@ -67,10 +67,10 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
         density_BR, AMREX_D_DECL(vel_x_BR, vel_y_BR, 0), pressure_BR
     };
 
-    const auto consv_TR = conservative_from_primitive(primv_TR, adiabatic);
-    const auto consv_TL = conservative_from_primitive(primv_TL, adiabatic);
-    const auto consv_BL = conservative_from_primitive(primv_BL, adiabatic);
-    const auto consv_BR = conservative_from_primitive(primv_BR, adiabatic);
+    const auto consv_TR = consv_from_primv(primv_TR, adiabatic);
+    const auto consv_TL = consv_from_primv(primv_TL, adiabatic);
+    const auto consv_BL = consv_from_primv(primv_BL, adiabatic);
+    const auto consv_BR = consv_from_primv(primv_BR, adiabatic);
 
     for (MFIter mfi(S_tmp); mfi.isValid(); ++mfi)
     {
