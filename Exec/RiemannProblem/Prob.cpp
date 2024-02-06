@@ -2,10 +2,13 @@
 #include <AMReX_Math.H>
 #include <AMReX_MultiFab.H>
 #include <AMReX_ParmParse.H>
+#include <AMReX_PlotFileUtil.H>
 #include <cmath>
 
 #include "AmrLevelAdv.H"
 #include "Euler/Euler.H"
+#include "Euler/RiemannSolver.H"
+#include "Prob.H"
 
 /**
  * Initialize Data on Multifab
@@ -25,26 +28,34 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
 
     Real density_L, velocity_L, pressure_L, density_R, velocity_R, pressure_R;
     Real rotation = 0;
+    Real stop_time; // used when calculating exact solution
 
-    ParmParse pp("init");
-    pp.get("density_L", density_L);
-    pp.get("velocity_L", velocity_L);
-    pp.get("pressure_L", pressure_L);
-    pp.get("density_R", density_R);
-    pp.get("velocity_R", velocity_R);
-    pp.get("pressure_R", pressure_R);
-    pp.query("rotation", rotation);
-    rotation *= Math::pi<Real>() / Real(180);
+    {
+        ParmParse pp("init");
+        pp.get("density_L", density_L);
+        pp.get("velocity_L", velocity_L);
+        pp.get("pressure_L", pressure_L);
+        pp.get("density_R", density_R);
+        pp.get("velocity_R", velocity_R);
+        pp.get("pressure_R", pressure_R);
+        pp.query("rotation", rotation);
+        rotation *= Math::pi<Real>() / Real(180);
+
+        ParmParse pp2;
+        pp2.get("stop_time", stop_time);
+    }
 
     const double adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
 
 #if AMREX_SPACEDIM == 1
-    GpuArray<const Real, MAX_STATE_SIZE> primv_L{
-        density_L, AMREX_D_DECL(velocity_L, 0, 0), pressure_L
-    };
-    GpuArray<const Real, MAX_STATE_SIZE> primv_R{
-        density_R, AMREX_D_DECL(velocity_R, 0, 0), pressure_R
-    };
+    GpuArray<Real, MAX_STATE_SIZE> primv_L{ density_L,
+                                            AMREX_D_DECL(velocity_L, 0, 0),
+                                            pressure_L };
+    GpuArray<Real, MAX_STATE_SIZE> primv_R{ density_R,
+                                            AMREX_D_DECL(velocity_R, 0, 0),
+                                            pressure_R };
+
+    write_exact_solution(stop_time, primv_L, primv_R, adiabatic, adiabatic);
 #else
     GpuArray<const Real, MAX_STATE_SIZE> primv_L{
         density_L, AMREX_D_DECL(0, velocity_L, 0), pressure_L
@@ -52,6 +63,16 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
     GpuArray<const Real, MAX_STATE_SIZE> primv_R{
         density_R, AMREX_D_DECL(0, velocity_R, 0), pressure_R
     };
+
+    GpuArray<Real, MAX_STATE_SIZE> primv_L_x_oriented{
+        density_L, AMREX_D_DECL(velocity_L, 0, 0), pressure_L
+    };
+    GpuArray<Real, MAX_STATE_SIZE> primv_R_x_oriented{
+        density_R, AMREX_D_DECL(velocity_R, 0, 0), pressure_R
+    };
+
+    write_exact_solution(stop_time, primv_L_x_oriented, primv_R_x_oriented,
+                         adiabatic, adiabatic);
 #endif
 
     const auto consv_L = consv_from_primv(primv_L, adiabatic);
@@ -82,4 +103,40 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
 #endif
                     });
     }
+}
+
+void write_exact_solution(
+    const amrex::Real                                   time,
+    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_L,
+    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_R,
+    const amrex::Real adiabatic_L, const amrex::Real adiabatic_R)
+{
+    // We basically just do a 1D simulation here and write it to file
+    const int                      resolution = 1000;
+    IntVect                        dom_lo(AMREX_D_DECL(0, 0, 0));
+    IntVect                        dom_hi(AMREX_D_DECL(resolution - 1, 0, 0));
+    Box                            domain(dom_lo, dom_hi);
+    BoxArray                       ba(domain);
+    DistributionMapping            dm(ba);
+    MultiFab                       mf(ba, dm, AmrLevelAdv::NUM_STATE, 0);
+    GpuArray<Real, AMREX_SPACEDIM> prob_lo({ AMREX_D_DECL(0., 0., 0.) });
+    RealBox    real_box(AMREX_D_DECL(0., 0., 0.), AMREX_D_DECL(1., 1., 1.));
+    Geometry   geom(domain, &real_box);
+    const auto dx = geom.CellSizeArray();
+
+    for (MFIter mfi(mf, true); mfi.isValid(); ++mfi)
+    {
+        const auto &bx  = mfi.tilebox();
+        const auto &arr = mf.array(mfi);
+
+        compute_exact_RP_solution(0, time, bx, dx, prob_lo, 0.5, primv_L,
+                                  primv_R, adiabatic_L, adiabatic_R, arr);
+    }
+    ParmParse   pp("amr");
+    std::string plotfile_name;
+    pp.get("plot_file", plotfile_name);
+    WriteSingleLevelPlotfile(
+        plotfile_name + "EXACT_SOLN", mf,
+        { "density", AMREX_D_DECL("mom_x", "mom_y", "mom_z"), "energy" }, geom,
+        time, 0);
 }

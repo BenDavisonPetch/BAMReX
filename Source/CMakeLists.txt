@@ -11,8 +11,9 @@ set (SRC_NO_MAIN ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Fluxes/HLLC.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Euler/Euler.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Euler/RiemannSolver.cpp
-                 PARENT_SCOPE
 )
+
+set (SRC_NO_MAIN ${SRC_NO_MAIN} PARENT_SCOPE)
 
 set (SRC ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
          ${SRC_NO_MAIN}
