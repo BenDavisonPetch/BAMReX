@@ -14,16 +14,18 @@ void compute_force_flux(
     const amrex::Array4<const amrex::Real>          &consv_values,
     amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr, amrex::Real dt)
 {
+    const amrex::Real adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
     compute_force_flux_LR(dir, time, bx, flux, consv_values, consv_values,
-                          dx_arr, dt);
+                          adiabatic, adiabatic, dx_arr, dt);
 }
 
 AMREX_GPU_HOST
 void compute_force_flux_LR(
     const int dir, amrex::Real time, const amrex::Box &bx,
-    const amrex::Array4<amrex::Real>                &flux,
-    const amrex::Array4<const amrex::Real>          &consv_values_L,
-    const amrex::Array4<const amrex::Real>          &consv_values_R,
+    const amrex::Array4<amrex::Real>       &flux,
+    const amrex::Array4<const amrex::Real> &consv_values_L,
+    const amrex::Array4<const amrex::Real> &consv_values_R,
+    const amrex::Real adiabatic_L, const amrex::Real adiabatic_R,
     amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr, amrex::Real dt)
 {
     const Real &dx = dx_arr[dir];
@@ -53,9 +55,9 @@ void compute_force_flux_LR(
 
     // compute primitive values and flux function values
     compute_flux_function(dir, time, ghost_bx, flux_func_values_L,
-                          consv_values_L);
+                          consv_values_L, adiabatic_L);
     compute_flux_function(dir, time, ghost_bx, flux_func_values_R,
-                          consv_values_R);
+                          consv_values_R, adiabatic_R);
 
     int i_offset = (dir == 0) ? 1 : 0;
     int j_offset = (dir == 1) ? 1 : 0;
@@ -91,7 +93,7 @@ void compute_force_flux_LR(
 
     // we just reuse the L flux func values
     compute_flux_function(dir, time, flux_bx, flux_func_values_L,
-                          half_updated_values);
+                          half_updated_values, adiabatic_L);
 
     // Now flux_func_values contains the Richtmeyer flux, so we add half to the
     // total flux.
@@ -106,6 +108,7 @@ AMREX_GPU_HOST
 void compute_LF_flux(const int dir, amrex::Real time, const amrex::Box &bx,
                      const amrex::Array4<amrex::Real>       &flux,
                      const amrex::Array4<const amrex::Real> &consv_values,
+                     const amrex::Real                       adiabatic,
                      amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr,
                      amrex::Real                                      dt)
 {
@@ -121,7 +124,8 @@ void compute_LF_flux(const int dir, amrex::Real time, const amrex::Box &bx,
     const Array4<Real> &flux_func_values
         = tmpfab.array(0, AmrLevelAdv::NUM_STATE);
 
-    compute_flux_function(dir, time, ghost_bx, flux_func_values, consv_values);
+    compute_flux_function(dir, time, ghost_bx, flux_func_values, consv_values,
+                          adiabatic);
 
     int i_off = (dir == 0) ? 1 : 0;
     int j_off = (dir == 1) ? 1 : 0;

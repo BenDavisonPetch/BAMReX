@@ -168,8 +168,8 @@ class AmrLevelAdv : public amrex::AmrLevel
     }
 #endif
 
-    static int NUM_STATE;
-    static int NUM_GROW;
+    const static int NUM_STATE;
+    const static int NUM_GROW;
 
     // ProbParm class instances
     static ProbParm *h_prob_parm;

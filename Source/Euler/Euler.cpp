@@ -11,16 +11,18 @@ AMREX_GPU_HOST
 void compute_flux_function(
     const int dir, amrex::Real /*time*/, const amrex::Box &bx,
     const amrex::Array4<amrex::Real>       &flux_func,
-    const amrex::Array4<const amrex::Real> &consv_values)
+    const amrex::Array4<const amrex::Real> &consv_values,
+    const amrex::Real                       adiabatic)
 {
     AMREX_ASSERT(dir < AMREX_SPACEDIM);
     ParallelFor(
         bx,
         [=] AMREX_GPU_DEVICE(int i, int j, int k)
         {
-            const auto primv_values = primv_from_consv(consv_values, i, j, k);
-            const double pressure   = primv_values[1 + AMREX_SPACEDIM];
-            const double energy = consv_values(i, j, k, 1 + AMREX_SPACEDIM);
+            const auto primv_values
+                = primv_from_consv(consv_values, adiabatic, i, j, k);
+            const double pressure = primv_values[1 + AMREX_SPACEDIM];
+            const double energy   = consv_values(i, j, k, 1 + AMREX_SPACEDIM);
 
             // density flux
             flux_func(i, j, k, 0) = consv_values(i, j, k, 1 + dir);
@@ -55,11 +57,12 @@ amrex::Real max_wave_speed(amrex::Real time, const amrex::MultiFab &S_new)
         ParallelFor(bx,
                     [=, &wave_speed] AMREX_GPU_DEVICE(int i, int j, int k)
                     {
-                        const auto primv_arr = primv_from_consv(arr, i, j, k);
-                        const Real velocity  = std::sqrt(
-                             AMREX_D_TERM(primv_arr[1] * primv_arr[1],
-                                          +primv_arr[2] * primv_arr[2],
-                                          +primv_arr[3] * primv_arr[3]));
+                        const auto primv_arr
+                            = primv_from_consv(arr, adiabatic, i, j, k);
+                        const Real velocity = std::sqrt(
+                            AMREX_D_TERM(primv_arr[1] * primv_arr[1],
+                                         +primv_arr[2] * primv_arr[2],
+                                         +primv_arr[3] * primv_arr[3]));
                         wave_speed = std::max(
                             wave_speed,
                             std::sqrt(adiabatic * primv_arr[1 + AMREX_SPACEDIM]

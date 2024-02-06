@@ -23,3 +23,4 @@ target_link_libraries(AMReX::amrex_3d INTERFACE ${MPI_LIBRARIES})
 
 add_subdirectory(Source)
 add_subdirectory(Exec)
+add_subdirectory(Tests)

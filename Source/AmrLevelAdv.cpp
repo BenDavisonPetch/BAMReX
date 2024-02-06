@@ -21,8 +21,8 @@ Real AmrLevelAdv::cfl
     = 0.9; // Default value - can be overwritten in settings file
 int AmrLevelAdv::do_reflux = 1;
 
-int AmrLevelAdv::NUM_STATE = 2 + AMREX_SPACEDIM; // Euler eqns
-int AmrLevelAdv::NUM_GROW  = 2;                  // number of ghost cells
+const int AmrLevelAdv::NUM_STATE = 2 + AMREX_SPACEDIM; // Euler eqns
+const int AmrLevelAdv::NUM_GROW  = 2;                  // number of ghost cells
 
 // Mechanism for getting code to work on GPU
 ProbParm *AmrLevelAdv::h_prob_parm = nullptr;
@@ -174,7 +174,7 @@ void AmrLevelAdv::variableSetUp()
     AMREX_D_TERM(desc_lst.setComponent(Phi_Type, 1, "mom_x", bc, bndryfunc);
                  , desc_lst.setComponent(Phi_Type, 2, "mom_y", bc, bndryfunc);
                  , desc_lst.setComponent(Phi_Type, 3, "mom_z", bc, bndryfunc);)
-    desc_lst.setComponent(Phi_Type, 1 + AMREX_SPACEDIM, "energy", bc, 
+    desc_lst.setComponent(Phi_Type, 1 + AMREX_SPACEDIM, "energy", bc,
                           bndryfunc);
 }
 
@@ -403,7 +403,10 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
             // Compute FORCE flux
             // compute_force_flux(d, time, bx, fluxArr, arr, dx, dt);
             // Compute SLIC flux
-            compute_SLIC_flux(d, time, bx, fluxArr, arr, dx, dt);
+            // compute_SLIC_flux(d, time, bx, fluxArr, arr, dx, dt);
+            // Compute HLLC flux
+            const Real adiabatic = h_prob_parm->adiabatic;
+            compute_HLLC_flux_LR(d, time, bx, fluxArr, arr, arr, adiabatic, adiabatic, dx, dt);
 
             if (verbose)
                 Print() << "\t\tDone!" << std::endl;
