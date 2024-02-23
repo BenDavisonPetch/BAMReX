@@ -1,4 +1,5 @@
 #include "RiemannSolver.H"
+#include "AmrLevelAdv.H"
 
 using namespace amrex;
 
@@ -8,8 +9,8 @@ void compute_exact_RP_solution(
     const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &dx_arr,
     const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &prob_lo,
     const amrex::Real                                   initial_position,
-    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_L,
-    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_R,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP>    &primv_L,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP>    &primv_R,
     const amrex::Real adiabatic_L, const amrex::Real adiabatic_R,
     const amrex::Array4<amrex::Real> &dest)
 {
@@ -27,9 +28,9 @@ void compute_exact_RP_solution(
     const Real u_interm = 0.5 * (u_L + u_R)
                           + 0.5
                                 * (euler_riemann_function_one_side(
-                                       dir, p_interm, primv_R, adiabatic_R)
+                                       p_interm, primv_R, adiabatic_R)
                                    - euler_riemann_function_one_side(
-                                       dir, p_interm, primv_L, adiabatic_L));
+                                       p_interm, primv_L, adiabatic_L));
 
     // primitive values for intermediate states
     GpuArray<Real, EULER_NCOMP> primv_interm_L, primv_interm_R;
@@ -135,7 +136,7 @@ void compute_exact_RP_solution(
     AMREX_ASSERT(u_interm <= speed_R_tail);
     AMREX_ASSERT(speed_R_tail <= speed_R_head);
 
-    const unsigned int NSTATE = AmrLevelAdv::NUM_STATE;
+    const int NSTATE = AmrLevelAdv::NUM_STATE;
     // Loop over cells
     ParallelFor(
         bx,

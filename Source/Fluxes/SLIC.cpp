@@ -20,13 +20,13 @@ void compute_SLIC_flux(const int dir, amrex::Real time, const amrex::Box &bx,
 {
     const Real adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
 
-    const Real &dx = dx_arr[dir];
+    // const Real &dx = dx_arr[dir];
     // define boxes (i.e. index domains) for cell-centred values with ghost
     // cells, and for fluxes in this direction
     AMREX_ASSERT(AmrLevelAdv::NUM_GROW >= 2);
     // box grown by 1
     const Box &bx_g1   = grow(bx, 1);
-    const Box &flux_bx = growHi(bx, dir, 1);
+    // const Box &flux_bx = growHi(bx, dir, 1);
 
     // Temporary fab
     FArrayBox tmpfab;

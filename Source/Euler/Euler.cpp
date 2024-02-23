@@ -44,7 +44,7 @@ void compute_flux_function(
 }
 
 AMREX_GPU_HOST
-amrex::Real max_wave_speed(amrex::Real time, const amrex::MultiFab &S_new)
+amrex::Real max_wave_speed(amrex::Real /*time*/, const amrex::MultiFab &S_new)
 {
     const Real adiabatic  = AmrLevelAdv::d_prob_parm->adiabatic;
     Real       wave_speed = 0;

@@ -16,15 +16,16 @@ using namespace amrex;
 
 AMREX_GPU_HOST
 void compute_HLLC_flux_LR(
-    const int dir, amrex::Real time, const amrex::Box &bx,
+    const int dir, amrex::Real /*time*/, const amrex::Box &bx,
     const amrex::Array4<amrex::Real>       &flux,
     const amrex::Array4<const amrex::Real> &consv_values_L,
     const amrex::Array4<const amrex::Real> &consv_values_R,
     const amrex::Real adiabatic_L, const amrex::Real adiabatic_R,
-    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr, amrex::Real dt)
+    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const & /*dx_arr*/,
+    amrex::Real /*dt*/)
 {
-    const unsigned int NSTATE = AmrLevelAdv::NUM_STATE;
-    const Real         dx     = dx_arr[dir];
+    const int NSTATE = AmrLevelAdv::NUM_STATE;
+    // const Real         dx     = dx_arr[dir];
 
     const auto &flux_bx = surroundingNodes(bx, dir);
 

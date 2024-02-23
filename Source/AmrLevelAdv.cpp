@@ -280,7 +280,8 @@ void AmrLevelAdv::init()
  * Advance grids at this level in time.
  */
 //  This function is the one that actually calls the flux functions.
-Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
+Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
+                          int /*ncycle*/)
 {
     if (verbose)
         Print() << "Starting advance:" << std::endl;
@@ -306,12 +307,12 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
 
     MultiFab &S_new = get_new_data(Phi_Type);
 
-    const Real prev_time = state[Phi_Type].prevTime();
-    const Real cur_time  = state[Phi_Type].curTime();
-    const Real ctr_time  = 0.5 * (prev_time + cur_time);
+    // const Real prev_time = state[Phi_Type].prevTime();
+    // const Real cur_time  = state[Phi_Type].curTime();
+    // const Real ctr_time  = 0.5 * (prev_time + cur_time);
 
-    GpuArray<Real, BL_SPACEDIM> dx      = geom.CellSizeArray();
-    GpuArray<Real, BL_SPACEDIM> prob_lo = geom.ProbLoArray();
+    GpuArray<Real, BL_SPACEDIM> dx = geom.CellSizeArray();
+    // GpuArray<Real, BL_SPACEDIM> prob_lo = geom.ProbLoArray();
 
     //
     // Get pointers to Flux registers, or set pointer to zero if not there.
@@ -405,7 +406,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
             // Compute SLIC flux
             // compute_SLIC_flux(d, time, bx, fluxArr, arr, dx, dt);
             // Compute HLLC flux
-            const Real adiabatic = h_prob_parm->adiabatic;
+            // const Real adiabatic = h_prob_parm->adiabatic;
             // compute_HLLC_flux_LR(d, time, bx, fluxArr, arr, arr, adiabatic,
             // adiabatic, dx, dt);
             compute_MUSCL_hancock_flux(d, time, bx, fluxArr, arr, dx, dt);
@@ -553,10 +554,10 @@ Real AmrLevelAdv::estTimeStep(Real)
     // This is just a dummy value to start with
     Real dt_est = 1.0e+20;
 
-    GpuArray<Real, BL_SPACEDIM> dx       = geom.CellSizeArray();
-    GpuArray<Real, BL_SPACEDIM> prob_lo  = geom.ProbLoArray();
-    const Real                  cur_time = state[Phi_Type].curTime();
-    const MultiFab             &S_new    = get_new_data(Phi_Type);
+    GpuArray<Real, BL_SPACEDIM> dx = geom.CellSizeArray();
+    // GpuArray<Real, BL_SPACEDIM> prob_lo  = geom.ProbLoArray();
+    const Real      cur_time = state[Phi_Type].curTime();
+    const MultiFab &S_new    = get_new_data(Phi_Type);
 
     Real wave_speed = max_wave_speed(cur_time, S_new);
 
@@ -726,7 +727,7 @@ void AmrLevelAdv::computeNewDt(int          finest_level, int /*sub_cycle*/,
 // function, the post_timestep function is the place to put it.  Refluxing and
 // averaging down are two standard examples for AMR
 //
-void AmrLevelAdv::post_timestep(int iteration)
+void AmrLevelAdv::post_timestep(int /*iteration*/)
 {
     //
     // Integration cycle on fine level grids is complete

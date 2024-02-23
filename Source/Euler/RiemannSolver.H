@@ -30,8 +30,8 @@ void compute_exact_RP_solution(
     const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &dx_arr,
     const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &prob_lo,
     const amrex::Real                                   initial_position,
-    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_L,
-    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_R,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP>    &primv_L,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP>    &primv_R,
     const amrex::Real adiabatic_L, const amrex::Real adiabatic_R,
     const amrex::Array4<amrex::Real> &dest);
 
@@ -39,7 +39,7 @@ void compute_exact_RP_solution(
 // Implementations
 //
 AMREX_GPU_DEVICE AMREX_FORCE_INLINE amrex::Real
-                                    euler_RP_interm_p(const int                                           dir,
+                                    euler_RP_interm_p(const int                                        dir,
                                                       const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_L,
                                                       const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_R,
                                                       const amrex::Real adiabatic_L, const amrex::Real adiabatic_R)
@@ -62,8 +62,8 @@ AMREX_GPU_DEVICE AMREX_FORCE_INLINE amrex::Real
     };
     std::function<amrex::Real(amrex::Real)> f_deriv = [=](amrex::Real p)
     {
-        return euler_riemann_function_deriv(dir, p, primv_L, primv_R,
-                                            adiabatic_L, adiabatic_R);
+        return euler_riemann_function_deriv(p, primv_L, primv_R, adiabatic_L,
+                                            adiabatic_R);
     };
     newton_raphson(pressure, f, f_deriv);
     return pressure;

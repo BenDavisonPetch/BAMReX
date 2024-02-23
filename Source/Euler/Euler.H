@@ -8,7 +8,6 @@
 #include <AMReX_MultiFab.H>
 
 #include "Euler/NComp.H"
-#include "AmrLevelAdv.H"
 
 /**
  * \brief Computes the flux function values (for a given direction) across the
@@ -22,16 +21,16 @@ void compute_flux_function(
     const int dir, amrex::Real time, const amrex::Box &gbx,
     const amrex::Array4<amrex::Real>       &flux_func,
     const amrex::Array4<const amrex::Real> &consv_values,
-    const amrex::Real adiabatic);
+    const amrex::Real                       adiabatic);
 
 AMREX_GPU_HOST
 amrex::Real max_wave_speed(amrex::Real time, const amrex::MultiFab &S_new);
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
-amrex::GpuArray<amrex::Real, EULER_NCOMP> consv_from_primv(
-    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_vals,
-    const amrex::Real                                   adiabatic);
+amrex::GpuArray<amrex::Real, EULER_NCOMP>
+consv_from_primv(const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_vals,
+                 const amrex::Real                                adiabatic);
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
@@ -50,7 +49,7 @@ AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real
 sound_speed(const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_values,
-            const amrex::Real                                   adiabatic);
+            const amrex::Real                                adiabatic);
 
 /**
  * @brief Gives, for the Euler equations with ideal gas EoS, the Riemann
@@ -79,9 +78,9 @@ amrex::Real euler_riemann_function(
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function_one_side(
-    const int dir, const amrex::Real pressure,
+    const amrex::Real                                pressure,
     const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv,
-    const amrex::Real                                   adiabatic);
+    const amrex::Real                                adiabatic);
 
 /**
  * @brief Gives, for the Euler equations with ideal gas EoS, the derivative
@@ -93,7 +92,7 @@ amrex::Real euler_riemann_function_one_side(
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function_deriv(
-    const int dir, const amrex::Real pressure,
+    const amrex::Real                                pressure,
     const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_L,
     const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_R,
     const amrex::Real adiabatic_L, const amrex::Real adiabatic_R);
@@ -106,9 +105,9 @@ amrex::Real euler_riemann_function_deriv(
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function_one_side_deriv(
-    const int dir, const amrex::Real pressure,
+    const amrex::Real                                pressure,
     const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv,
-    const amrex::Real                                   adiabatic);
+    const amrex::Real                                adiabatic);
 
 //
 // Implementations
@@ -116,9 +115,9 @@ amrex::Real euler_riemann_function_one_side_deriv(
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
-amrex::GpuArray<amrex::Real, EULER_NCOMP> consv_from_primv(
-    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_vals,
-    const amrex::Real                                   adiabatic)
+amrex::GpuArray<amrex::Real, EULER_NCOMP>
+consv_from_primv(const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_vals,
+                 const amrex::Real                                adiabatic)
 {
     amrex::GpuArray<amrex::Real, EULER_NCOMP> consv_vals;
     // density
@@ -214,7 +213,7 @@ AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real
 sound_speed(const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_values,
-            const amrex::Real                                   adiabatic)
+            const amrex::Real                                adiabatic)
 {
     return std::sqrt(adiabatic * primv_values[1 + AMREX_SPACEDIM]
                      / primv_values[0]);
@@ -228,18 +227,17 @@ amrex::Real euler_riemann_function(
     const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_R,
     const amrex::Real adiabatic_L, const amrex::Real adiabatic_R)
 {
-    return euler_riemann_function_one_side(dir, pressure, primv_L, adiabatic_L)
-           + euler_riemann_function_one_side(dir, pressure, primv_R,
-                                             adiabatic_R)
+    return euler_riemann_function_one_side(pressure, primv_L, adiabatic_L)
+           + euler_riemann_function_one_side(pressure, primv_R, adiabatic_R)
            + primv_R[1 + dir] - primv_L[1 + dir];
 }
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function_one_side(
-    const int dir, const amrex::Real pressure,
+    const amrex::Real                                pressure,
     const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv,
-    const amrex::Real                                   adiabatic)
+    const amrex::Real                                adiabatic)
 {
     const amrex::Real p_K = primv[1 + AMREX_SPACEDIM];
 
@@ -263,23 +261,23 @@ amrex::Real euler_riemann_function_one_side(
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function_deriv(
-    const int dir, const amrex::Real pressure,
+    const amrex::Real                                pressure,
     const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_L,
     const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_R,
     const amrex::Real adiabatic_L, const amrex::Real adiabatic_R)
 {
-    return euler_riemann_function_one_side_deriv(dir, pressure, primv_L,
+    return euler_riemann_function_one_side_deriv(pressure, primv_L,
                                                  adiabatic_L)
-           + euler_riemann_function_one_side_deriv(dir, pressure, primv_R,
+           + euler_riemann_function_one_side_deriv(pressure, primv_R,
                                                    adiabatic_R);
 }
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function_one_side_deriv(
-    const int dir, const amrex::Real pressure,
+    const amrex::Real                                pressure,
     const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv,
-    const amrex::Real                                   adiabatic)
+    const amrex::Real                                adiabatic)
 {
     const amrex::Real p_K = primv[1 + AMREX_SPACEDIM];
 
