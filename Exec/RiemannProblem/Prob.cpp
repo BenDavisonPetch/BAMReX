@@ -48,26 +48,26 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
     const double adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
 
 #if AMREX_SPACEDIM == 1
-    GpuArray<Real, MAX_STATE_SIZE> primv_L{ density_L,
+    GpuArray<Real, EULER_NCOMP> primv_L{ density_L,
                                             AMREX_D_DECL(velocity_L, 0, 0),
                                             pressure_L };
-    GpuArray<Real, MAX_STATE_SIZE> primv_R{ density_R,
+    GpuArray<Real, EULER_NCOMP> primv_R{ density_R,
                                             AMREX_D_DECL(velocity_R, 0, 0),
                                             pressure_R };
 
     write_exact_solution(stop_time, primv_L, primv_R, adiabatic, adiabatic);
 #else
-    GpuArray<const Real, MAX_STATE_SIZE> primv_L{
+    GpuArray<Real, EULER_NCOMP> primv_L{
         density_L, AMREX_D_DECL(0, velocity_L, 0), pressure_L
     };
-    GpuArray<const Real, MAX_STATE_SIZE> primv_R{
+    GpuArray<Real, EULER_NCOMP> primv_R{
         density_R, AMREX_D_DECL(0, velocity_R, 0), pressure_R
     };
 
-    GpuArray<Real, MAX_STATE_SIZE> primv_L_x_oriented{
+    GpuArray<Real, EULER_NCOMP> primv_L_x_oriented{
         density_L, AMREX_D_DECL(velocity_L, 0, 0), pressure_L
     };
-    GpuArray<Real, MAX_STATE_SIZE> primv_R_x_oriented{
+    GpuArray<Real, EULER_NCOMP> primv_R_x_oriented{
         density_R, AMREX_D_DECL(velocity_R, 0, 0), pressure_R
     };
 
@@ -107,8 +107,8 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
 
 void write_exact_solution(
     const amrex::Real                                   time,
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_L,
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_R,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_L,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_R,
     const amrex::Real adiabatic_L, const amrex::Real adiabatic_R)
 {
     // We basically just do a 1D simulation here and write it to file

@@ -403,10 +403,12 @@ Real AmrLevelAdv::advance(Real time, Real dt, int iteration, int /*ncycle*/)
             // Compute FORCE flux
             // compute_force_flux(d, time, bx, fluxArr, arr, dx, dt);
             // Compute SLIC flux
-            compute_SLIC_flux(d, time, bx, fluxArr, arr, dx, dt);
+            // compute_SLIC_flux(d, time, bx, fluxArr, arr, dx, dt);
             // Compute HLLC flux
-            // const Real adiabatic = h_prob_parm->adiabatic;
-            // compute_HLLC_flux_LR(d, time, bx, fluxArr, arr, arr, adiabatic, adiabatic, dx, dt);
+            const Real adiabatic = h_prob_parm->adiabatic;
+            // compute_HLLC_flux_LR(d, time, bx, fluxArr, arr, arr, adiabatic,
+            // adiabatic, dx, dt);
+            compute_MUSCL_hancock_flux(d, time, bx, fluxArr, arr, dx, dt);
 
             if (verbose)
                 Print() << "\t\tDone!" << std::endl;

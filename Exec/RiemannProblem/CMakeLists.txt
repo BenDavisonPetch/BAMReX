@@ -12,6 +12,21 @@ add_executable(riemann_prob ${RIEMANN_PROBLEM_SRC})
 
 target_link_libraries(riemann_prob AMReX::amrex_1d)
 
+add_custom_target(run
+    COMMAND
+        rm -rf ${CMAKE_CURRENT_BINARY_DIR}/output
+    COMMAND
+        $<TARGET_FILE:riemann_prob> ${CMAKE_CURRENT_SOURCE_DIR}/inputs-test1 &&
+        $<TARGET_FILE:riemann_prob> ${CMAKE_CURRENT_SOURCE_DIR}/inputs-test2 &&
+        $<TARGET_FILE:riemann_prob> ${CMAKE_CURRENT_SOURCE_DIR}/inputs-test3 &&
+        $<TARGET_FILE:riemann_prob> ${CMAKE_CURRENT_SOURCE_DIR}/inputs-test4 &&
+        $<TARGET_FILE:riemann_prob> ${CMAKE_CURRENT_SOURCE_DIR}/inputs-test5
+    COMMENT "Running Toro tests"
+    DEPENDS
+        riemann_prob
+    VERBATIM
+)
+
 file(CREATE_LINK ${CMAKE_CURRENT_SOURCE_DIR}/inputs-test1
                  ${CMAKE_BINARY_DIR}/Exec/RiemannProblem/inputs-test1 SYMBOLIC)
 

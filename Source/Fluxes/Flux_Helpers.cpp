@@ -21,6 +21,43 @@ void reconstruct_and_half_time_step(
     const amrex::Array4<const amrex::Real>          &consv_values,
     amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr, amrex::Real dt)
 {
+    switch (AmrLevelAdv::h_prob_parm->limiter)
+    {
+    case (minbee_limiter):
+        reconstruct_and_half_time_step<minbee_limiter>(
+            dir, gbx, time, half_stepped_L, half_stepped_R, adiabatic_L,
+            adiabatic_R, consv_values, dx_arr, dt);
+        break;
+    case (superbee_limiter):
+        reconstruct_and_half_time_step<superbee_limiter>(
+            dir, gbx, time, half_stepped_L, half_stepped_R, adiabatic_L,
+            adiabatic_R, consv_values, dx_arr, dt);
+        break;
+    case (van_albada_limiter):
+        reconstruct_and_half_time_step<van_albada_limiter>(
+            dir, gbx, time, half_stepped_L, half_stepped_R, adiabatic_L,
+            adiabatic_R, consv_values, dx_arr, dt);
+        break;
+    case (van_leer_limiter):
+        reconstruct_and_half_time_step<van_leer_limiter>(
+            dir, gbx, time, half_stepped_L, half_stepped_R, adiabatic_L,
+            adiabatic_R, consv_values, dx_arr, dt);
+        break;
+    default:
+        AMREX_ASSERT(false); // internal error
+        break;
+    }
+}
+
+template <Limiter limiter>
+AMREX_GPU_HOST void reconstruct_and_half_time_step(
+    const int dir, const amrex::Box &gbx, const amrex::Real time,
+    const amrex::Array4<amrex::Real> &half_stepped_L,
+    const amrex::Array4<amrex::Real> &half_stepped_R,
+    const amrex::Real adiabatic_L, const amrex::Real adiabatic_R,
+    const amrex::Array4<const amrex::Real>          &consv_values,
+    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr, amrex::Real dt)
+{
     const Real &dx = dx_arr[dir];
     // Temporary fab
     FArrayBox tmpfab;
@@ -49,20 +86,20 @@ void reconstruct_and_half_time_step(
                     // cache locality
 
                     // limiter variable index
-                    int        iq = 1 + AMREX_SPACEDIM;
+                    int iq = AmrLevelAdv::d_prob_parm->limiter_indices[n];
                     const Real numerator
                         = consv_values(i, j, k, iq)
                           - consv_values(i - i_off, j - j_off, k - k_off, iq);
                     const Real denom
                         = consv_values(i + i_off, j + j_off, k + k_off, iq)
                           - consv_values(i, j, k, iq);
-                    Real limiter;
+                    Real limiter_val;
                     if (numerator == 0. && denom == 0.)
-                        limiter = minbee(1);
+                        limiter_val = slope_limit<limiter>(1);
                     else if (denom == 0)
-                        limiter = 0;
+                        limiter_val = 0;
                     else
-                        limiter = minbee(numerator / denom);
+                        limiter_val = slope_limit<limiter>(numerator / denom);
 
                     // get delta
                     const Real omega = 0;
@@ -76,9 +113,9 @@ void reconstruct_and_half_time_step(
                                        + 0.5 * (1 - omega) * delta_right;
 
                     half_stepped_L(i, j, k, n)
-                        = consv_values(i, j, k, n) - 0.5 * limiter * delta;
+                        = consv_values(i, j, k, n) - 0.5 * limiter_val * delta;
                     half_stepped_R(i, j, k, n)
-                        = consv_values(i, j, k, n) + 0.5 * limiter * delta;
+                        = consv_values(i, j, k, n) + 0.5 * limiter_val * delta;
                 });
 
     //

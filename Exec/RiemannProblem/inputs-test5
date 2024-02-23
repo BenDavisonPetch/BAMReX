@@ -11,6 +11,12 @@ init.density_R  = 5.99242
 init.velocity_R = -6.19633
 init.pressure_R = 46.0950
 
+# LIMITER
+limiting.limiter = minbee
+limiting.density = energy
+limiting.mom     = energy energy energy
+limiting.energy  = energy
+
 # PROBLEM SIZE & GEOMETRY
 geometry.is_periodic =  0  0  0
 geometry.coord_sys   =  0       # 0 => cart

@@ -34,10 +34,10 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
 
     const double adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
 
-    GpuArray<const Real, MAX_STATE_SIZE> primv_in{
+    GpuArray<Real, EULER_NCOMP> primv_in{
         density_in, AMREX_D_DECL(0, 0, 0), pressure_in
     };
-    GpuArray<const Real, MAX_STATE_SIZE> primv_out{
+    GpuArray<Real, EULER_NCOMP> primv_out{
         density_out, AMREX_D_DECL(0, 0, 0), pressure_out
     };
 

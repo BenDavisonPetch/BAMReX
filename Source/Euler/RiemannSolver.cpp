@@ -8,8 +8,8 @@ void compute_exact_RP_solution(
     const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &dx_arr,
     const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &prob_lo,
     const amrex::Real                                   initial_position,
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_L,
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_R,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_L,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_R,
     const amrex::Real adiabatic_L, const amrex::Real adiabatic_R,
     const amrex::Array4<amrex::Real> &dest)
 {
@@ -32,7 +32,7 @@ void compute_exact_RP_solution(
                                        dir, p_interm, primv_L, adiabatic_L));
 
     // primitive values for intermediate states
-    GpuArray<Real, MAX_STATE_SIZE> primv_interm_L, primv_interm_R;
+    GpuArray<Real, EULER_NCOMP> primv_interm_L, primv_interm_R;
     // copy over velocities
     AMREX_D_TERM(primv_interm_L[1] = primv_L[1];
                  , primv_interm_L[2] = primv_L[2];
@@ -155,7 +155,7 @@ void compute_exact_RP_solution(
             else if (S <= speed_L_tail)
             {
                 // inside fan of left-moving rarefaction
-                GpuArray<Real, MAX_STATE_SIZE> primv_fan;
+                GpuArray<Real, EULER_NCOMP> primv_fan;
                 AMREX_D_TERM(primv_fan[1] = primv_L[1];
                              , primv_fan[2] = primv_L[2];
                              , primv_fan[3] = primv_L[3];)
@@ -191,7 +191,7 @@ void compute_exact_RP_solution(
             else if (S <= speed_R_head)
             {
                 // inside fan of right moving rarefaction
-                GpuArray<Real, MAX_STATE_SIZE> primv_fan;
+                GpuArray<Real, EULER_NCOMP> primv_fan;
                 AMREX_D_TERM(primv_fan[1] = primv_R[1];
                              , primv_fan[2] = primv_R[2];
                              , primv_fan[3] = primv_R[3];)

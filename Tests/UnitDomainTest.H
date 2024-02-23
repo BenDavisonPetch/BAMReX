@@ -67,20 +67,20 @@ class ToroTest1 : public UnitDomainTest
     amrex::Real exp_density_R_interm = 0.26557;
 
     // Initial primitive states
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> primv_L{
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> primv_L{
         density_L, AMREX_D_DECL(u_L, 0, 0), p_L
     };
 
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> primv_R{
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> primv_R{
         density_R, AMREX_D_DECL(u_R, 0, 0), p_R
     };
 
     // Expected intermediate states after evolution to time
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> expected_interm_L{
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> expected_interm_L{
         exp_density_L_interm, AMREX_D_DECL(exp_u_interm, 0, 0), exp_p_interm
     };
 
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> expected_interm_R{
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> expected_interm_R{
         exp_density_R_interm, AMREX_D_DECL(exp_u_interm, 0, 0), exp_p_interm
     };
 
@@ -108,20 +108,20 @@ class ToroTest2 : public UnitDomainTest
     amrex::Real exp_density_L_interm = 0.02185;
     amrex::Real exp_density_R_interm = 0.02185;
 
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> primv_L{
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> primv_L{
         density_L, AMREX_D_DECL(u_L, 0, 0), p_L
     };
 
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> primv_R{
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> primv_R{
         density_R, AMREX_D_DECL(u_R, 0, 0), p_R
     };
 
     // Expected intermediate states after evolution to time
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> expected_interm_L{
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> expected_interm_L{
         exp_density_L_interm, AMREX_D_DECL(exp_u_interm, 0, 0), exp_p_interm
     };
 
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> expected_interm_R{
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> expected_interm_R{
         exp_density_R_interm, AMREX_D_DECL(exp_u_interm, 0, 0), exp_p_interm
     };
 
@@ -148,20 +148,20 @@ class ToroTest3 : public UnitDomainTest
     amrex::Real exp_density_L_interm = 0.57506;
     amrex::Real exp_density_R_interm = 5.99924;
 
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> primv_L{
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> primv_L{
         density_L, AMREX_D_DECL(u_L, 0, 0), p_L
     };
 
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> primv_R{
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> primv_R{
         density_R, AMREX_D_DECL(u_R, 0, 0), p_R
     };
 
     // Expected intermediate states after evolution to time
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> expected_interm_L{
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> expected_interm_L{
         exp_density_L_interm, AMREX_D_DECL(exp_u_interm, 0, 0), exp_p_interm
     };
 
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> expected_interm_R{
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> expected_interm_R{
         exp_density_R_interm, AMREX_D_DECL(exp_u_interm, 0, 0), exp_p_interm
     };
 
@@ -188,20 +188,20 @@ class ToroTest4 : public UnitDomainTest
     amrex::Real exp_density_L_interm = 5.99242;
     amrex::Real exp_density_R_interm = 0.57511;
 
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> primv_L{
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> primv_L{
         density_L, AMREX_D_DECL(u_L, 0, 0), p_L
     };
 
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> primv_R{
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> primv_R{
         density_R, AMREX_D_DECL(u_R, 0, 0), p_R
     };
 
     // Expected intermediate states after evolution to time
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> expected_interm_L{
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> expected_interm_L{
         exp_density_L_interm, AMREX_D_DECL(exp_u_interm, 0, 0), exp_p_interm
     };
 
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> expected_interm_R{
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> expected_interm_R{
         exp_density_R_interm, AMREX_D_DECL(exp_u_interm, 0, 0), exp_p_interm
     };
 
@@ -228,20 +228,20 @@ class ToroTest5 : public UnitDomainTest
     amrex::Real exp_density_L_interm = 14.2823;
     amrex::Real exp_density_R_interm = 31.0426;
 
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> primv_L{
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> primv_L{
         density_L, AMREX_D_DECL(u_L, 0, 0), p_L
     };
 
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> primv_R{
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> primv_R{
         density_R, AMREX_D_DECL(u_R, 0, 0), p_R
     };
 
     // Expected intermediate states after evolution to time
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> expected_interm_L{
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> expected_interm_L{
         exp_density_L_interm, AMREX_D_DECL(exp_u_interm, 0, 0), exp_p_interm
     };
 
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> expected_interm_R{
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> expected_interm_R{
         exp_density_R_interm, AMREX_D_DECL(exp_u_interm, 0, 0), exp_p_interm
     };
 

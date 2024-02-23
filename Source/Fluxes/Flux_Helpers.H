@@ -1,6 +1,7 @@
 #ifndef Flux_Helpers_H_
 #define Flux_Helpers_H_
 
+#include "Fluxes/Limiters.H"
 #include <AMReX_Array4.H>
 #include <AMReX_Box.H>
 #include <AMReX_GpuQualifiers.H>
@@ -27,6 +28,15 @@
  */
 AMREX_GPU_HOST
 void reconstruct_and_half_time_step(
+    const int dir, const amrex::Box &gbx, const amrex::Real time,
+    const amrex::Array4<amrex::Real> &half_stepped_L,
+    const amrex::Array4<amrex::Real> &half_stepped_R,
+    const amrex::Real adiabatic_L, const amrex::Real adiabatic_R,
+    const amrex::Array4<const amrex::Real>          &consv_values,
+    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr, amrex::Real dt);
+
+template <Limiter limiter>
+AMREX_GPU_HOST void reconstruct_and_half_time_step(
     const int dir, const amrex::Box &gbx, const amrex::Real time,
     const amrex::Array4<amrex::Real> &half_stepped_L,
     const amrex::Array4<amrex::Real> &half_stepped_R,

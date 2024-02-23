@@ -20,8 +20,8 @@
  * @param adiabatic_R The adiabatic constant of the right state
  */
 AMREX_GPU_DEVICE AMREX_FORCE_INLINE amrex::Real euler_RP_interm_p(
-    const int dir, const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_L,
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_R,
+    const int dir, const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_L,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_R,
     const amrex::Real adiabatic_L, const amrex::Real adiabatic_R);
 
 AMREX_GPU_HOST
@@ -30,8 +30,8 @@ void compute_exact_RP_solution(
     const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &dx_arr,
     const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &prob_lo,
     const amrex::Real                                   initial_position,
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_L,
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_R,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_L,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_R,
     const amrex::Real adiabatic_L, const amrex::Real adiabatic_R,
     const amrex::Array4<amrex::Real> &dest);
 
@@ -40,8 +40,8 @@ void compute_exact_RP_solution(
 //
 AMREX_GPU_DEVICE AMREX_FORCE_INLINE amrex::Real
                                     euler_RP_interm_p(const int                                           dir,
-                                                      const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_L,
-                                                      const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_R,
+                                                      const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_L,
+                                                      const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_R,
                                                       const amrex::Real adiabatic_L, const amrex::Real adiabatic_R)
 {
     // Calculate initial guess for pressure

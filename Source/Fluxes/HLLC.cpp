@@ -28,6 +28,10 @@ void compute_HLLC_flux_LR(
 
     const auto &flux_bx = surroundingNodes(bx, dir);
 
+    const int i_off = (dir == 0) ? 1 : 0;
+    const int j_off = (dir == 1) ? 1 : 0;
+    const int k_off = (dir == 2) ? 1 : 0;
+
     ParallelFor(
         flux_bx,
         [=] AMREX_GPU_DEVICE(int i, int j, int k)
@@ -35,7 +39,7 @@ void compute_HLLC_flux_LR(
             Real speed_L;
             Real speed_R;
             Real speed_interm;
-            estimate_wave_speed_HLLC_TMSb(
+            estimate_wave_speed_HLLC_Toro(
                 dir, i, j, k, consv_values_L, consv_values_R, adiabatic_L,
                 adiabatic_R, speed_L, speed_R, speed_interm);
 
@@ -43,7 +47,8 @@ void compute_HLLC_flux_LR(
             if (0 <= speed_L)
             {
                 const auto euler_flux_L
-                    = euler_flux(dir, consv_values_L, adiabatic_L, i, j, k);
+                    = euler_flux(dir, consv_values_L, adiabatic_L, i - i_off,
+                                 j - j_off, k - k_off);
                 for (int n = 0; n < NSTATE; ++n)
                 {
                     flux(i, j, k, n) = euler_flux_L[n];
@@ -52,20 +57,26 @@ void compute_HLLC_flux_LR(
             else if (speed_L <= 0 && 0 <= speed_interm)
             {
                 const auto euler_flux_L
-                    = euler_flux(dir, consv_values_L, adiabatic_L, i, j, k);
+                    = euler_flux(dir, consv_values_L, adiabatic_L, i - i_off,
+                                 j - j_off, k - k_off);
                 auto primv_L
-                    = primv_from_consv(consv_values_L, adiabatic_L, i, j, k);
+                    = primv_from_consv(consv_values_L, adiabatic_L, i - i_off,
+                                       j - j_off, k - k_off);
                 // the below replaces primv_L with the intermediate state
                 // (denoted star L)
-                HLLC_interm_state_replace(
-                    dir, primv_L, consv_values_L(i, j, k, 1 + AMREX_SPACEDIM),
-                    speed_L, speed_interm);
+                HLLC_interm_state_replace(dir, primv_L,
+                                          consv_values_L(i - i_off, j - j_off,
+                                                         k - k_off,
+                                                         1 + AMREX_SPACEDIM),
+                                          speed_L, speed_interm);
                 for (int n = 0; n < NSTATE; ++n)
                 {
                     flux(i, j, k, n)
                         = euler_flux_L[n]
                           + speed_L
-                                * (primv_L[n] - consv_values_L(i, j, k, n));
+                                * (primv_L[n]
+                                   - consv_values_L(i - i_off, j - j_off,
+                                                    k - k_off, n));
                 }
             }
             else if (speed_interm <= 0 && 0 <= speed_R)

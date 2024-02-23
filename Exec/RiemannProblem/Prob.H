@@ -13,8 +13,8 @@ void initdata(amrex::MultiFab &S_tmp, const amrex::Geometry &geom);
  */
 void write_exact_solution(
     const amrex::Real time,
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_L,
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_R,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_L,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_R,
     const amrex::Real adiabatic_L, const amrex::Real adiabatic_R);
 
 #endif

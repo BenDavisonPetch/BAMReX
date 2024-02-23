@@ -44,11 +44,9 @@ void compute_MUSCL_hancock_flux(
                                    half_stepped_R, adiabatic, adiabatic,
                                    consv_values, dx_arr, dt);
 
-    AMREX_ASSERT_WITH_MESSAGE(false, "Not implemented");
-    // //
-    // // Compute force flux from half time stepped values
-    // //
-    // compute_force_flux_LR(dir, time, bx, flux, half_stepped_R,
-    // half_stepped_L,
-    //                       dx_arr, dt);
+    //
+    // Compute force flux from half time stepped values
+    //
+    compute_HLLC_flux_LR(dir, time, bx, flux, half_stepped_R, half_stepped_L,
+                         adiabatic, adiabatic, dx_arr, dt);
 }

@@ -7,9 +7,8 @@
 #include <AMReX_GpuQualifiers.H>
 #include <AMReX_MultiFab.H>
 
+#include "Euler/NComp.H"
 #include "AmrLevelAdv.H"
-
-#define MAX_STATE_SIZE AMREX_SPACEDIM + 2
 
 /**
  * \brief Computes the flux function values (for a given direction) across the
@@ -30,27 +29,27 @@ amrex::Real max_wave_speed(amrex::Real time, const amrex::MultiFab &S_new);
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
-amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> consv_from_primv(
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_vals,
+amrex::GpuArray<amrex::Real, EULER_NCOMP> consv_from_primv(
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_vals,
     const amrex::Real                                   adiabatic);
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
-amrex::GpuArray<amrex::Real, MAX_STATE_SIZE>
+amrex::GpuArray<amrex::Real, EULER_NCOMP>
 primv_from_consv(const amrex::Array4<const amrex::Real> &consv_values,
                  const amrex::Real adiabatic, const int i, const int j,
                  const int k);
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
-amrex::GpuArray<amrex::Real, MAX_STATE_SIZE>
+amrex::GpuArray<amrex::Real, EULER_NCOMP>
 euler_flux(const int dir, const amrex::Array4<const amrex::Real> &consv_values,
            const amrex::Real adiabatic, const int i, const int j, const int k);
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real
-sound_speed(const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_values,
+sound_speed(const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_values,
             const amrex::Real                                   adiabatic);
 
 /**
@@ -65,8 +64,8 @@ AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function(
     const int dir, const amrex::Real pressure,
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_L,
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_R,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_L,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_R,
     const amrex::Real adiabatic_L, const amrex::Real adiabatic_R);
 
 /**
@@ -81,7 +80,7 @@ AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function_one_side(
     const int dir, const amrex::Real pressure,
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv,
     const amrex::Real                                   adiabatic);
 
 /**
@@ -95,8 +94,8 @@ AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function_deriv(
     const int dir, const amrex::Real pressure,
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_L,
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_R,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_L,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_R,
     const amrex::Real adiabatic_L, const amrex::Real adiabatic_R);
 
 /**
@@ -108,7 +107,7 @@ AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function_one_side_deriv(
     const int dir, const amrex::Real pressure,
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv,
     const amrex::Real                                   adiabatic);
 
 //
@@ -117,11 +116,11 @@ amrex::Real euler_riemann_function_one_side_deriv(
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
-amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> consv_from_primv(
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_vals,
+amrex::GpuArray<amrex::Real, EULER_NCOMP> consv_from_primv(
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_vals,
     const amrex::Real                                   adiabatic)
 {
-    amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> consv_vals;
+    amrex::GpuArray<amrex::Real, EULER_NCOMP> consv_vals;
     // density
     consv_vals[0] = primv_vals[0];
     // momentum
@@ -146,14 +145,14 @@ amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> consv_from_primv(
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
-amrex::GpuArray<amrex::Real, MAX_STATE_SIZE>
+amrex::GpuArray<amrex::Real, EULER_NCOMP>
 primv_from_consv(const amrex::Array4<const amrex::Real> &consv_values,
                  const amrex::Real adiabatic, const int i, const int j,
                  const int k)
 {
-    AMREX_ASSERT(2 + AMREX_SPACEDIM <= MAX_STATE_SIZE);
+    AMREX_ASSERT(2 + AMREX_SPACEDIM <= EULER_NCOMP);
 
-    amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> primv_values;
+    amrex::GpuArray<amrex::Real, EULER_NCOMP> primv_values;
     // density
     primv_values[0] = consv_values(i, j, k, 0);
     AMREX_D_TERM(primv_values[1]
@@ -179,15 +178,15 @@ primv_from_consv(const amrex::Array4<const amrex::Real> &consv_values,
 
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
-amrex::GpuArray<amrex::Real, MAX_STATE_SIZE>
+amrex::GpuArray<amrex::Real, EULER_NCOMP>
 euler_flux(const int dir, const amrex::Array4<const amrex::Real> &consv_values,
            const amrex::Real adiabatic, const int i, const int j, const int k)
 {
-    AMREX_ASSERT(2 + AMREX_SPACEDIM <= MAX_STATE_SIZE);
+    AMREX_ASSERT(2 + AMREX_SPACEDIM <= EULER_NCOMP);
 
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> primv_values
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> primv_values
         = primv_from_consv(consv_values, adiabatic, i, j, k);
-    amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> euler_flux;
+    amrex::GpuArray<amrex::Real, EULER_NCOMP> euler_flux;
 
     // density flux
     const double pressure = primv_values[1 + AMREX_SPACEDIM];
@@ -214,7 +213,7 @@ euler_flux(const int dir, const amrex::Array4<const amrex::Real> &consv_values,
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real
-sound_speed(const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_values,
+sound_speed(const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_values,
             const amrex::Real                                   adiabatic)
 {
     return std::sqrt(adiabatic * primv_values[1 + AMREX_SPACEDIM]
@@ -225,8 +224,8 @@ AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function(
     const int dir, const amrex::Real pressure,
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_L,
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_R,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_L,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_R,
     const amrex::Real adiabatic_L, const amrex::Real adiabatic_R)
 {
     return euler_riemann_function_one_side(dir, pressure, primv_L, adiabatic_L)
@@ -239,7 +238,7 @@ AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function_one_side(
     const int dir, const amrex::Real pressure,
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv,
     const amrex::Real                                   adiabatic)
 {
     const amrex::Real p_K = primv[1 + AMREX_SPACEDIM];
@@ -265,8 +264,8 @@ AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function_deriv(
     const int dir, const amrex::Real pressure,
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_L,
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv_R,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_L,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_R,
     const amrex::Real adiabatic_L, const amrex::Real adiabatic_R)
 {
     return euler_riemann_function_one_side_deriv(dir, pressure, primv_L,
@@ -279,7 +278,7 @@ AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function_one_side_deriv(
     const int dir, const amrex::Real pressure,
-    const amrex::GpuArray<amrex::Real, MAX_STATE_SIZE> &primv,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv,
     const amrex::Real                                   adiabatic)
 {
     const amrex::Real p_K = primv[1 + AMREX_SPACEDIM];
