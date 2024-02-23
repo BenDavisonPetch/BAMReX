@@ -15,13 +15,13 @@ geometry.is_periodic =  0  0  0
 geometry.coord_sys   =  0       # 0 => cart
 geometry.prob_lo     =  0.0  0.0  0.0 
 geometry.prob_hi     =  2.0  2.0  2.0
-amr.n_cell           =  100  100  100
+amr.n_cell           =  200  200  200
 
 # TIME STEP CONTROL
 adv.cfl            = 0.8     # cfl number for hyperbolic system
 
 # VERBOSITY
-adv.v              = 1       # verbosity in Adv
+adv.v              = 0       # verbosity in Adv
 amr.v              = 1       # verbosity in Amr
 #amr.grid_log         = grdlog  # name of grid logging file
 
