@@ -17,6 +17,8 @@ file(CREATE_LINK ${CMAKE_BINARY_DIR}/compile_commands.json
                  ${CMAKE_SOURCE_DIR}/compile_commands.json
                  SYMBOLIC)
 
+message("CMake build type: ${CMAKE_BUILD_TYPE}")
+
 if(NOT DEFINED AMReX_ROOT)
     message(
         WARNING
@@ -27,6 +29,8 @@ if(NOT DEFINED AMReX_ROOT)
     if (CMAKE_BUILD_TYPE STREQUAL "Release")
         set(AMReX_ROOT /home/bendp/bin/amrex-mpi-omp)
     elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(AMReX_ROOT /home/bendp/bin/amrex-basic-debug)
+    elseif(CMAKE_BUILD_TYPE STREQUAL "Custom")
         set(AMReX_ROOT /home/bendp/bin/amrex-basic-debug)
     else()
         set(AMReX_ROOT /home/bendp/bin/amrex-omp-debug)

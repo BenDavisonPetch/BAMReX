@@ -1,15 +1,16 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 max_step = 1000000
-stop_time = 0.035
+stop_time = 0.25
 
 # PROBLEM-SPECIFIC PARAMETERS
 prob.adiabatic  = 1.4
-init.density_L  = 5.99924
-init.velocity_L = 19.5975
-init.pressure_L = 460.894
-init.density_R  = 5.99242
-init.velocity_R = -6.19633
-init.pressure_R = 46.0950
+init.density_L  = 1.0
+init.velocity_L = 0.0
+init.pressure_L = 1.0
+init.density_R  = 0.125
+init.velocity_R = 0.0
+init.pressure_R = 0.1
+init.rotation   = 35 # Rotation of initial slice in degrees
 
 # LIMITER
 limiting.limiter = minbee
@@ -22,13 +23,13 @@ geometry.is_periodic =  0  0  0
 geometry.coord_sys   =  0       # 0 => cart
 geometry.prob_lo     =  0.0  0.0  0.0 
 geometry.prob_hi     =  1.0  1.0  1.0
-amr.n_cell           =  100  100  100
+amr.n_cell           =  200  200  200
 
 # TIME STEP CONTROL
 adv.cfl            = 0.8     # cfl number for hyperbolic system
 
 # VERBOSITY
-adv.v              = 1       # verbosity in Adv
+adv.v              = 0       # verbosity in Adv
 amr.v              = 1       # verbosity in Amr
 #amr.grid_log         = grdlog  # name of grid logging file
 
@@ -48,7 +49,7 @@ amr.check_int               = 10    # number of timesteps between checkpoints
 amr.plot_files_output = 1      # 0 will disable plot files
 amr.plot_file         = plt    # root name of plot file
 amr.plot_int          = 10     # number of timesteps between plot files
-amr.plot_file = output/test5/plt
+amr.plot_file = output/test1/35deg/200/plt
 
 
 # TRACER PARTICLES

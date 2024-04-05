@@ -1,21 +1,20 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 max_step = 1000000
-stop_time = 0.25
+stop_time = 0.15
 
 # PROBLEM-SPECIFIC PARAMETERS
 prob.adiabatic  = 1.4
 init.density_L  = 1.0
-init.velocity_L = 0.0
-init.pressure_L = 1.0
-init.density_R  = 0.125
-init.velocity_R = 0.0
-init.pressure_R = 0.1
-init.rotation   = 90 # Rotation of initial slice in degrees
+init.velocity_L = -2.0
+init.pressure_L = 0.4
+init.density_R  = 1.0
+init.velocity_R = 2.0
+init.pressure_R = 0.4
 
 # LIMITER
 limiting.limiter = minbee
-limiting.density = energy
-limiting.mom     = energy energy energy
+limiting.density = density
+limiting.mom     = mom_x mom_y mom_z
 limiting.energy  = energy
 
 # PROBLEM SIZE & GEOMETRY
@@ -23,13 +22,15 @@ geometry.is_periodic =  0  0  0
 geometry.coord_sys   =  0       # 0 => cart
 geometry.prob_lo     =  0.0  0.0  0.0 
 geometry.prob_hi     =  1.0  1.0  1.0
-amr.n_cell           =  100  100  100
+amr.n_cell           =  200  200  200
 
 # TIME STEP CONTROL
 adv.cfl            = 0.8     # cfl number for hyperbolic system
 
+adv.do_reflux = 0
+
 # VERBOSITY
-adv.v              = 0       # verbosity in Adv
+adv.v              = 1       # verbosity in Adv
 amr.v              = 1       # verbosity in Amr
 #amr.grid_log         = grdlog  # name of grid logging file
 
@@ -37,7 +38,7 @@ amr.v              = 1       # verbosity in Amr
 amr.max_level       = 0       # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
-amr.blocking_factor = 1       # block factor in grid generation
+amr.blocking_factor = 1      # block factor in grid generation
 amr.max_grid_size   = 100
 
 # CHECKPOINT FILES
@@ -49,7 +50,7 @@ amr.check_int               = 10    # number of timesteps between checkpoints
 amr.plot_files_output = 1      # 0 will disable plot files
 amr.plot_file         = plt    # root name of plot file
 amr.plot_int          = 10     # number of timesteps between plot files
-amr.plot_file = output/test1/plt
+amr.plot_file = output/test2/200/plt
 
 
 # TRACER PARTICLES
