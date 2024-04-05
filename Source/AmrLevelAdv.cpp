@@ -452,11 +452,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
                 Print() << "\t\tDone!" << std::endl;
         }
         // We need to compute boundary conditions again after each update
-        // FillBoundary does periodic conditions
-        Sborder.FillBoundary(geom.periodicity());
-        // This one does non-periodic conditions
-        FillDomainBoundary(Sborder, geom,
-                           get_state_data(Phi_Type).descriptor()->getBCs());
+        fill_boundary(Sborder);
 
         // The fluxes now need scaling for the reflux command.
         // This scaling is by the size of the boundary through which the flux
@@ -522,14 +518,16 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
 
     if (do_reflux)
     {
-        if (current)
+        if (current) // current is the FluxRegister for the current level if
+                     // this is not the coarsest level
         {
             for (int i = 0; i < AMREX_SPACEDIM; i++)
             {
                 current->FineAdd(fluxes[i], i, 0, 0, NUM_STATE, 1.);
             }
         }
-        if (fine)
+        if (fine) // fine is the FluxRegister for the next level up if this is
+                  // not the finest level
         {
             for (int i = 0; i < AMREX_SPACEDIM; i++)
             {
@@ -541,6 +539,18 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     if (verbose)
         Print() << "Advance complete!" << std::endl;
     return dt;
+}
+
+/**
+ * Fill boundary conditions for a MultiFab on this level
+ */
+void AmrLevelAdv::fill_boundary(amrex::MultiFab &fab)
+{
+    // FillBoundary does periodic conditions
+    fab.FillBoundary(geom.periodicity());
+    // This one does non-periodic conditions
+    FillDomainBoundary(fab, geom,
+                       get_state_data(Phi_Type).descriptor()->getBCs());
 }
 
 /**

@@ -106,6 +106,11 @@ class AmrLevelAdv : public amrex::AmrLevel
                         int ncycle) override;
 
     /**
+     * Fill boundary conditions for a MultiFab on this level
+     */
+    void fill_boundary(amrex::MultiFab& fab);
+
+    /**
      * Estimate time step.
      */
     amrex::Real estTimeStep(amrex::Real dt_old);
