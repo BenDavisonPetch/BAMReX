@@ -54,6 +54,10 @@ amrex::Real max_wave_speed(amrex::Real /*time*/, const amrex::MultiFab &S_new)
         const Box  &bx  = mfi.tilebox();
         const auto &arr = S_new.array(mfi);
 
+#ifdef AMREX_USE_GPU
+#error "Not GPU safe!"
+#endif
+
         ParallelFor(bx,
                     [=, &wave_speed] AMREX_GPU_DEVICE(int i, int j, int k)
                     {
@@ -74,4 +78,24 @@ amrex::Real max_wave_speed(amrex::Real /*time*/, const amrex::MultiFab &S_new)
     ParallelDescriptor::ReduceRealMax(wave_speed);
 
     return wave_speed;
+}
+
+AMREX_GPU_HOST
+amrex::Real max_speed(const amrex::MultiFab &state)
+{
+    auto const &ma = state.const_arrays();
+    return ParReduce(
+        TypeList<ReduceOpMax>{}, TypeList<Real>{}, state,
+        IntVect(0), // no ghost cells
+        [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k)
+            noexcept -> GpuTuple<Real>
+        {
+            const Array4<const Real> &consv = ma[box_no];
+            const Real                u_sq
+                = (AMREX_D_TERM(consv(i, j, k, 1) * consv(i, j, k, 1),
+                                +consv(i, j, k, 2) * consv(i, j, k, 2),
+                                +consv(i, j, k, 3) * consv(i, j, k, 3)))
+                  / (consv(i, j, k, 0) * consv(i, j, k, 0));
+            return { sqrt(u_sq) };
+        });
 }

@@ -1,3 +1,4 @@
+#include <AMReX.H>
 #include <AMReX_BCUtil.H>
 #include <AMReX_BC_TYPES.H>
 #include <AMReX_GpuMemory.H>
@@ -8,8 +9,11 @@
 #include <AMReX_VisMF.H>
 
 #include "AmrLevelAdv.H"
+#include "CONTROL.H"
 #include "Euler/Euler.H"
 #include "Fluxes/Fluxes.H"
+#include "IMEX/IMEX_O1.H"
+#include "MFIterLoop.H"
 #include "Prob.H"
 #include "tagging_K.H"
 //#include "Kernels.H"
@@ -340,7 +344,8 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     }
 
     // Set up a dimensional multifab that will contain the fluxes
-    MultiFab fluxes[BL_SPACEDIM];
+    // MultiFab fluxes[BL_SPACEDIM];
+    Array<MultiFab, AMREX_SPACEDIM> fluxes;
 
     // Define the appropriate size for the flux MultiFab.
     // Fluxes are defined at cell faces - this is taken care of by the
@@ -366,6 +371,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     if (verbose)
         Print() << "\tFilled ghost states" << std::endl;
 
+#if SCHEME == 0
     for (int d = 0; d < amrex::SpaceDim; d++)
     {
         if (verbose)
@@ -375,89 +381,93 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
         const int jOffset = (d == 1 ? 1 : 0);
         const int kOffset = (d == 2 ? 1 : 0);
 
-        // Loop over all the patches at this level
-        for (MFIter mfi(Sborder, true); mfi.isValid(); ++mfi)
-        {
-            const Box &bx = mfi.tilebox();
+        // The below loop basically does an MFIter loop but with lots of
+        // hidden boilerplate to make things performance portable.
+        // Some isms with the
+        // muscl implementation: S_new is never touched, the below will update
+        // Sborder in place nodal boxes aren't used
+        MFIter_loop(
+            time, geom, S_new, Sborder, fluxes, dt,
+            [&](const amrex::Real time, const amrex::Box &bx,
+                amrex::GpuArray<amrex::Box, AMREX_SPACEDIM> /*nbx*/,
+                const amrex::FArrayBox & /*statein*/,
+                amrex::FArrayBox &stateout,
+                AMREX_D_DECL(amrex::FArrayBox & fx, amrex::FArrayBox & fy,
+                             amrex::FArrayBox & fz),
+                amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx,
+                const amrex::Real                            dt)
+            {
+                const auto &arr = stateout.array();
+#if AMREX_SPACEDIM == 1
+                const auto &fluxArr = fx.array();
+#elif AMREX_SPACEDIM == 2
+                const auto &fluxArr = (d == 0) ? fx.array() : fy.array();
+#else
+                const auto &fluxArr
+                    = (d == 0) ? fx.array()
+                               : ((d == 1) ? fy.array() : fz.array());
+#endif
+                if (verbose)
+                    Print() << "\t\tComputing flux..." << std::endl;
 
-            // Indexable arrays for the data, and the directional flux
-            // Based on the vertex-centred definition of the flux array, the
-            // data array runs from e.g. [0,N] and the flux array from [0,N+1]
-            const auto &arr     = Sborder.array(mfi);
-            const auto &fluxArr = fluxes[d].array(mfi);
-            // const Real  v         = vel[d];
+                compute_MUSCL_hancock_flux(d, time, bx, fluxArr, arr, dx, dt);
 
-            // ParallelFor(bxGrow,
-            //             [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-            //             noexcept
-            //             {
-            //                 // Conservative flux for the first-order
-            //                 // backward difference method
-            //                 fluxArr(i, j, k)
-            //                     = v
-            //                       * arr(i - iOffset, j - jOffset, k -
-            //                       kOffset);
-            //             });
+                if (verbose)
+                    Print() << "\t\tDone!" << std::endl;
 
-            if (verbose)
-                Print() << "\t\tComputing flux..." << std::endl;
-            // Compute FORCE flux
-            // compute_force_flux(d, time, bx, fluxArr, arr, dx, dt);
-            // Compute SLIC flux
-            // compute_SLIC_flux(d, time, bx, fluxArr, arr, dx, dt);
-            // Compute HLLC flux
-            // const Real adiabatic = h_prob_parm->adiabatic;
-            // compute_HLLC_flux_LR(d, time, bx, fluxArr, arr, arr, adiabatic,
-            // adiabatic, dx, dt);
-            compute_MUSCL_hancock_flux(d, time, bx, fluxArr, arr, dx, dt);
+                if (verbose)
+                    Print() << "\t\tPerforming update" << std::endl;
 
-            if (verbose)
-                Print() << "\t\tDone!" << std::endl;
+                // Conservative update
+                ParallelFor(
+                    bx, NUM_STATE,
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept
+                    {
+                        // Conservative update formula
+                        arr(i, j, k, n)
+                            = arr(i, j, k, n)
+                              - (dt / dx[d])
+                                    * (fluxArr(i + iOffset, j + jOffset,
+                                               k + kOffset, n)
+                                       - fluxArr(i, j, k, n));
+                    });
+                if (verbose)
+                    Print() << "\t\tDone!" << std::endl;
+            },
+            { d });
 
-            // const Dim3 lo = lbound(bx);
-            // const Dim3 hi = ubound(bx);
-            // for(int k = lo.z; k <= hi.z+kOffset; k++)
-            // {
-            // 	for(int j = lo.y; j <= hi.y+jOffset; j++)
-            // 	{
-            // 	  for(int i = lo.x; i <= hi.x+iOffset; i++)
-            // 	  {
-            // 	    amrex::Print() << " (i,j,k) = (" << i << ", " << j << ", "
-            // << k << "), flux = " << fluxArr(i,j,k) << " vel = " << vel[d] <<
-            // " arr = " << arr(i-iOffset, j-jOffset, k-kOffset) << " d = " <<
-            // d << std::endl;
-            // 	  }
-            // 	}
-            // }
-
-            // exit(0);
-
-            if (verbose)
-                Print() << "\t\tPerforming update" << std::endl;
-
-            // Conservative update
-            ParallelFor(bx, NUM_STATE,
-                        [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-                            noexcept
-                        {
-                            // Conservative update formula
-                            arr(i, j, k, n)
-                                = arr(i, j, k, n)
-                                  - (dt / dx[d])
-                                        * (fluxArr(i + iOffset, j + jOffset,
-                                                   k + kOffset, n)
-                                           - fluxArr(i, j, k, n));
-                        });
-            if (verbose)
-                Print() << "\t\tDone!" << std::endl;
-        }
         // We need to compute boundary conditions again after each update
         fill_boundary(Sborder);
 
-        // The fluxes now need scaling for the reflux command.
-        // This scaling is by the size of the boundary through which the flux
-        // passes, e.g. the x-flux needs scaling by the dy, dz and dt
-        if (do_reflux)
+        if (verbose)
+            Print() << "\tDirection update complete" << std::endl;
+    }
+
+    // The updated data is now copied to the S_new multifab.  This means
+    // it is now accessible through the get_new_data command, and AMReX
+    // can automatically interpolate or extrapolate between layers etc.
+    // S_new: Destination
+    // Sborder: Source
+    // Third entry: Starting variable in the source array to be copied (the
+    // zeroth variable in this case) Fourth entry: Starting variable in the
+    // destination array to receive the copy (again zeroth here) NUM_STATE:
+    // Total number of variables being copied Sixth entry: Number of ghost
+    // cells to be included in the copy (zero in this case, since only real
+    //              data is needed for S_new)
+    MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, 0);
+
+#elif SCHEME == 1
+    advance_o1_pimex(level, crse_ratio, time, geom, Sborder, S_new, fluxes,
+                     nullptr, dt, verbose, verbose);
+#else
+#error "Invalid scheme!"
+#endif
+
+    // The fluxes now need scaling for the reflux command.
+    // This scaling is by the size of the boundary through which the flux
+    // passes, e.g. the x-flux needs scaling by the dy, dz and dt
+    if (do_reflux)
+        for (int d = 0; d < AMREX_SPACEDIM; ++d)
         {
             Real scaleFactor = dt;
             for (int scaledir = 0; scaledir < amrex::SpaceDim; ++scaledir)
@@ -475,22 +485,6 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
             // number of data indices that will be multiplied
             fluxes[d].mult(scaleFactor, 0, NUM_STATE);
         }
-        if (verbose)
-            Print() << "\tDirection update complete" << std::endl;
-    }
-
-    // The updated data is now copied to the S_new multifab.  This means
-    // it is now accessible through the get_new_data command, and AMReX
-    // can automatically interpolate or extrapolate between layers etc.
-    // S_new: Destination
-    // Sborder: Source
-    // Third entry: Starting variable in the source array to be copied (the
-    // zeroth variable in this case) Fourth entry: Starting variable in the
-    // destination array to receive the copy (again zeroth here) NUM_STATE:
-    // Total number of variables being copied Sixth entry: Number of ghost
-    // cells to be included in the copy (zero in this case, since only real
-    //              data is needed for S_new)
-    MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, 0);
 
     // Refluxing at patch boundaries.  Amrex automatically does this
     // where needed, but you need to state a few things to make sure it
@@ -569,7 +563,18 @@ Real AmrLevelAdv::estTimeStep(Real)
     const Real      cur_time = state[Phi_Type].curTime();
     const MultiFab &S_new    = get_new_data(Phi_Type);
 
+#if SCHEME == 0
     Real wave_speed = max_wave_speed(cur_time, S_new);
+#elif SCHEME == 1
+    Real wave_speed;
+    if (cur_time < 1e-12)
+        wave_speed = max_wave_speed(cur_time, S_new);
+    else
+        wave_speed = max_speed(S_new);
+    amrex::ignore_unused(cur_time);
+#else
+#error "Haven't implemented time step for this scheme!"
+#endif
 
     if (verbose)
         Print() << "Maximum wave speed: " << wave_speed << std::endl;

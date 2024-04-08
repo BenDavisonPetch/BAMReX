@@ -26,6 +26,9 @@ void compute_flux_function(
 AMREX_GPU_HOST
 amrex::Real max_wave_speed(amrex::Real time, const amrex::MultiFab &S_new);
 
+AMREX_GPU_HOST
+amrex::Real max_speed(const amrex::MultiFab &state);
+
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 amrex::GpuArray<amrex::Real, EULER_NCOMP>

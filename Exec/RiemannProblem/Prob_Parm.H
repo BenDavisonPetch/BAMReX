@@ -10,6 +10,7 @@
 struct ProbParm
 {
     amrex::Real  adiabatic;
+    amrex::Real  epsilon;
     Limiter limiter = minbee_limiter;
     unsigned int limiter_indices[EULER_NCOMP]{
         1 + AMREX_SPACEDIM,

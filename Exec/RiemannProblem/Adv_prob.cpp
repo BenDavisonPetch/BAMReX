@@ -32,8 +32,11 @@ extern "C"
             // Read the prob block from the input file using ParmParse
             amrex::ParmParse pp("prob");
             amrex::Real      adiabatic = 1.4;
+            amrex::Real epsilon = 1;
             pp.get("adiabatic", adiabatic);
+            pp.query("epsilon", epsilon);
             AmrLevelAdv::h_prob_parm->adiabatic = adiabatic;
+            AmrLevelAdv::h_prob_parm->epsilon = epsilon;
         }
         {
             // Read the limiter block from the input file
