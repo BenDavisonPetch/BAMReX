@@ -5,6 +5,8 @@
 #include "Euler/Euler.H"
 
 #include <AMReX_IntVect.H>
+#include <AMReX_PROB_AMR_F.H>
+#include <AMReX_ParmParse.H>
 #include <AMReX_SPACE.H>
 #include <gtest/gtest.h>
 
@@ -24,28 +26,44 @@ class UnitDomainTest : public testing::Test
     amrex::Geometry                              geom;
     amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx;
 
-    UnitDomainTest()
-    {
-    }
+    UnitDomainTest() {}
 
     void setup(int ncells_)
     {
+        using namespace amrex;
+
         ncells = ncells_;
-        dom_lo = amrex::IntVect(AMREX_D_DECL(0, 0, 0));
-        dom_hi = amrex::IntVect(AMREX_D_DECL(ncells - 1, ncells - 1, ncells - 1));
-        domain = amrex::Box(dom_lo, dom_hi);
-        ba = amrex::BoxArray(domain);
-        dm = amrex::DistributionMapping(ba);
+        dom_lo = IntVect(AMREX_D_DECL(0, 0, 0));
+        dom_hi = IntVect(AMREX_D_DECL(ncells - 1, ncells - 1, ncells - 1));
+        domain = Box(dom_lo, dom_hi);
+        ba     = BoxArray(domain);
+        dm     = DistributionMapping(ba);
         mf.define(ba, dm, AmrLevelAdv::NUM_STATE, 0);
-        prob_lo = { AMREX_D_DECL(0.0, 0.0, 0.0) };
-        prob_hi = { AMREX_D_DECL(1.0, 1.0, 1.0) };
-        real_box = amrex::RealBox(AMREX_D_DECL(0.0, 0.0, 0.0), AMREX_D_DECL(1.0, 1.0, 1.0));
-        geom = amrex::Geometry(domain, &real_box);
-        dx = geom.CellSizeArray();
+        prob_lo  = { AMREX_D_DECL(0.0, 0.0, 0.0) };
+        prob_hi  = { AMREX_D_DECL(1.0, 1.0, 1.0) };
+        real_box = RealBox(AMREX_D_DECL(0.0, 0.0, 0.0),
+                           AMREX_D_DECL(1.0, 1.0, 1.0));
+        geom     = Geometry(domain, &real_box);
+        dx       = geom.CellSizeArray();
+
+        AmrLevelAdv::h_prob_parm = new ProbParm{};
+        AmrLevelAdv::d_prob_parm
+            = (ProbParm *)The_Arena()->alloc(sizeof(ProbParm));
+        int  dummy     = 0;
+        Real dummyreal = 0;
+        amrex_probinit(&dummy, &dummy, &dummy, &dummyreal, &dummyreal);
+    }
+
+    void TearDown() override {
+        delete AmrLevelAdv::h_prob_parm;
+        AmrLevelAdv::h_prob_parm = nullptr;
+        amrex::The_Arena()->free(AmrLevelAdv::d_prob_parm);
+        AmrLevelAdv::d_prob_parm = nullptr;
     }
 
     /**
-     * @brief Gives the indices of the multifab corresponding to a given x value
+     * @brief Gives the indices of the multifab corresponding to a given x
+     * value
      */
     amrex::IntVect idx_at(amrex::Real x)
     {
@@ -66,8 +84,8 @@ class ToroTest1 : public UnitDomainTest
     amrex::Real time      = 0.25;
 
     // Expected intermediate states
-    amrex::Real exp_p_interm = 0.30313;
-    amrex::Real exp_u_interm = 0.92745;
+    amrex::Real exp_p_interm         = 0.30313;
+    amrex::Real exp_u_interm         = 0.92745;
     amrex::Real exp_density_L_interm = 0.42632;
     amrex::Real exp_density_R_interm = 0.26557;
 
@@ -89,10 +107,11 @@ class ToroTest1 : public UnitDomainTest
         exp_density_R_interm, AMREX_D_DECL(exp_u_interm, 0, 0), exp_p_interm
     };
 
-
     ToroTest1()
         : UnitDomainTest()
     {
+        amrex::ParmParse pp("prob");
+        pp.add("adiabatic", 1.4);
     }
 };
 
@@ -108,8 +127,8 @@ class ToroTest2 : public UnitDomainTest
     amrex::Real time      = 0.15;
 
     // Expected intermediate states
-    amrex::Real exp_p_interm = 0.00189;
-    amrex::Real exp_u_interm = 0.0;
+    amrex::Real exp_p_interm         = 0.00189;
+    amrex::Real exp_u_interm         = 0.0;
     amrex::Real exp_density_L_interm = 0.02185;
     amrex::Real exp_density_R_interm = 0.02185;
 
@@ -133,6 +152,8 @@ class ToroTest2 : public UnitDomainTest
     ToroTest2()
         : UnitDomainTest()
     {
+        amrex::ParmParse pp("prob");
+        pp.add("adiabatic", 1.4);
     }
 };
 
@@ -148,8 +169,8 @@ class ToroTest3 : public UnitDomainTest
     amrex::Real time      = 0.012;
 
     // Expected intermediate states
-    amrex::Real exp_p_interm = 460.894;
-    amrex::Real exp_u_interm = 19.5975;
+    amrex::Real exp_p_interm         = 460.894;
+    amrex::Real exp_u_interm         = 19.5975;
     amrex::Real exp_density_L_interm = 0.57506;
     amrex::Real exp_density_R_interm = 5.99924;
 
@@ -173,6 +194,8 @@ class ToroTest3 : public UnitDomainTest
     ToroTest3()
         : UnitDomainTest()
     {
+        amrex::ParmParse pp("prob");
+        pp.add("adiabatic", 1.4);
     }
 };
 
@@ -188,8 +211,8 @@ class ToroTest4 : public UnitDomainTest
     amrex::Real time      = 0.035;
 
     // Expected intermediate states
-    amrex::Real exp_p_interm = 46.0950;
-    amrex::Real exp_u_interm = -6.19633;
+    amrex::Real exp_p_interm         = 46.0950;
+    amrex::Real exp_u_interm         = -6.19633;
     amrex::Real exp_density_L_interm = 5.99242;
     amrex::Real exp_density_R_interm = 0.57511;
 
@@ -213,6 +236,8 @@ class ToroTest4 : public UnitDomainTest
     ToroTest4()
         : UnitDomainTest()
     {
+        amrex::ParmParse pp("prob");
+        pp.add("adiabatic", 1.4);
     }
 };
 
@@ -228,8 +253,8 @@ class ToroTest5 : public UnitDomainTest
     amrex::Real time      = 0.035;
 
     // Expected intermediate states
-    amrex::Real exp_p_interm = 1691.64;
-    amrex::Real exp_u_interm = 8.68975;
+    amrex::Real exp_p_interm         = 1691.64;
+    amrex::Real exp_u_interm         = 8.68975;
     amrex::Real exp_density_L_interm = 14.2823;
     amrex::Real exp_density_R_interm = 31.0426;
 
@@ -253,6 +278,8 @@ class ToroTest5 : public UnitDomainTest
     ToroTest5()
         : UnitDomainTest()
     {
+        amrex::ParmParse pp("prob");
+        pp.add("adiabatic", 1.4);
     }
 };
 

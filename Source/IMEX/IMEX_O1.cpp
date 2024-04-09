@@ -100,11 +100,11 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
 
     // Fill boundary cells for pressure
     // TODO: check if this initialises pressure on course fine boundaries!
-    FillDomainBoundary(
-        MFpressure, geom,
-        { AMREX_D_DECL(BCRec(BCType::foextrap, BCType::foextrap),
-                       BCRec(BCType::foextrap, BCType::foextrap),
-                       BCRec(BCType::foextrap, BCType::foextrap)) });
+    FillDomainBoundary(MFpressure, geom,
+                       { BCRec(AMREX_D_DECL(BCType::foextrap, BCType::foextrap,
+                                            BCType::foextrap),
+                               AMREX_D_DECL(BCType::foextrap, BCType::foextrap,
+                                            BCType::foextrap)) });
 
     BL_PROFILE_VAR_STOP(pexp);
     BL_PROFILE_VAR("advance_o1_pimex() assembly", passembly);
@@ -172,11 +172,11 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
     solver.solve({ &MFpressure }, { &MFb }, TOL_RES, TOL_ABS);
 
     // TODO: fill course fine boundary cells for pressure!
-    FillDomainBoundary(
-        MFpressure, geom,
-        { AMREX_D_DECL(BCRec(BCType::foextrap, BCType::foextrap),
-                       BCRec(BCType::foextrap, BCType::foextrap),
-                       BCRec(BCType::foextrap, BCType::foextrap)) });
+    FillDomainBoundary(MFpressure, geom,
+                       { BCRec(AMREX_D_DECL(BCType::foextrap, BCType::foextrap,
+                                            BCType::foextrap),
+                               AMREX_D_DECL(BCType::foextrap, BCType::foextrap,
+                                            BCType::foextrap)) });
 
 #ifdef DEBUG_PRINT
     Print() << std::endl << "exp quantities: " << std::endl;
@@ -275,8 +275,9 @@ void advance_rusanov_adv(const amrex::Real /*time*/, const amrex::Box &bx,
     // Temporary fluxes. Need to be declared here instead of using passed
     // fluxes as otherwise we will get a race condition
     GpuArray<Array4<Real>, AMREX_SPACEDIM> tfluxes{ AMREX_D_DECL(
-        tmpfab.array(NSTATE * 3, NSTATE), tmpfab.array(NSTATE * 4, NSTATE),
-        tmpfab.array(NSTATE * 5, NSTATE)) };
+        tmpfab.array(NSTATE * AMREX_SPACEDIM, NSTATE),
+        tmpfab.array(NSTATE * (AMREX_SPACEDIM + 1), NSTATE),
+        tmpfab.array(NSTATE * (AMREX_SPACEDIM + 2), NSTATE)) };
 
     // Const version of above temporary fluxes
     GpuArray<Array4<const Real>, AMREX_SPACEDIM> tfluxes_c{ AMREX_D_DECL(
@@ -309,9 +310,9 @@ void advance_rusanov_adv(const amrex::Real /*time*/, const amrex::Box &bx,
             [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
             {
                 const Real u_max = amrex::max(
-                    consv_in(i, j, k, 1 + d) / consv_in(i, j, k, 0),
-                    consv_in(i - i_off, j - j_off, k - k_off, 1 + d)
-                        / consv_in(i - i_off, j - j_off, k - k_off, 0));
+                    fabs(consv_in(i, j, k, 1 + d) / consv_in(i, j, k, 0)),
+                    fabs(consv_in(i - i_off, j - j_off, k - k_off, 1 + d)
+                         / consv_in(i - i_off, j - j_off, k - k_off, 0)));
                 tfluxes[d](i, j, k, n)
                     = 0.5
                       * ((adv_fluxes[d](i, j, k, n)
@@ -331,15 +332,15 @@ void advance_rusanov_adv(const amrex::Real /*time*/, const amrex::Box &bx,
                 {
                     consv_out(i, j, k, n)
                         = consv_in(i, j, k, n)
-                          - AMREX_D_TERM(dtdx
-                                             * (tfluxes[0](i + 1, j, k, n)
-                                                - tfluxes[0](i, j, k, n)),
-                                         +dtdy
-                                             * (tfluxes[1](i, j + 1, k, n)
-                                                - tfluxes[1](i, j, k, n)),
-                                         +dtdz
-                                             * (tfluxes[2](i, j, k + 1, n)
-                                                - tfluxes[2](i, j, k, n)));
+                          - (AMREX_D_TERM(dtdx
+                                              * (tfluxes_c[0](i + 1, j, k, n)
+                                                 - tfluxes_c[0](i, j, k, n)),
+                                          +dtdy
+                                              * (tfluxes_c[1](i, j + 1, k, n)
+                                                 - tfluxes_c[1](i, j, k, n)),
+                                          +dtdz
+                                              * (tfluxes_c[2](i, j, k + 1, n)
+                                                 - tfluxes_c[2](i, j, k, n))));
                 });
 
     // Copy temporary fluxes onto potentially smaller nodal tile
