@@ -171,6 +171,8 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
     // TODO: use hypre here
     solver.solve({ &MFpressure }, { &MFb }, TOL_RES, TOL_ABS);
 
+    AMREX_ASSERT(!MFpressure.contains_nan());
+
     // TODO: fill course fine boundary cells for pressure!
     FillDomainBoundary(MFpressure, geom,
                        { BCRec(AMREX_D_DECL(BCType::foextrap, BCType::foextrap,
@@ -460,15 +462,12 @@ void update_ex_from_pressure(
             amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx,
             const amrex::Real                            dt)
         {
-            const Array4<const Real> ex    = consv_ex.array();
+            const Array4<const Real> ex    = consv_ex.const_array();
             const Array4<Real>       out   = stateout.array();
-            const Array4<const Real> p     = MFpressure.array(mfi);
-            const Array4<const Real> sh_cc = MFscaledenth_cc.array(mfi);
-            AMREX_D_TERM(const Array4<Real> fluxx = fx.array();
-                         , const Array4<Real> fluxy = fy.array();
-                         , const Array4<Real> fluxz = fz.array();)
+            const Array4<const Real> p     = MFpressure.const_array(mfi);
+            const Array4<const Real> sh_cc = MFscaledenth_cc.const_array(mfi);
 
-            const Real heps = epsilon / 2;
+            const Real heps = 1 / (2 * epsilon);
             AMREX_D_TERM(const Real hdtdx = 0.5 * dt / dx[0];
                          , const Real hdtdy = 0.5 * dt / dx[1];
                          , const Real hdtdz = 0.5 * dt / dx[2];)
@@ -498,6 +497,10 @@ void update_ex_from_pressure(
                                      - sh_cc(i, j, k - 1)
                                            * ex(i, j, k - 1, 3))));
                 });
+
+            AMREX_D_TERM(const auto &fluxx = fx.array();
+                         , const auto &fluxy = fy.array();
+                         , const auto &fluxz = fz.array();)
 
             // Update fluxes
             ParallelFor(

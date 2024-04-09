@@ -25,7 +25,7 @@ class BoxTest : public UnitDomainTest
         ParmParse pp("prob");
         pp.add("adiabatic", 1.6);
         pp.add("epsilon", 0.5);
-        setup(4);
+        setup(4, 2);
 
         statein.define(ba, dm, EULER_NCOMP, 2);
         stateout.define(ba, dm, EULER_NCOMP, 0);

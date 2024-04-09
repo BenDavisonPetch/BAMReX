@@ -28,7 +28,7 @@ class UnitDomainTest : public testing::Test
 
     UnitDomainTest() {}
 
-    void setup(int ncells_)
+    void setup(int ncells_, int max_grid_size = -1)
     {
         using namespace amrex;
 
@@ -37,6 +37,8 @@ class UnitDomainTest : public testing::Test
         dom_hi = IntVect(AMREX_D_DECL(ncells - 1, ncells - 1, ncells - 1));
         domain = Box(dom_lo, dom_hi);
         ba     = BoxArray(domain);
+        if (max_grid_size > 0)
+            ba.maxSize(max_grid_size);
         dm     = DistributionMapping(ba);
         mf.define(ba, dm, AmrLevelAdv::NUM_STATE, 0);
         prob_lo  = { AMREX_D_DECL(0.0, 0.0, 0.0) };
