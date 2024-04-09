@@ -1,6 +1,7 @@
 # Source/CMakeLists.txt
 
 set (SRC_NO_MAIN ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/Adv_prob.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/bc_nullfill.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/LevelBldAdv.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Tagging_params.cpp

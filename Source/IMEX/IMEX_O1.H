@@ -58,6 +58,37 @@ void advance_rusanov_adv(const amrex::Real time, const amrex::Box &bx,
                          const amrex::Real                            dt);
 
 AMREX_GPU_HOST
+void pressure_source_vector(
+    const amrex::MultiFab &MFex, const amrex::MultiFab &MFscaledenth_cc,
+    amrex::MultiFab &dst,
+    AMREX_D_DECL(amrex::Real hedtdx, amrex::Real hedtdy, amrex::Real hedtdz));
+
+/**
+ * \brief Takes a solution for the pressure obtained by linear solution, and
+ * the explicitly updated conservative variables, and computes the final state
+ * and the fluxes.
+ *
+ * \param time
+ * \param geom
+ * \param MFpressure the pressure, obtained by solving the pressure equation
+ * \param MFex the explicitly updated conservative variables. Will be
+ * overwritten with temporary values.
+ * \param MFscaledenth_cc a temporary MultiFab that will be overwritten. Should
+ * be defined with at least one set of ghost cells.
+ * \param stateout the MutliFab to write the final state to
+ * \param fluxes should contain, at input, the conservative fluxes used to
+ * compute the explicitly updated variables. Will be output as the final
+ * conservative fluxes.
+ * \param dt
+ */
+AMREX_GPU_HOST
+void update_ex_from_pressure(
+    amrex::Real time, const amrex::Geometry &geom,
+    const amrex::MultiFab &MFpressure, amrex::MultiFab &MFex,
+    amrex::MultiFab &MFscaledenth_cc, amrex::MultiFab &stateout,
+    amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes, amrex::Real dt);
+
+AMREX_GPU_HOST
 void copy_pressure(const amrex::MultiFab &statesrc, amrex::MultiFab &dst);
 
 #endif

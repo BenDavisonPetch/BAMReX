@@ -1,7 +1,6 @@
 # Exec/CylindricalExplosion/CMakeLists.txt
 
 set(CYLINDRICAL_EXPLOSION_SRC ${SRC}
-                              Adv_prob.cpp
                               Prob.cpp)
 
 include_directories(.

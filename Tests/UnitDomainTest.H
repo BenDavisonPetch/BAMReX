@@ -13,7 +13,7 @@
 class UnitDomainTest : public testing::Test
 {
   protected:
-    const int                                    ncells = 100;
+    int                                          ncells;
     amrex::IntVect                               dom_lo, dom_hi;
     amrex::Box                                   domain;
     amrex::BoxArray                              ba;
@@ -25,18 +25,23 @@ class UnitDomainTest : public testing::Test
     amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx;
 
     UnitDomainTest()
-        : dom_lo(AMREX_D_DECL(0, 0, 0))
-        , dom_hi(AMREX_D_DECL(ncells - 1, ncells - 1, ncells - 1))
-        , domain(dom_lo, dom_hi)
-        , ba(domain)
-        , dm(ba)
-        , mf(ba, dm, AmrLevelAdv::NUM_STATE, 0)
-        , prob_lo({ AMREX_D_DECL(0.0, 0.0, 0.0) })
-        , prob_hi({ AMREX_D_DECL(1.0, 1.0, 1.0) })
-        , real_box(AMREX_D_DECL(0.0, 0.0, 0.0), AMREX_D_DECL(1.0, 1.0, 1.0))
-        , geom(domain, &real_box)
-        , dx(geom.CellSizeArray())
     {
+    }
+
+    void setup(int ncells_)
+    {
+        ncells = ncells_;
+        dom_lo = amrex::IntVect(AMREX_D_DECL(0, 0, 0));
+        dom_hi = amrex::IntVect(AMREX_D_DECL(ncells - 1, ncells - 1, ncells - 1));
+        domain = amrex::Box(dom_lo, dom_hi);
+        ba = amrex::BoxArray(domain);
+        dm = amrex::DistributionMapping(ba);
+        mf.define(ba, dm, AmrLevelAdv::NUM_STATE, 0);
+        prob_lo = { AMREX_D_DECL(0.0, 0.0, 0.0) };
+        prob_hi = { AMREX_D_DECL(1.0, 1.0, 1.0) };
+        real_box = amrex::RealBox(AMREX_D_DECL(0.0, 0.0, 0.0), AMREX_D_DECL(1.0, 1.0, 1.0));
+        geom = amrex::Geometry(domain, &real_box);
+        dx = geom.CellSizeArray();
     }
 
     /**

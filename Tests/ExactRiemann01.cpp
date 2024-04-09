@@ -10,6 +10,7 @@ using namespace amrex;
 
 TEST_F(ToroTest1, ExactRiemann)
 {
+    setup(100);
     const amrex::Real adiabatic = 1.4;
     for (MFIter mfi(mf); mfi.isValid(); ++mfi)
     {
@@ -57,6 +58,7 @@ TEST_F(ToroTest1, ExactRiemann)
 
 TEST_F(ToroTest2, ExactRiemann)
 {
+    setup(100);
     const amrex::Real adiabatic = 1.4;
     for (MFIter mfi(mf); mfi.isValid(); ++mfi)
     {
@@ -95,6 +97,7 @@ TEST_F(ToroTest2, ExactRiemann)
 
 TEST_F(ToroTest3, ExactRiemann)
 {
+    setup(100);
     const amrex::Real adiabatic = 1.4;
     for (MFIter mfi(mf); mfi.isValid(); ++mfi)
     {
@@ -136,6 +139,7 @@ TEST_F(ToroTest3, ExactRiemann)
 
 TEST_F(ToroTest4, ExactRiemann)
 {
+    setup(100);
     const amrex::Real adiabatic = 1.4;
     for (MFIter mfi(mf); mfi.isValid(); ++mfi)
     {
@@ -174,6 +178,7 @@ TEST_F(ToroTest4, ExactRiemann)
 
 TEST_F(ToroTest5, ExactRiemann)
 {
+    setup(100);
     const amrex::Real adiabatic = 1.4;
     for (MFIter mfi(mf); mfi.isValid(); ++mfi)
     {

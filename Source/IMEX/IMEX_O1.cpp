@@ -117,46 +117,11 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
 
     // Calculate source vector (cannot be done in MFIter loop above because it
     // requires offset values for the explicitly updated momentum densities)
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-    {
-        for (MFIter mfi(MFb, TilingIfNotGPU()); mfi.isValid(); ++mfi)
-        {
-            const Box               &bx       = mfi.tilebox();
-            const Array4<Real>       b        = MFb.array(mfi);
-            const Array4<const Real> consv_ex = MFex.array(mfi);
-            const Array4<const Real> sh_cc    = MFscaledenth_cc.array(mfi);
-
-            Print() << std::endl << "b" << std::endl;
-            ParallelFor(
-                bx,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                {
-                    b(i, j, k)
-                        = epsilon
-                          * (consv_ex(i, j, k, 1 + AMREX_SPACEDIM)
-                             - kinetic_energy(i, j, k, consv_ex)
-                             - 0.5 * epsilon * dt
-                                   * (AMREX_D_TERM(
-                                       (sh_cc(i + 1, j, k)
-                                            * consv_ex(i + 1, j, k, 1)
-                                        - sh_cc(i - 1, j, k)
-                                              * consv_ex(i - 1, j, k, 1))
-                                           / dx[0],
-                                       +(sh_cc(i, j + 1, k)
-                                             * consv_ex(i, j + 1, k, 2)
-                                         - sh_cc(i, j - 1, k)
-                                               * consv_ex(i, j - 1, k, 2))
-                                           / dx[1],
-                                       +(sh_cc(i, j, k + 1)
-                                             * consv_ex(i, j, k + 1, 3)
-                                         - sh_cc(i, j, k - 1)
-                                               * consv_ex(i, j, k - 1, 3))
-                                           / dx[2])));
-                });
-        }
-    }
+    AMREX_D_TERM(const Real hedtdx = 0.5 * epsilon * dt / dx[0];
+                 , const Real hedtdy = 0.5 * epsilon * dt / dx[1];
+                 , const Real hedtdz = 0.5 * epsilon * dt / dx[2];)
+    pressure_source_vector(MFex, MFscaledenth_cc, MFb,
+                           AMREX_D_DECL(hedtdx, hedtdy, hedtdz));
 
     // An operator representing an equation of the form
     // (A * alpha(x) - B div (beta(x) grad)) * phi = f
@@ -275,12 +240,178 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
     BL_PROFILE_VAR_STOP(ppressure);
     BL_PROFILE_VAR("advance_o1_pimex() updating", pupdate);
 
-    // TODO: USE AMREX BUILT-INS getGradSolution AND getFluxes
+    update_ex_from_pressure(time, geom, MFpressure, MFex, MFscaledenth_cc,
+                            stateout, fluxes, dt);
 
+    BL_PROFILE_VAR_STOP(pupdate);
+}
+
+AMREX_GPU_HOST
+void advance_rusanov_adv(const amrex::Real /*time*/, const amrex::Box &bx,
+                         amrex::GpuArray<amrex::Box, AMREX_SPACEDIM> nbx,
+                         const amrex::FArrayBox                     &statein,
+                         amrex::FArrayBox                           &stateout,
+                         AMREX_D_DECL(amrex::FArrayBox &fx,
+                                      amrex::FArrayBox &fy,
+                                      amrex::FArrayBox &fz),
+                         amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx,
+                         const amrex::Real                            dt)
+{
+    const int     NSTATE  = AmrLevelAdv::NUM_STATE;
+    constexpr int STENSIL = 1;
+    const Box     gbx     = amrex::grow(bx, STENSIL);
+    // Temporary fab
+    FArrayBox tmpfab;
+    const int ntmpcomps = 2 * NSTATE * AMREX_SPACEDIM;
+    // Using the Async Arena stops temporary fab from having its destructor
+    // called too early. It is equivalent on old versions of CUDA to using
+    // Elixir
+    tmpfab.resize(gbx, ntmpcomps, The_Async_Arena());
+
+    GpuArray<Array4<Real>, AMREX_SPACEDIM> adv_fluxes{ AMREX_D_DECL(
+        tmpfab.array(0, NSTATE), tmpfab.array(NSTATE, NSTATE),
+        tmpfab.array(NSTATE * 2, NSTATE)) };
+
+    // Temporary fluxes. Need to be declared here instead of using passed
+    // fluxes as otherwise we will get a race condition
+    GpuArray<Array4<Real>, AMREX_SPACEDIM> tfluxes{ AMREX_D_DECL(
+        tmpfab.array(NSTATE * 3, NSTATE), tmpfab.array(NSTATE * 4, NSTATE),
+        tmpfab.array(NSTATE * 5, NSTATE)) };
+
+    // Const version of above temporary fluxes
+    GpuArray<Array4<const Real>, AMREX_SPACEDIM> tfluxes_c{ AMREX_D_DECL(
+        tfluxes[0], tfluxes[1], tfluxes[2]) };
+
+    Array4<const Real> consv_in  = statein.array();
+    Array4<Real>       consv_out = stateout.array();
+
+    GpuArray<Array4<Real>, AMREX_SPACEDIM> fluxes{ AMREX_D_DECL(
+        fx.array(), fy.array(), fz.array()) };
+
+    // Compute physical fluxes
+    ParallelFor(gbx,
+                [=] AMREX_GPU_DEVICE(int i, int j, int k)
+                {
+                    AMREX_D_TERM(
+                        adv_flux<0>(i, j, k, consv_in, adv_fluxes[0]);
+                        , adv_flux<1>(i, j, k, consv_in, adv_fluxes[1]);
+                        , adv_flux<2>(i, j, k, consv_in, adv_fluxes[2]);)
+                });
+
+    // Compute Rusanov fluxes
+    for (int d = 0; d < AMREX_SPACEDIM; d++)
+    {
+        const int i_off = (d == 0) ? 1 : 0;
+        const int j_off = (d == 1) ? 1 : 0;
+        const int k_off = (d == 2) ? 1 : 0;
+        ParallelFor(
+            amrex::surroundingNodes(bx, d), NSTATE,
+            [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
+            {
+                const Real u_max = amrex::max(
+                    consv_in(i, j, k, 1 + d) / consv_in(i, j, k, 0),
+                    consv_in(i - i_off, j - j_off, k - k_off, 1 + d)
+                        / consv_in(i - i_off, j - j_off, k - k_off, 0));
+                tfluxes[d](i, j, k, n)
+                    = 0.5
+                      * ((adv_fluxes[d](i, j, k, n)
+                          + adv_fluxes[d](i - i_off, j - j_off, k - k_off, n))
+                         - u_max
+                               * (consv_in(i, j, k, n)
+                                  - consv_in(i - i_off, j - j_off, k - k_off,
+                                             n)));
+            });
+    }
+
+    // Conservative update
+    AMREX_D_TERM(const Real dtdx = dt / dx[0];, const Real dtdy = dt / dx[1];
+                 , const Real                              dtdz = dt / dx[2];)
+    ParallelFor(bx, NSTATE,
+                [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
+                {
+                    consv_out(i, j, k, n)
+                        = consv_in(i, j, k, n)
+                          - AMREX_D_TERM(dtdx
+                                             * (tfluxes[0](i + 1, j, k, n)
+                                                - tfluxes[0](i, j, k, n)),
+                                         +dtdy
+                                             * (tfluxes[1](i, j + 1, k, n)
+                                                - tfluxes[1](i, j, k, n)),
+                                         +dtdz
+                                             * (tfluxes[2](i, j, k + 1, n)
+                                                - tfluxes[2](i, j, k, n)));
+                });
+
+    // Copy temporary fluxes onto potentially smaller nodal tile
+    for (int d = 0; d < AMREX_SPACEDIM; d++)
+        ParallelFor(nbx[d], NSTATE,
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
+                    { fluxes[d](i, j, k, n) = tfluxes_c[d](i, j, k, n); });
+}
+
+AMREX_GPU_HOST
+void pressure_source_vector(
+    const amrex::MultiFab &MFex, const amrex::MultiFab &MFscaledenth_cc,
+    amrex::MultiFab &dst,
+    AMREX_D_DECL(amrex::Real hedtdx, amrex::Real hedtdy, amrex::Real hedtdz))
+{
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    {
+        const Real epsilon = AmrLevelAdv::d_prob_parm->epsilon;
+
+        for (MFIter mfi(dst, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
+            const Box               &bx       = mfi.tilebox();
+            const Array4<Real>       b        = dst.array(mfi);
+            const Array4<const Real> consv_ex = MFex.array(mfi);
+            const Array4<const Real> sh_cc    = MFscaledenth_cc.array(mfi);
+
+            ParallelFor(
+                bx,
+                [=] AMREX_GPU_DEVICE(int i, int j, int k)
+                {
+                    b(i, j, k)
+                        = epsilon
+                          * (consv_ex(i, j, k, 1 + AMREX_SPACEDIM)
+                             - kinetic_energy(i, j, k, consv_ex)
+                             - (AMREX_D_TERM(
+                                 hedtdx
+                                     * (sh_cc(i + 1, j, k)
+                                            * consv_ex(i + 1, j, k, 1)
+                                        - sh_cc(i - 1, j, k)
+                                              * consv_ex(i - 1, j, k, 1)),
+                                 +hedtdy
+                                     * (sh_cc(i, j + 1, k)
+                                            * consv_ex(i, j + 1, k, 2)
+                                        - sh_cc(i, j - 1, k)
+                                              * consv_ex(i, j - 1, k, 2)),
+                                 +hedtdz
+                                     * (sh_cc(i, j, k + 1)
+                                            * consv_ex(i, j, k + 1, 3)
+                                        - sh_cc(i, j, k - 1)
+                                              * consv_ex(i, j, k - 1, 3)))));
+                });
+        }
+    }
+}
+
+AMREX_GPU_HOST
+void update_ex_from_pressure(
+    amrex::Real time, const amrex::Geometry &geom,
+    const amrex::MultiFab &MFpressure, amrex::MultiFab &MFex,
+    amrex::MultiFab &MFscaledenth_cc, amrex::MultiFab &stateout,
+    amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes, amrex::Real dt)
+{
     // 1: Update the momentum densities in MFex to be the final momentum
     // densities, and update the scaled enthalpies
     // 2: Use the density and momentum densities in MFex to calculate the
     // final fluxes and final state
+
+    const Real  adia    = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Real  epsilon = AmrLevelAdv::h_prob_parm->epsilon;
+    const auto &dx      = geom.CellSizeArray();
 
     // 1
 #ifdef AMREX_USE_OMP
@@ -399,111 +530,6 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
                                   + sh_cc(i, j, k - 1) * ex(i, j, k - 1, 3));
                     }));
         });
-
-    BL_PROFILE_VAR_STOP(pupdate);
-}
-
-AMREX_GPU_HOST
-void advance_rusanov_adv(const amrex::Real /*time*/, const amrex::Box &bx,
-                         amrex::GpuArray<amrex::Box, AMREX_SPACEDIM> nbx,
-                         const amrex::FArrayBox                     &statein,
-                         amrex::FArrayBox                           &stateout,
-                         AMREX_D_DECL(amrex::FArrayBox &fx,
-                                      amrex::FArrayBox &fy,
-                                      amrex::FArrayBox &fz),
-                         amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx,
-                         const amrex::Real                            dt)
-{
-    const int     NSTATE  = AmrLevelAdv::NUM_STATE;
-    constexpr int STENSIL = 1;
-    const Box     gbx     = amrex::grow(bx, STENSIL);
-    // Temporary fab
-    FArrayBox tmpfab;
-    const int ntmpcomps = 2 * NSTATE * AMREX_SPACEDIM;
-    // Using the Async Arena stops temporary fab from having its destructor
-    // called too early. It is equivalent on old versions of CUDA to using
-    // Elixir
-    tmpfab.resize(gbx, ntmpcomps, The_Async_Arena());
-
-    GpuArray<Array4<Real>, AMREX_SPACEDIM> adv_fluxes{ AMREX_D_DECL(
-        tmpfab.array(0, NSTATE), tmpfab.array(NSTATE, NSTATE),
-        tmpfab.array(NSTATE * 2, NSTATE)) };
-
-    // Temporary fluxes. Need to be declared here instead of using passed
-    // fluxes as otherwise we will get a race condition
-    GpuArray<Array4<Real>, AMREX_SPACEDIM> tfluxes{ AMREX_D_DECL(
-        tmpfab.array(NSTATE * 3, NSTATE), tmpfab.array(NSTATE * 4, NSTATE),
-        tmpfab.array(NSTATE * 5, NSTATE)) };
-
-    // Const version of above temporary fluxes
-    GpuArray<Array4<const Real>, AMREX_SPACEDIM> tfluxes_c{ AMREX_D_DECL(
-        tfluxes[0], tfluxes[1], tfluxes[2]) };
-
-    Array4<const Real> consv_in  = statein.array();
-    Array4<Real>       consv_out = stateout.array();
-
-    GpuArray<Array4<Real>, AMREX_SPACEDIM> fluxes{ AMREX_D_DECL(
-        fx.array(), fy.array(), fz.array()) };
-
-    // Compute physical fluxes
-    ParallelFor(gbx,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                {
-                    AMREX_D_TERM(
-                        adv_flux<0>(i, j, k, consv_in, adv_fluxes[0]);
-                        , adv_flux<1>(i, j, k, consv_in, adv_fluxes[1]);
-                        , adv_flux<2>(i, j, k, consv_in, adv_fluxes[2]);)
-                });
-
-    // Compute Rusanov fluxes
-    for (int d = 0; d < AMREX_SPACEDIM; d++)
-    {
-        const int i_off = (d == 0) ? 1 : 0;
-        const int j_off = (d == 1) ? 1 : 0;
-        const int k_off = (d == 2) ? 1 : 0;
-        ParallelFor(
-            amrex::surroundingNodes(bx, d), NSTATE,
-            [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-            {
-                const Real u_max = amrex::max(
-                    consv_in(i, j, k, 1 + d) / consv_in(i, j, k, 0),
-                    consv_in(i - i_off, j - j_off, k - k_off, 1 + d)
-                        / consv_in(i - i_off, j - j_off, k - k_off, 0));
-                tfluxes[d](i, j, k, n)
-                    = 0.5
-                      * ((adv_fluxes[d](i, j, k, n)
-                          + adv_fluxes[d](i - i_off, j - j_off, k - k_off, n))
-                         - u_max
-                               * (consv_in(i, j, k, n)
-                                  - consv_in(i - i_off, j - j_off, k - k_off,
-                                             n)));
-            });
-    }
-
-    // Conservative update
-    AMREX_D_TERM(const Real dtdx = dt / dx[0];, const Real dtdy = dt / dx[1];
-                 , const Real                              dtdz = dt / dx[2];)
-    ParallelFor(bx, NSTATE,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-                {
-                    consv_out(i, j, k, n)
-                        = consv_in(i, j, k, n)
-                          - AMREX_D_TERM(dtdx
-                                             * (tfluxes[0](i + 1, j, k, n)
-                                                - tfluxes[0](i, j, k, n)),
-                                         +dtdy
-                                             * (tfluxes[1](i, j + 1, k, n)
-                                                - tfluxes[1](i, j, k, n)),
-                                         +dtdz
-                                             * (tfluxes[2](i, j, k + 1, n)
-                                                - tfluxes[2](i, j, k, n)));
-                });
-
-    // Copy temporary fluxes onto potentially smaller nodal tile
-    for (int d = 0; d < AMREX_SPACEDIM; d++)
-        ParallelFor(nbx[d], NSTATE,
-                    [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-                    { fluxes[d](i, j, k, n) = tfluxes_c[d](i, j, k, n); });
 }
 
 AMREX_GPU_HOST

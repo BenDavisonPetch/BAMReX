@@ -7,9 +7,11 @@
 #include <AMReX_SPACE.H>
 
 // Define the struct to contain problem-specific variables here.
+// Initialised by Adv_prob.cpp
 struct ProbParm
 {
     amrex::Real  adiabatic;
+    amrex::Real  epsilon;
     Limiter limiter = minbee_limiter;
     unsigned int limiter_indices[EULER_NCOMP]{
         1 + AMREX_SPACEDIM,

@@ -1,7 +1,6 @@
 # Exec/RiemannProblem2D/CMakeLists.txt
 
 set(RIEMANN_PROBLEM_2D_SRC ${SRC}
-                         Adv_prob.cpp
                          Prob.cpp)
 
 include_directories(.
