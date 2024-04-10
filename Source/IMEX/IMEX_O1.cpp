@@ -6,6 +6,7 @@
 #include <AMReX_BCUtil.H>
 #include <AMReX_BC_TYPES.H>
 #include <AMReX_Box.H>
+#include <AMReX_GpuLaunchFunctsC.H>
 #include <AMReX_MLABecLaplacian.H>
 #include <AMReX_MLMG.H>
 
@@ -31,6 +32,10 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
 
     // Define temporary MultiFabs
     BL_PROFILE_VAR("advance_o1_pimex() allocation", palloc);
+
+    // MFex, MFpressure, and MFscaledenth_cc have ghost cells
+    // MFex and MFscaledenth_cc have 1 set of ghost cells,
+    // MFpressure has 2
 
     const int                       NSTATE = AmrLevelAdv::NUM_STATE;
     MultiFab                        MFex, MFpressure, MFb, MFscaledenth_cc;
@@ -94,12 +99,17 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
                                 = specific_enthalpy(i, j, k, consv_ex_arr)
                                   / consv_ex_arr(i, j, k, 0);
 
+                            // explicitly updated values only exist on a box
+                            // grown by 1, so we will need to use
+                            // MultiFab::FillBoundary and FillDomainBoundary to
+                            // fill the second layer of ghost cells
                             p(i, j, k) = pressure(i, j, k, consv_ex_arr);
                         });
         });
 
     // Fill boundary cells for pressure
     // TODO: check if this initialises pressure on course fine boundaries!
+    MFpressure.FillBoundary(geom.periodicity());
     FillDomainBoundary(MFpressure, geom,
                        { BCRec(AMREX_D_DECL(BCType::foextrap, BCType::foextrap,
                                             BCType::foextrap),
@@ -167,6 +177,7 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
     AMREX_ASSERT(!statein.contains_nan());
     AMREX_ASSERT(!MFb.contains_nan());
     AMREX_ASSERT(!MFscaledenth_f[0].contains_nan());
+    AMREX_ASSERT(!MFpressure.contains_nan());
 
     // TODO: use hypre here
     solver.solve({ &MFpressure }, { &MFb }, TOL_RES, TOL_ABS);
@@ -174,6 +185,7 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
     AMREX_ASSERT(!MFpressure.contains_nan());
 
     // TODO: fill course fine boundary cells for pressure!
+    MFpressure.FillBoundary(geom.periodicity());
     FillDomainBoundary(MFpressure, geom,
                        { BCRec(AMREX_D_DECL(BCType::foextrap, BCType::foextrap,
                                             BCType::foextrap),

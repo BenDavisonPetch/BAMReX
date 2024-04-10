@@ -14,6 +14,7 @@ using namespace amrex;
 #if AMREX_SPACEDIM == 3
 TEST_F(BoxTest, PressureSourceVector)
 {
+    setup(true);
     const Real epsilon = AmrLevelAdv::h_prob_parm->epsilon;
     const Real adia    = AmrLevelAdv::h_prob_parm->adiabatic;
     ASSERT_EQ(epsilon, 0.5);

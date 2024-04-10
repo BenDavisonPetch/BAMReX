@@ -18,38 +18,71 @@ include(GoogleTest)
 
 enable_testing()
 
-add_executable(root_finding RootFinding01.cpp ${SRC_NO_MAIN} test_main.cpp)
-target_include_directories(root_finding PRIVATE ${CMAKE_SOURCE_DIR}/Source)
-target_link_libraries(root_finding GTest::gtest)
-target_link_libraries(root_finding AMReX::amrex_1d)
-gtest_discover_tests(root_finding)
+add_executable(tests_1d
+  test_main.cpp
+  ${SRC_NO_MAIN}
+  RootFinding01.cpp
+  ExactRiemann01.cpp
+  RusanovAdv01.cpp
+)
 
-add_executable(exact_riemann ExactRiemann01.cpp ${SRC_NO_MAIN} test_main.cpp)
-target_include_directories(exact_riemann PRIVATE ${CMAKE_SOURCE_DIR}/Source)
-target_link_libraries(exact_riemann GTest::gtest)
-target_link_libraries(exact_riemann AMReX::amrex_1d)
-gtest_discover_tests(exact_riemann)
+add_executable(tests_2d
+  test_main.cpp
+  ${SRC_NO_MAIN}
+  IMEX_O1_01.cpp
+)
 
-add_executable(rusanov_adv_3d RusanovAdv01.cpp ${SRC_NO_MAIN} test_main.cpp)
-target_include_directories(rusanov_adv_3d PRIVATE ${CMAKE_SOURCE_DIR}/Source)
-target_link_libraries(rusanov_adv_3d GTest::gtest)
-target_link_libraries(rusanov_adv_3d AMReX::amrex_3d)
-gtest_discover_tests(rusanov_adv_3d)
+add_executable(tests_3d
+  test_main.cpp
+  ${SRC_NO_MAIN}
+  RusanovAdv01.cpp
+  PressureSourceVec01.cpp
+  IMEX_O1_01.cpp
+)
 
-add_executable(rusanov_adv_1d RusanovAdv01.cpp ${SRC_NO_MAIN} test_main.cpp)
-target_include_directories(rusanov_adv_1d PRIVATE ${CMAKE_SOURCE_DIR}/Source)
-target_link_libraries(rusanov_adv_1d GTest::gtest)
-target_link_libraries(rusanov_adv_1d AMReX::amrex_1d)
-gtest_discover_tests(rusanov_adv_1d)
+target_link_libraries(tests_1d GTest::gtest)
+target_link_libraries(tests_1d AMReX::amrex_1d)
+gtest_discover_tests(tests_1d)
 
-add_executable(pressure_source_3d PressureSourceVec01.cpp ${SRC_NO_MAIN} test_main.cpp)
-target_include_directories(pressure_source_3d PRIVATE ${CMAKE_SOURCE_DIR}/Source)
-target_link_libraries(pressure_source_3d GTest::gtest)
-target_link_libraries(pressure_source_3d AMReX::amrex_3d)
-gtest_discover_tests(pressure_source_3d)
+target_link_libraries(tests_2d GTest::gtest)
+target_link_libraries(tests_2d AMReX::amrex_2d)
+gtest_discover_tests(tests_2d)
 
-add_executable(imex_3d IMEX_O1_01.cpp ${SRC_NO_MAIN} test_main.cpp)
-target_include_directories(imex_3d PRIVATE ${CMAKE_SOURCE_DIR}/Source)
-target_link_libraries(imex_3d GTest::gtest)
-target_link_libraries(imex_3d AMReX::amrex_3d)
-gtest_discover_tests(imex_3d)
+target_link_libraries(tests_3d GTest::gtest)
+target_link_libraries(tests_3d AMReX::amrex_3d)
+gtest_discover_tests(tests_3d)
+
+# add_executable(root_finding RootFinding01.cpp test_main.cpp)
+# target_link_libraries(root_finding GTest::gtest)
+# target_link_libraries(root_finding AMReX::amrex_1d)
+# gtest_discover_tests(root_finding)
+
+# add_executable(exact_riemann ExactRiemann01.cpp test_main.cpp)
+# target_link_libraries(exact_riemann GTest::gtest)
+# target_link_libraries(exact_riemann AMReX::amrex_1d)
+# gtest_discover_tests(exact_riemann)
+
+# add_executable(rusanov_adv_3d RusanovAdv01.cpp test_main.cpp)
+# target_link_libraries(rusanov_adv_3d GTest::gtest)
+# target_link_libraries(rusanov_adv_3d testing_base_lib_3d)
+# gtest_discover_tests(rusanov_adv_3d)
+
+# add_executable(rusanov_adv_1d RusanovAdv01.cpp test_main.cpp)
+# target_link_libraries(rusanov_adv_1d GTest::gtest)
+# target_link_libraries(rusanov_adv_1d testing_base_lib_1d)
+# gtest_discover_tests(rusanov_adv_1d)
+
+# add_executable(pressure_source_3d PressureSourceVec01.cpp test_main.cpp)
+# target_link_libraries(pressure_source_3d GTest::gtest)
+# target_link_libraries(pressure_source_3d testing_base_lib_3d)
+# gtest_discover_tests(pressure_source_3d)
+
+# add_executable(imex_3d IMEX_O1_01.cpp test_main.cpp)
+# target_link_libraries(imex_3d GTest::gtest)
+# target_link_libraries(imex_3d testing_base_lib_3d)
+# gtest_discover_tests(imex_3d)
+
+# add_executable(imex_2d IMEX_O1_01.cpp test_main.cpp)
+# target_link_libraries(imex_2d GTest::gtest)
+# target_link_libraries(imex_2d testing_base_lib_2d)
+# gtest_discover_tests(imex_2d)
