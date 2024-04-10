@@ -1,14 +1,14 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 max_step = 1000000
-stop_time = 0.15
+stop_time = 0.3
 
 # PROBLEM-SPECIFIC PARAMETERS
 prob.adiabatic  = 1.4
 init.density_L  = 1.0
-init.velocity_L = -2.0
+init.velocity_L = 2.0
 init.pressure_L = 0.4
 init.density_R  = 1.0
-init.velocity_R = 2.0
+init.velocity_R = -2.0
 init.pressure_R = 0.4
 
 # LIMITER
@@ -50,7 +50,7 @@ amr.check_int               = 10    # number of timesteps between checkpoints
 amr.plot_files_output = 1      # 0 will disable plot files
 amr.plot_file         = plt    # root name of plot file
 amr.plot_int          = 10     # number of timesteps between plot files
-amr.plot_file = output/test2/100/plt
+amr.plot_file = output/test6/100/plt
 
 
 # TRACER PARTICLES
