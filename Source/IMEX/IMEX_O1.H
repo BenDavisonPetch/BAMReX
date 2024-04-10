@@ -1,9 +1,11 @@
 #ifndef IMEX_O1_H_
 #define IMEX_O1_H_
 
+#include <AMReX_BCRec.H>
 #include <AMReX_Box.H>
 #include <AMReX_FArrayBox.H>
 #include <AMReX_GpuQualifiers.H>
+#include <AMReX_MLABecLaplacian.H>
 
 /**
  * \brief Option 1 for AMR implementation of PIMEX scheme. Solves for one
@@ -19,6 +21,8 @@
  * \param stateout output state to write to
  * \param fluxes the (conservative) fluxes to write to
  * \param dt
+ * \param bcs A vector of BCRec objects, representing the domain boundaries
+ * on each component of the conservative variable vector
  * \param verbose
  * \param bottom_verbose
  */
@@ -29,7 +33,8 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
                       amrex::MultiFab                               &stateout,
                       amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
                       const amrex::MultiFab *crse_soln, const amrex::Real dt,
-                      int verbose, int bottom_verbose);
+                      const amrex::Vector<amrex::BCRec> &bcs, int verbose,
+                      int bottom_verbose);
 
 /**
  * \brief Advances using the Rusanov flux for the advection system and returns

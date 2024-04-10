@@ -2,6 +2,7 @@
 #define BoxTest_H_
 
 #include "UnitDomainTest.H"
+#include <AMReX_BC_TYPES.H>
 
 #if AMREX_SPACEDIM >= 2
 class BoxTest : public UnitDomainTest
@@ -23,6 +24,14 @@ class BoxTest : public UnitDomainTest
     const amrex::GpuArray<amrex::Real, EULER_NCOMP> consv_L{ 2, 2, -4, 8 };
     const amrex::GpuArray<amrex::Real, EULER_NCOMP> consv_R{ 1, -2, -1, 7.25 };
 #endif
+
+    const amrex::BCRec tbc = amrex::BCRec(
+        AMREX_D_DECL(amrex::BCType::foextrap, amrex::BCType::foextrap,
+                     amrex::BCType::foextrap),
+        AMREX_D_DECL(amrex::BCType::foextrap, amrex::BCType::foextrap,
+                     amrex::BCType::foextrap));
+    const amrex::Vector<amrex::BCRec> bcs{ tbc, AMREX_D_DECL(tbc, tbc, tbc),
+                                           tbc };
 
     amrex::MultiFab                               statein, stateout;
     amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> fluxes;

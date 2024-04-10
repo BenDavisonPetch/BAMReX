@@ -19,7 +19,7 @@ TEST_F(BoxTest, IMEX_O1_FluxMatching)
     const Real dt = 0.01;
     IntVect    crse_ratio{ AMREX_D_DECL(1, 1, 1) };
     advance_o1_pimex(0, crse_ratio, 0, geom, statein, stateout, fluxes,
-                     nullptr, dt, 1, 0);
+                     nullptr, dt, bcs, 1, 0);
 
     ASSERT_FALSE(stateout.contains_nan());
     ASSERT_FALSE(fluxes[0].contains_nan());
@@ -77,7 +77,7 @@ TEST_F(BoxTest, IMEX_O1_GridSplitting)
     // compute first without grid splitting
     setup(false);
     advance_o1_pimex(0, crse_ratio, 0, geom, statein, stateout, fluxes,
-                     nullptr, dt, 1, 0);
+                     nullptr, dt, bcs, 1, 0);
 
     BoxArray            ba1 = stateout.boxArray();
     DistributionMapping dm1 = stateout.DistributionMap();
@@ -87,7 +87,7 @@ TEST_F(BoxTest, IMEX_O1_GridSplitting)
     // compute with grid splitting
     setup(true);
     advance_o1_pimex(0, crse_ratio, 0, geom, statein, stateout, fluxes,
-                     nullptr, dt, 1, 0);
+                     nullptr, dt, bcs, 1, 0);
 
     // compare solutions
     MFIter::allowMultipleMFIters(true);

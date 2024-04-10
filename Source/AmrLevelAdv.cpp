@@ -457,8 +457,9 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, 0);
 
 #elif SCHEME == 1
-    advance_o1_pimex(level, crse_ratio, time, geom, Sborder, S_new, fluxes,
-                     nullptr, dt, verbose, verbose);
+    advance_o1_pimex(
+        level, crse_ratio, time, geom, Sborder, S_new, fluxes, nullptr, dt,
+        get_state_data(Phi_Type).descriptor()->getBCs(), verbose, verbose);
 #else
 #error "Invalid scheme!"
 #endif

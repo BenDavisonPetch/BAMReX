@@ -7,10 +7,17 @@
 #include <AMReX_BC_TYPES.H>
 #include <AMReX_Box.H>
 #include <AMReX_GpuLaunchFunctsC.H>
-#include <AMReX_MLABecLaplacian.H>
 #include <AMReX_MLMG.H>
 
 using namespace amrex;
+
+namespace details
+{
+AMREX_GPU_HOST
+void set_pressure_domain_BC(amrex::MLABecLaplacian            &pressure_op,
+                            const amrex::Geometry             &geom,
+                            const amrex::Vector<amrex::BCRec> &bcs);
+}
 
 AMREX_GPU_HOST
 void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
@@ -19,7 +26,8 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
                       amrex::MultiFab                               &stateout,
                       amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
                       const amrex::MultiFab *crse_soln, const amrex::Real dt,
-                      int verbose, int bottom_verbose)
+                      const amrex::Vector<amrex::BCRec> &bcs, int verbose,
+                      int bottom_verbose)
 {
     /**
      * This formulation follows Allegrini 2023 Order 1 AP L^2 scheme for
@@ -110,11 +118,7 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
     // Fill boundary cells for pressure
     // TODO: check if this initialises pressure on course fine boundaries!
     MFpressure.FillBoundary(geom.periodicity());
-    FillDomainBoundary(MFpressure, geom,
-                       { BCRec(AMREX_D_DECL(BCType::foextrap, BCType::foextrap,
-                                            BCType::foextrap),
-                               AMREX_D_DECL(BCType::foextrap, BCType::foextrap,
-                                            BCType::foextrap)) });
+    FillDomainBoundary(MFpressure, geom, { bcs[1 + AMREX_SPACEDIM] });
 
     BL_PROFILE_VAR_STOP(pexp);
     BL_PROFILE_VAR("advance_o1_pimex() assembly", passembly);
@@ -139,12 +143,7 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
                                 { stateout.DistributionMap() });
 
     // BCs
-    // TODO: remove hard coding of this
-    pressure_op.setDomainBC(
-        { AMREX_D_DECL(LinOpBCType::Neumann, LinOpBCType::Neumann,
-                       LinOpBCType::Neumann) },
-        { AMREX_D_DECL(LinOpBCType::Neumann, LinOpBCType::Neumann,
-                       LinOpBCType::Neumann) });
+    details::set_pressure_domain_BC(pressure_op, geom, bcs);
 
     if (level > 0)
         pressure_op.setCoarseFineBC(&crse_pressure, crse_ratio[0]);
@@ -186,11 +185,7 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
 
     // TODO: fill course fine boundary cells for pressure!
     MFpressure.FillBoundary(geom.periodicity());
-    FillDomainBoundary(MFpressure, geom,
-                       { BCRec(AMREX_D_DECL(BCType::foextrap, BCType::foextrap,
-                                            BCType::foextrap),
-                               AMREX_D_DECL(BCType::foextrap, BCType::foextrap,
-                                            BCType::foextrap)) });
+    FillDomainBoundary(MFpressure, geom, { bcs[1 + AMREX_SPACEDIM] });
 
 #ifdef DEBUG_PRINT
     Print() << std::endl << "exp quantities: " << std::endl;
@@ -565,3 +560,50 @@ void copy_pressure(const amrex::MultiFab &statesrc, amrex::MultiFab &dst)
         }
     }
 }
+
+namespace details
+{
+
+LinOpBCType linop_from_BCType(int bc)
+{
+    using namespace BCType;
+    switch (bc)
+    {
+    case (reflect_odd): return LinOpBCType::reflect_odd;
+    case (foextrap): return LinOpBCType::Neumann;
+    default:
+        Print() << "Invalid boundary type: " << bc
+                << ". Implemented for periodic, reflective and transmissive "
+                   "boundaries"
+                << std::endl;
+        Abort();
+        return LinOpBCType::bogus;
+    }
+}
+
+AMREX_GPU_HOST
+void set_pressure_domain_BC(amrex::MLABecLaplacian            &pressure_op,
+                            const amrex::Geometry             &geom,
+                            const amrex::Vector<amrex::BCRec> &bcs)
+{
+    AMREX_ASSERT(bcs.size() == EULER_NCOMP);
+    Array<LinOpBCType, AMREX_SPACEDIM> lobc, hibc;
+
+    for (int d = 0; d < AMREX_SPACEDIM; ++d)
+    {
+        if (geom.isPeriodic(d))
+        {
+            lobc[d] = LinOpBCType::Periodic;
+            hibc[d] = LinOpBCType::Periodic;
+        }
+        else
+        {
+            lobc[d] = linop_from_BCType(bcs[1 + AMREX_SPACEDIM].lo(d));
+            hibc[d] = linop_from_BCType(bcs[1 + AMREX_SPACEDIM].hi(d));
+        }
+    }
+
+    pressure_op.setDomainBC(lobc, hibc);
+}
+
+} // namespace details
