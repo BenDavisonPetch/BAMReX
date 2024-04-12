@@ -29,6 +29,15 @@ amrex::Real max_wave_speed(amrex::Real time, const amrex::MultiFab &S_new);
 AMREX_GPU_HOST
 amrex::Real max_speed(const amrex::MultiFab &state);
 
+/**
+ * \brief Calculates the maximum value of (u / dx + v / dy + w / dz) on the
+ * domain
+ */
+AMREX_GPU_HOST
+amrex::Real
+max_dx_scaled_speed(const amrex::MultiFab                              &state,
+                    const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &dx);
+
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
 amrex::GpuArray<amrex::Real, EULER_NCOMP>

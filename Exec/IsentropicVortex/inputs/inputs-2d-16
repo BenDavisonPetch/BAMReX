@@ -1,6 +1,6 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 max_step = 1000000
-stop_time = 2
+stop_time = 1
 
 # PROBLEM-SPECIFIC PARAMETERS
 prob.adiabatic  = 1.4
@@ -27,7 +27,7 @@ geometry.prob_hi     =  5.0  5.0  5.0
 amr.n_cell           =  16  16  16
 
 # TIME STEP CONTROL
-adv.cfl            = 0.45     # cfl number for hyperbolic system
+adv.cfl            = 0.9     # cfl number for hyperbolic system
 
 # VERBOSITY
 adv.v              = 0       # verbosity in Adv

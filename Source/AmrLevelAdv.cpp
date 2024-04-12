@@ -556,26 +556,15 @@ void AmrLevelAdv::fill_boundary(amrex::MultiFab &fab)
 //
 Real AmrLevelAdv::estTimeStep(Real)
 {
-    // This is just a dummy value to start with
-    Real dt_est = 1.0e+20;
-
     GpuArray<Real, BL_SPACEDIM> dx = geom.CellSizeArray();
     // GpuArray<Real, BL_SPACEDIM> prob_lo  = geom.ProbLoArray();
     const Real      cur_time = state[Phi_Type].curTime();
     const MultiFab &S_new    = get_new_data(Phi_Type);
 
+    // This is just a dummy value to start with
+    Real dt_est = 1.0e+20;
 #if SCHEME == 0
     Real wave_speed = max_wave_speed(cur_time, S_new);
-#elif SCHEME == 1
-    Real wave_speed;
-    if (cur_time < 1e-12)
-        wave_speed = max_wave_speed(cur_time, S_new);
-    else
-        wave_speed = max_speed(S_new);
-    amrex::ignore_unused(cur_time);
-#else
-#error "Haven't implemented time step for this scheme!"
-#endif
 
     if (verbose)
         Print() << "Maximum wave speed: " << wave_speed << std::endl;
@@ -584,6 +573,23 @@ Real AmrLevelAdv::estTimeStep(Real)
     {
         dt_est = std::min(dt_est, dx[d] / wave_speed);
     }
+
+#elif SCHEME == 1
+    Real wave_speed;
+    if (cur_time < 1e-12)
+    {
+        wave_speed = max_wave_speed(cur_time, S_new);
+        for (unsigned int d = 0; d < amrex::SpaceDim; ++d)
+        {
+            dt_est = std::min(dt_est, dx[d] / wave_speed);
+        }
+    }
+    else {
+        dt_est = 1 / max_dx_scaled_speed(S_new, dx);
+    }
+#else
+#error "Haven't implemented time step for this scheme!"
+#endif
 
     dt_est *= cfl;
 
