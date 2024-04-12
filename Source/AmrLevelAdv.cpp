@@ -23,7 +23,8 @@ using namespace amrex;
 int  AmrLevelAdv::verbose = 0;
 Real AmrLevelAdv::cfl
     = 0.9; // Default value - can be overwritten in settings file
-int AmrLevelAdv::do_reflux = 1;
+int  AmrLevelAdv::do_reflux                  = 1;
+Real AmrLevelAdv::acoustic_timestep_end_time = 0;
 
 const int AmrLevelAdv::NUM_STATE = 2 + AMREX_SPACEDIM; // Euler eqns
 const int AmrLevelAdv::NUM_GROW  = 2;                  // number of ghost cells
@@ -576,7 +577,7 @@ Real AmrLevelAdv::estTimeStep(Real)
 
 #elif SCHEME == 1
     Real wave_speed;
-    if (cur_time < 1e-12)
+    if (cur_time < acoustic_timestep_end_time)
     {
         wave_speed = max_wave_speed(cur_time, S_new);
         for (unsigned int d = 0; d < amrex::SpaceDim; ++d)
@@ -584,7 +585,8 @@ Real AmrLevelAdv::estTimeStep(Real)
             dt_est = std::min(dt_est, dx[d] / wave_speed);
         }
     }
-    else {
+    else
+    {
         dt_est = 1 / max_dx_scaled_speed(S_new, dx);
     }
 #else
@@ -906,6 +908,15 @@ void AmrLevelAdv::read_params()
     pp.query("v", verbose);
     pp.query("cfl", cfl);
     pp.query("do_reflux", do_reflux);
+
+    {
+        ParmParse pp2;
+        Real      stop_time;
+        pp2.get("stop_time", stop_time);
+        ParmParse pp3("imex");
+        acoustic_timestep_end_time = 0.1 * stop_time;
+        pp3.query("acoustic_timestep_end_time", acoustic_timestep_end_time);
+    }
 
     // Vector variables can be read in; these require e.g.\ pp.queryarr
     // and pp.getarr, so that the ParmParse object knows to look for

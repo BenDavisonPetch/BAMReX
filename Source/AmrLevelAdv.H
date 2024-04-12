@@ -108,7 +108,7 @@ class AmrLevelAdv : public amrex::AmrLevel
     /**
      * Fill boundary conditions for a MultiFab on this level
      */
-    void fill_boundary(amrex::MultiFab& fab);
+    void fill_boundary(amrex::MultiFab &fab);
 
     /**
      * Estimate time step.
@@ -237,6 +237,7 @@ class AmrLevelAdv : public amrex::AmrLevel
     static int         verbose;
     static amrex::Real cfl;
     static int         do_reflux;
+    static amrex::Real acoustic_timestep_end_time;
 
 #ifdef AMREX_PARTICLES
     void                                                      init_particles();
