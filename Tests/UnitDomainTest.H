@@ -49,8 +49,6 @@ class UnitDomainTest : public testing::Test
         dx       = geom.CellSizeArray();
 
         AmrLevelAdv::h_prob_parm = new ProbParm{};
-        AmrLevelAdv::d_prob_parm
-            = (ProbParm *)The_Arena()->alloc(sizeof(ProbParm));
         int  dummy     = 0;
         Real dummyreal = 0;
         amrex_probinit(&dummy, &dummy, &dummy, &dummyreal, &dummyreal);
@@ -59,8 +57,6 @@ class UnitDomainTest : public testing::Test
     void TearDown() override {
         delete AmrLevelAdv::h_prob_parm;
         AmrLevelAdv::h_prob_parm = nullptr;
-        amrex::The_Arena()->free(AmrLevelAdv::d_prob_parm);
-        AmrLevelAdv::d_prob_parm = nullptr;
     }
 
     /**

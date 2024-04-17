@@ -16,29 +16,23 @@
  * @param TOL Optional. The relative tolerance to use to check for convergence.
  * @returns unsigned int The number of iterations taken to converge.
  */
-AMREX_GPU_DEVICE
-AMREX_FORCE_INLINE
-unsigned int newton_raphson(amrex::Real                            &x,
-                            std::function<amrex::Real(amrex::Real)> f,
-                            std::function<amrex::Real(amrex::Real)> f_deriv,
-                            amrex::Real TOL = 1e-8);
+template <class F1, class F2>
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE unsigned int
+newton_raphson(amrex::Real &x, F1 &&f, F2 &&f_deriv, amrex::Real TOL = 1e-8);
 
 //
 // Implementations
 //
-AMREX_GPU_DEVICE
-AMREX_FORCE_INLINE
-unsigned int newton_raphson(amrex::Real                            &x,
-                            std::function<amrex::Real(amrex::Real)> f,
-                            std::function<amrex::Real(amrex::Real)> f_deriv,
-                            amrex::Real                             TOL)
+template <class F1, class F2>
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE unsigned int
+newton_raphson(amrex::Real &x, F1 &&f, F2 &&f_deriv, amrex::Real TOL)
 {
     unsigned int num_iter = 0;
     amrex::Real  x_prev;
     do {
         num_iter++;
         x_prev = x;
-        x = x_prev - f(x_prev) / f_deriv(x_prev);
+        x      = x_prev - f(x_prev) / f_deriv(x_prev);
     } while (std::fabs(x - x_prev) >= TOL * std::fabs(x_prev));
 
     return num_iter;

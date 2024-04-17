@@ -10,6 +10,11 @@ include_directories(.
 add_executable(isen_2d ${ISENTROPIC_VORTEX_SRC})
 add_executable(isen_3d ${ISENTROPIC_VORTEX_SRC})
 
+if (AMReX_GPU_BACKEND STREQUAL "CUDA")
+    setup_target_for_cuda_compilation(isen_2d)
+    setup_target_for_cuda_compilation(isen_3d)
+endif()
+
 target_link_libraries(isen_2d AMReX::amrex_2d)
 target_link_libraries(isen_3d AMReX::amrex_3d)
 

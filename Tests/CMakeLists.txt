@@ -40,6 +40,12 @@ add_executable(tests_3d
   IMEX_O1_01.cpp
 )
 
+if (AMReX_GPU_BACKEND STREQUAL "CUDA")
+    setup_target_for_cuda_compilation(tests_1d)
+    setup_target_for_cuda_compilation(tests_2d)
+    setup_target_for_cuda_compilation(tests_3d)
+endif()
+
 target_link_libraries(tests_1d GTest::gtest)
 target_link_libraries(tests_1d AMReX::amrex_1d)
 gtest_discover_tests(tests_1d)

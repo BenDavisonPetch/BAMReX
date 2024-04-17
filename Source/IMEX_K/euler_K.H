@@ -11,7 +11,7 @@ amrex::Real kinetic_energy(int i, int j, int k,
                            const amrex::Array4<const amrex::Real> &consv_in)
 {
     using namespace amrex;
-    const Real epsilon = AmrLevelAdv::d_prob_parm->epsilon;
+    const Real epsilon = d_prob_parm.epsilon;
     return epsilon
            * (AMREX_D_TERM(consv_in(i, j, k, 1) * consv_in(i, j, k, 1),
                            +consv_in(i, j, k, 2) * consv_in(i, j, k, 2),
@@ -25,7 +25,7 @@ amrex::Real pressure(int i, int j, int k,
                            const amrex::Array4<const amrex::Real> &consv_in)
 {
     using namespace amrex;
-    const Real adia = AmrLevelAdv::d_prob_parm->adiabatic;
+    const Real adia = d_prob_parm.adiabatic;
     return (adia - 1) * (consv_in(i,j,k,1+AMREX_SPACEDIM) - kinetic_energy(i,j,k,consv_in));
 }
 
@@ -38,7 +38,7 @@ amrex::Real specific_enthalpy(int i, int j, int k,
                            const amrex::Array4<const amrex::Real> &consv_in)
 {
     using namespace amrex;
-    const Real adia = AmrLevelAdv::d_prob_parm->adiabatic;
+    const Real adia = d_prob_parm.adiabatic;
     return adia * (consv_in(i,j,k,1+AMREX_SPACEDIM) - kinetic_energy(i,j,k,consv_in));
 }
 

@@ -9,6 +9,10 @@ include_directories(.
 
 add_executable(riemann_prob_2d ${RIEMANN_PROBLEM_2D_SRC})
 
+if (AMReX_GPU_BACKEND STREQUAL "CUDA")
+    setup_target_for_cuda_compilation(riemann_prob_2d)
+endif()
+
 target_link_libraries(riemann_prob_2d AMReX::amrex_2d)
 
 add_custom_target(run_rp2d

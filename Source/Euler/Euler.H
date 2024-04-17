@@ -38,26 +38,26 @@ amrex::Real
 max_dx_scaled_speed(const amrex::MultiFab                              &state,
                     const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &dx);
 
-AMREX_GPU_DEVICE
+AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 amrex::GpuArray<amrex::Real, EULER_NCOMP>
 consv_from_primv(const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_vals,
                  const amrex::Real                                adiabatic);
 
-AMREX_GPU_DEVICE
+AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 amrex::GpuArray<amrex::Real, EULER_NCOMP>
 primv_from_consv(const amrex::Array4<const amrex::Real> &consv_values,
                  const amrex::Real adiabatic, const int i, const int j,
                  const int k);
 
-AMREX_GPU_DEVICE
+AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 amrex::GpuArray<amrex::Real, EULER_NCOMP>
 euler_flux(const int dir, const amrex::Array4<const amrex::Real> &consv_values,
            const amrex::Real adiabatic, const int i, const int j, const int k);
 
-AMREX_GPU_DEVICE
+AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real
 sound_speed(const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_values,
@@ -71,7 +71,7 @@ sound_speed(const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_values,
  *  \Delta u = u_R - u_L
  * \f]
  */
-AMREX_GPU_DEVICE
+AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function(
     const int dir, const amrex::Real pressure,
@@ -87,7 +87,7 @@ amrex::Real euler_riemann_function(
  *  \Delta u = u_R - u_L
  * \f]
  */
-AMREX_GPU_DEVICE
+AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function_one_side(
     const amrex::Real                                pressure,
@@ -101,7 +101,7 @@ amrex::Real euler_riemann_function_one_side(
  *  f'(p, \bm{Q}_L, \bm{Q}_R) = f'_L(p, \bm{Q}_L) + f'_R(p, \bm{Q}_R)
  * \f]
  */
-AMREX_GPU_DEVICE
+AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function_deriv(
     const amrex::Real                                pressure,
@@ -114,7 +114,7 @@ amrex::Real euler_riemann_function_deriv(
  * the Riemann problem equation \f[ f(p, \bm{Q}_L, \bm{Q}_R) = f_L(p, \bm{Q}_L)
  * + f_R(p, \bm{Q}_R) + \Delta u \Delta u = u_R - u_L \f]
  */
-AMREX_GPU_DEVICE
+AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function_one_side_deriv(
     const amrex::Real                                pressure,
@@ -125,7 +125,7 @@ amrex::Real euler_riemann_function_one_side_deriv(
 // Implementations
 //
 
-AMREX_GPU_DEVICE
+AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 amrex::GpuArray<amrex::Real, EULER_NCOMP>
 consv_from_primv(const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_vals,
@@ -154,7 +154,7 @@ consv_from_primv(const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_vals,
     return consv_vals;
 }
 
-AMREX_GPU_DEVICE
+AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 amrex::GpuArray<amrex::Real, EULER_NCOMP>
 primv_from_consv(const amrex::Array4<const amrex::Real> &consv_values,
@@ -187,7 +187,7 @@ primv_from_consv(const amrex::Array4<const amrex::Real> &consv_values,
     return primv_values;
 }
 
-AMREX_GPU_DEVICE
+AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 amrex::GpuArray<amrex::Real, EULER_NCOMP>
 euler_flux(const int dir, const amrex::Array4<const amrex::Real> &consv_values,
@@ -221,7 +221,7 @@ euler_flux(const int dir, const amrex::Array4<const amrex::Real> &consv_values,
     return euler_flux;
 }
 
-AMREX_GPU_DEVICE
+AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real
 sound_speed(const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_values,
@@ -231,7 +231,7 @@ sound_speed(const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_values,
                      / primv_values[0]);
 }
 
-AMREX_GPU_DEVICE
+AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function(
     const int dir, const amrex::Real pressure,
@@ -244,7 +244,7 @@ amrex::Real euler_riemann_function(
            + primv_R[1 + dir] - primv_L[1 + dir];
 }
 
-AMREX_GPU_DEVICE
+AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function_one_side(
     const amrex::Real                                pressure,
@@ -270,7 +270,7 @@ amrex::Real euler_riemann_function_one_side(
     }
 }
 
-AMREX_GPU_DEVICE
+AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function_deriv(
     const amrex::Real                                pressure,
@@ -284,7 +284,7 @@ amrex::Real euler_riemann_function_deriv(
                                                    adiabatic_R);
 }
 
-AMREX_GPU_DEVICE
+AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 amrex::Real euler_riemann_function_one_side_deriv(
     const amrex::Real                                pressure,

@@ -178,7 +178,7 @@ class AmrLevelAdv : public amrex::AmrLevel
 
     // ProbParm class instances
     static ProbParm *h_prob_parm;
-    static ProbParm *d_prob_parm;
+    // static ProbParm *d_prob_parm;
 
     // Variables for error tagging
     static int                        max_phierr_lev;

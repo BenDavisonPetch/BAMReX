@@ -1,0 +1,17 @@
+CompileFlags:
+  Add:
+    - --cuda-path=/usr/local/cuda-12.3
+    - -L/usr/local/cuda-12.3/lib64
+    - -I/usr/local/cuda-12.3/include
+  Remove:
+    - -forward-unknown-to-host-compiler
+    - --generate-code*
+    - --extended-lambda
+    - --expt-extended-lambda
+    - --diag_suppress*
+    - --display_error_number
+    - --Wext-lambda-captures-this
+    - --use_fast_math
+    - -maxrregcount*
+    - -rdc=true
+    - --expt-relaxed-constexpr

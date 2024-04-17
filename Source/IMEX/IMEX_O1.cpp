@@ -6,7 +6,6 @@
 #include <AMReX_BCUtil.H>
 #include <AMReX_BC_TYPES.H>
 #include <AMReX_Box.H>
-#include <AMReX_GpuLaunchFunctsC.H>
 #include <AMReX_MLMG.H>
 
 using namespace amrex;
@@ -35,7 +34,7 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
      */
     AMREX_ASSERT(statein.nGrow() >= 2);
 #ifdef AMREX_USE_GPU
-    AMREX_ASSERT(fluxes[0].nGrow() >= 1);
+    // AMREX_ASSERT(fluxes[0].nGrow() >= 1);
 #endif
 
     // Define temporary MultiFabs
@@ -369,7 +368,7 @@ void pressure_source_vector(
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     {
-        const Real epsilon = AmrLevelAdv::d_prob_parm->epsilon;
+        const Real epsilon = AmrLevelAdv::h_prob_parm->epsilon;
 
         for (MFIter mfi(dst, TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {

@@ -46,38 +46,24 @@ void compute_flux_function(
 AMREX_GPU_HOST
 amrex::Real max_wave_speed(amrex::Real /*time*/, const amrex::MultiFab &S_new)
 {
-    const Real adiabatic  = AmrLevelAdv::d_prob_parm->adiabatic;
-    Real       wave_speed = 0;
+    const Real adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
 
-    for (MFIter mfi(S_new, true); mfi.isValid(); ++mfi)
-    {
-        const Box  &bx  = mfi.tilebox();
-        const auto &arr = S_new.array(mfi);
-
-#ifdef AMREX_USE_GPU
-#error "Not GPU safe!"
-#endif
-
-        ParallelFor(bx,
-                    [=, &wave_speed] AMREX_GPU_DEVICE(int i, int j, int k)
-                    {
-                        const auto primv_arr
-                            = primv_from_consv(arr, adiabatic, i, j, k);
-                        const Real velocity = std::sqrt(
-                            AMREX_D_TERM(primv_arr[1] * primv_arr[1],
-                                         +primv_arr[2] * primv_arr[2],
-                                         +primv_arr[3] * primv_arr[3]));
-                        wave_speed = std::max(
-                            wave_speed,
-                            std::sqrt(adiabatic * primv_arr[1 + AMREX_SPACEDIM]
-                                      / primv_arr[0])
-                                + velocity);
-                    });
-    }
-
-    ParallelDescriptor::ReduceRealMax(wave_speed);
-
-    return wave_speed;
+    auto const &ma = S_new.const_arrays();
+    return ParReduce(
+        TypeList<ReduceOpMax>{}, TypeList<Real>{}, S_new,
+        IntVect(0), // no ghost cells
+        [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k)
+            noexcept -> GpuTuple<Real>
+        {
+            const Array4<const Real> &consv = ma[box_no];
+            const auto primv_arr = primv_from_consv(consv, adiabatic, i, j, k);
+            const Real velocity  = std::sqrt(AMREX_D_TERM(
+                 primv_arr[1] * primv_arr[1], +primv_arr[2] * primv_arr[2],
+                 +primv_arr[3] * primv_arr[3]));
+            return sqrt(adiabatic * primv_arr[1 + AMREX_SPACEDIM]
+                        / primv_arr[0])
+                   + velocity;
+        });
 }
 
 AMREX_GPU_HOST

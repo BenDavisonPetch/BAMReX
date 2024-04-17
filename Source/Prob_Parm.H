@@ -5,7 +5,8 @@
 #include "Fluxes/Limiters.H"
 #include <AMReX_Array.H>
 #include <AMReX_REAL.H>
-#include <AMReX_SPACE.H>
+
+using namespace amrex::literals;
 
 // Define the struct to contain problem-specific variables here.
 // Initialised by Adv_prob.cpp
@@ -13,13 +14,10 @@ struct ProbParm
 {
     amrex::Real  adiabatic;
     amrex::Real  epsilon;
-    Limiter limiter = minbee_limiter;
-    amrex::GpuArray<unsigned int, EULER_NCOMP> limiter_indices{
-        1 + AMREX_SPACEDIM,
-        AMREX_D_DECL(1 + AMREX_SPACEDIM, 1 + AMREX_SPACEDIM,
-                     1 + AMREX_SPACEDIM),
-        1 + AMREX_SPACEDIM
-    };
+    Limiter limiter;
+    amrex::GpuArray<unsigned int, EULER_NCOMP> limiter_indices;
 };
+
+extern AMREX_GPU_CONSTANT ProbParm d_prob_parm;
 
 #endif

@@ -3,6 +3,10 @@
 #include <AMReX_REAL.H>
 
 #include "AmrLevelAdv.H"
+#include "Fluxes/Limiters.H"
+#include "GPU/CopyToSymbol.H"
+
+AMREX_GPU_CONSTANT ProbParm d_prob_parm;
 
 unsigned int var_name_to_idx(const std::string &var_name)
 {
@@ -21,6 +25,16 @@ unsigned int var_name_to_idx(const std::string &var_name)
     return 0;
 }
 
+AMREX_GPU_HOST
+void set_h_prob_parm_defaults()
+{
+    AmrLevelAdv::h_prob_parm->adiabatic = -1; // must set adiabatic
+    AmrLevelAdv::h_prob_parm->epsilon   = 1;
+    AmrLevelAdv::h_prob_parm->limiter   = van_leer_limiter;
+    for (int i = 0; i < EULER_NCOMP; ++i)
+        AmrLevelAdv::h_prob_parm->limiter_indices[i] = 1 + AMREX_SPACEDIM;
+}
+
 extern "C"
 {
     void amrex_probinit(const int * /*init*/, const int * /*name*/,
@@ -28,15 +42,16 @@ extern "C"
                         const amrex::Real * /*problo*/,
                         const amrex::Real * /*probhi*/)
     {
+        set_h_prob_parm_defaults();
         {
             // Read the prob block from the input file using ParmParse
             amrex::ParmParse pp("prob");
             amrex::Real      adiabatic = 1.4;
-            amrex::Real epsilon = 1;
+            amrex::Real      epsilon   = 1;
             pp.get("adiabatic", adiabatic);
             pp.query("epsilon", epsilon);
             AmrLevelAdv::h_prob_parm->adiabatic = adiabatic;
-            AmrLevelAdv::h_prob_parm->epsilon = epsilon;
+            AmrLevelAdv::h_prob_parm->epsilon   = epsilon;
         }
         {
             // Read the limiter block from the input file
@@ -65,8 +80,10 @@ extern "C"
         }
 
         // Transfer the problem-specific data to the GPU
-        amrex::Gpu::copy(amrex::Gpu::hostToDevice, AmrLevelAdv::h_prob_parm,
-                         AmrLevelAdv::h_prob_parm + 1,
-                         AmrLevelAdv::d_prob_parm);
+        // amrex::Gpu::copy(amrex::Gpu::hostToDevice, AmrLevelAdv::h_prob_parm,
+        //                  AmrLevelAdv::h_prob_parm + 1,
+        //                  AmrLevelAdv::d_prob_parm);
+        bamrex::gpu::copy_to_symbol(&d_prob_parm, AmrLevelAdv::h_prob_parm,
+                                    AmrLevelAdv::h_prob_parm + 1);
     }
 }

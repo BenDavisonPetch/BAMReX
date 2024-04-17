@@ -31,7 +31,7 @@ const int AmrLevelAdv::NUM_GROW  = 2;                  // number of ghost cells
 
 // Mechanism for getting code to work on GPU
 ProbParm *AmrLevelAdv::h_prob_parm = nullptr;
-ProbParm *AmrLevelAdv::d_prob_parm = nullptr;
+// ProbParm *AmrLevelAdv::d_prob_parm = nullptr;
 
 // Parameters for mesh refinement
 int          AmrLevelAdv::max_phierr_lev  = -1;
@@ -118,7 +118,7 @@ void AmrLevelAdv::variableSetUp()
 
     // Initialize struct containing problem-specific variables
     h_prob_parm = new ProbParm{};
-    d_prob_parm = (ProbParm *)The_Arena()->alloc(sizeof(ProbParm));
+    // d_prob_parm = (ProbParm *)The_Arena()->alloc(sizeof(ProbParm));
 
     // A function which contains all processing of the settings file,
     // setting up initial data, choice of numerical methods and
@@ -193,7 +193,7 @@ void AmrLevelAdv::variableCleanUp()
     // Delete structs containing problem-specific parameters
     delete h_prob_parm;
     // This relates to freeing parameters on the GPU too
-    The_Arena()->free(d_prob_parm);
+    // The_Arena()->free(d_prob_parm);
 }
 
 /**

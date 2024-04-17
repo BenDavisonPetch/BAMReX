@@ -9,6 +9,10 @@ include_directories(.
 
 add_executable(cyl_exp ${CYLINDRICAL_EXPLOSION_SRC})
 
+if (AMReX_GPU_BACKEND STREQUAL "CUDA")
+    setup_target_for_cuda_compilation(cyl_exp)
+endif()
+
 target_link_libraries(cyl_exp AMReX::amrex_3d)
 
 file(CREATE_LINK ${CMAKE_CURRENT_SOURCE_DIR}/inputs

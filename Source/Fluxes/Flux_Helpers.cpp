@@ -6,7 +6,6 @@
 #include <AMReX_Box.H>
 #include <AMReX_Extension.H>
 #include <AMReX_FArrayBox.H>
-#include <AMReX_GpuLaunchFunctsC.H>
 #include <AMReX_GpuQualifiers.H>
 #include <AMReX_REAL.H>
 
@@ -74,6 +73,8 @@ AMREX_GPU_HOST void reconstruct_and_half_time_step(
     int j_off = (dir == 1) ? 1 : 0;
     int k_off = (dir == 2) ? 1 : 0;
 
+    const auto& limiter_indices = AmrLevelAdv::h_prob_parm->limiter_indices;
+
     //
     // Reconstruct
     //
@@ -86,7 +87,7 @@ AMREX_GPU_HOST void reconstruct_and_half_time_step(
                     // cache locality
 
                     // limiter variable index
-                    int iq = AmrLevelAdv::d_prob_parm->limiter_indices[n];
+                    int iq = limiter_indices[n];
                     const Real numerator
                         = consv_values(i, j, k, iq)
                           - consv_values(i - i_off, j - j_off, k - k_off, iq);

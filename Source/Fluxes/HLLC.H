@@ -313,7 +313,7 @@ void HLLC_interm_state_replace(
           + (speed_interm - u_K)
                 * (speed_interm + pressure / (density * (speed_K - u_K)));
 
-    for (int i = 0; i < AmrLevelAdv::NUM_STATE; ++i)
+    for (int i = 0; i < EULER_NCOMP; ++i)
     {
         primv[i] *= scale_factor;
     }

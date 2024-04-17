@@ -9,6 +9,10 @@ include_directories(.
 
 add_executable(sin_prob ${SIN_PROBLEM_SRC})
 
+if (AMReX_GPU_BACKEND STREQUAL "CUDA")
+    setup_target_for_cuda_compilation(sin_prob)
+endif()
+
 target_link_libraries(sin_prob AMReX::amrex_1d)
 
 add_custom_target(run_sin
