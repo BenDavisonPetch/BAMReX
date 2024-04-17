@@ -101,7 +101,7 @@ amrex::Real max_speed(const amrex::MultiFab &state)
 }
 
 /**
- * \brief Calculates the maximum value of (u / dx + v / dy + w / dz) on the
+ * \brief Calculates the maximum value of (|u| / dx + |v| / dy + |w| / dz) on the
  * domain
  */
 AMREX_GPU_HOST
@@ -115,9 +115,9 @@ amrex::Real max_dx_scaled_speed(const amrex::MultiFab                &state,
                          noexcept -> GpuTuple<Real>
                      {
                          const Array4<const Real> &consv = ma[box_no];
-                         return (AMREX_D_TERM(consv(i, j, k, 1) / dx[0],
-                                              +consv(i, j, k, 2) / dx[1],
-                                              +consv(i, j, k, 3) / dx[2]))
+                         return (AMREX_D_TERM(fabs(consv(i, j, k, 1)) / dx[0],
+                                              +fabs(consv(i, j, k, 2)) / dx[1],
+                                              +fabs(consv(i, j, k, 3)) / dx[2]))
                                 / consv(i, j, k, 0);
                      });
 }
