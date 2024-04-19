@@ -389,7 +389,8 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
         // Sborder in place nodal boxes aren't used
         MFIter_loop(
             time, geom, S_new, Sborder, fluxes, dt,
-            [&](const amrex::Real time, const amrex::Box &bx,
+            [&](const amrex::MFIter & /*mfi*/, const amrex::Real time,
+                const amrex::Box &bx,
                 amrex::GpuArray<amrex::Box, AMREX_SPACEDIM> /*nbx*/,
                 const amrex::FArrayBox & /*statein*/,
                 amrex::FArrayBox &stateout,
@@ -411,7 +412,25 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
                 if (verbose)
                     Print() << "\t\tComputing flux..." << std::endl;
 
-                compute_MUSCL_hancock_flux(d, time, bx, fluxArr, arr, dx, dt);
+                switch (d)
+                {
+                case 0:
+                    compute_MUSCL_hancock_flux<0>(time, bx, fluxArr, arr, dx,
+                                                  dt);
+                    break;
+#if AMREX_SPACEDIM >= 2
+                case 1:
+                    compute_MUSCL_hancock_flux<1>(time, bx, fluxArr, arr, dx,
+                                                  dt);
+                    break;
+#endif
+#if AMREX_SPACEDIM >= 3
+                case 2:
+                    compute_MUSCL_hancock_flux<2>(time, bx, fluxArr, arr, dx,
+                                                  dt);
+                    break;
+#endif
+                }
 
                 if (verbose)
                     Print() << "\t\tDone!" << std::endl;
@@ -435,7 +454,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
                 if (verbose)
                     Print() << "\t\tDone!" << std::endl;
             },
-            { d });
+            0, { d });
 
         // We need to compute boundary conditions again after each update
         fill_boundary(Sborder);
@@ -565,7 +584,7 @@ Real AmrLevelAdv::estTimeStep(Real)
     // This is just a dummy value to start with
     Real dt_est = 1.0e+20;
 #if SCHEME == 0
-    Real wave_speed = max_wave_speed(cur_time, S_new);
+    const Real wave_speed = max_wave_speed(cur_time, S_new);
 
     if (verbose)
         Print() << "Maximum wave speed: " << wave_speed << std::endl;

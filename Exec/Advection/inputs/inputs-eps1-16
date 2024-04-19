@@ -1,17 +1,19 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 max_step = 1000000
-stop_time = 0.25
+stop_time = 10
 
 # PROBLEM-SPECIFIC PARAMETERS
 prob.adiabatic  = 1.4
-prob.epsilon    = 1
-init.density_L  = 1.0
-init.velocity_L = 0.0
-init.pressure_L = 1.0
-init.density_R  = 0.125
-init.velocity_R = 0.0
-init.pressure_R = 0.1
-init.rotation   = 90 # Rotation of initial slice in degrees
+prob.epsilon = 1 # determines Mach number
+init.density_bg = 1
+init.density_packet = 10
+init.u_bg = 1
+init.v_bg = 1
+init.w_bg = 0
+init.pressure_bg = 1
+init.x_c = 0
+init.y_c = 0
+init.side_length = 1
 
 # LIMITER
 limiting.limiter = minbee
@@ -20,14 +22,14 @@ limiting.mom     = energy energy energy
 limiting.energy  = energy
 
 # PROBLEM SIZE & GEOMETRY
-geometry.is_periodic =  0  0  0
+geometry.is_periodic =  1  1  1
 geometry.coord_sys   =  0       # 0 => cart
-geometry.prob_lo     =  0.0  0.0  0.0 
-geometry.prob_hi     =  1.0  1.0  1.0
-amr.n_cell           =  100  100  100
+geometry.prob_lo     =  -5.0  -5.0  -5.0 
+geometry.prob_hi     =  5.0  5.0  5.0
+amr.n_cell           =  16  16  16
 
 # TIME STEP CONTROL
-adv.cfl            = 0.8     # cfl number for hyperbolic system
+adv.cfl            = 0.9     # cfl number for hyperbolic system
 
 # VERBOSITY
 adv.v              = 0       # verbosity in Adv
@@ -50,7 +52,7 @@ amr.check_int               = 10    # number of timesteps between checkpoints
 amr.plot_files_output = 1      # 0 will disable plot files
 amr.plot_file         = plt    # root name of plot file
 amr.plot_int          = 10     # number of timesteps between plot files
-amr.plot_file = output/test1/100/plt
+amr.plot_file = output/eps1/016/plt
 
 
 # TRACER PARTICLES

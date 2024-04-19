@@ -37,14 +37,13 @@
  * \c consv_values_R. The indexes of the right state are (i,j,k) and the
  * indexes of the left state are decreased by 1 in direction \c dir
  */
-AMREX_GPU_DEVICE
-AMREX_FORCE_INLINE
-void estimate_wave_speed_HLLC_TMSb(
-    const int dir, const int i, const int j, const int k,
+template <int dir>
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE void estimate_wave_speed_HLLC_TMSb(
+    const int i, const int j, const int k,
     const amrex::Array4<const amrex::Real> &consv_values_L,
     const amrex::Array4<const amrex::Real> &consv_values_R,
-    amrex::Real adiabatic_L, amrex::Real adiabatic_R, amrex::Real &speed_L,
-    amrex::Real &speed_R, amrex::Real &speed_interm);
+    amrex::Real adiabatic_L, amrex::Real adiabatic_R, amrex::Real epsilon,
+    amrex::Real &speed_L, amrex::Real &speed_R, amrex::Real &speed_interm);
 
 /**
  * @brief Estimates the wave speed estimates for use in the HLLC Riemann
@@ -65,14 +64,13 @@ void estimate_wave_speed_HLLC_TMSb(
  * \c consv_values_R. The indexes of the right state are (i,j,k) and the
  * indexes of the left state are decreased by 1 in direction \c dir
  */
-AMREX_GPU_DEVICE
-AMREX_FORCE_INLINE
-void estimate_wave_speed_HLLC_Toro(
-    int dir, int i, int j, int k,
+template <int dir>
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE void estimate_wave_speed_HLLC_Toro(
+    int i, int j, int k,
     const amrex::Array4<const amrex::Real> &consv_values_L,
     const amrex::Array4<const amrex::Real> &consv_values_R,
-    amrex::Real adiabatic_L, amrex::Real adiabatic_R, amrex::Real &speed_L,
-    amrex::Real &speed_R, amrex::Real &speed_interm);
+    amrex::Real adiabatic_L, amrex::Real adiabatic_R, amrex::Real epsilon,
+    amrex::Real &speed_L, amrex::Real &speed_R, amrex::Real &speed_interm);
 
 /**
  * @brief Replaces the array \c primv with the intermediate state (in
@@ -87,30 +85,31 @@ void estimate_wave_speed_HLLC_Toro(
  * @param speed_K The wave speed estimate for the K direction moving wave
  * @param speed_interm The wave seped estimate for the contact wave.
  */
-AMREX_GPU_DEVICE AMREX_FORCE_INLINE void HLLC_interm_state_replace(
-    const int dir, amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv,
-    amrex::Real energy, amrex::Real speed_K, amrex::Real speed_interm);
+template <int dir>
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE void
+HLLC_interm_state_replace(amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv,
+                          amrex::Real energy, amrex::Real speed_K,
+                          amrex::Real speed_interm);
 
 //
 // Implementations
 //
-AMREX_GPU_DEVICE
-AMREX_FORCE_INLINE
-void estimate_wave_speed_HLLC_TMSb(
-    const int dir, const int i, const int j, const int k,
+template <int dir>
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE void estimate_wave_speed_HLLC_TMSb(
+    const int i, const int j, const int k,
     const amrex::Array4<const amrex::Real> &consv_values_L,
     const amrex::Array4<const amrex::Real> &consv_values_R,
-    amrex::Real adiabatic_L, amrex::Real adiabatic_R, amrex::Real &speed_L,
-    amrex::Real &speed_R, amrex::Real &speed_interm)
+    amrex::Real adiabatic_L, amrex::Real adiabatic_R, amrex::Real epsilon,
+    amrex::Real &speed_L, amrex::Real &speed_R, amrex::Real &speed_interm)
 {
     const int i_off = (dir == 0) ? 1 : 0; // TODO template direction
     const int j_off = (dir == 1) ? 1 : 0;
     const int k_off = (dir == 2) ? 1 : 0;
 
-    const auto primv_L = primv_from_consv(consv_values_L, adiabatic_L,
+    const auto primv_L = primv_from_consv(consv_values_L, adiabatic_L, epsilon,
                                           i - i_off, j - j_off, k - k_off);
     const auto primv_R
-        = primv_from_consv(consv_values_R, adiabatic_R, i, j, k);
+        = primv_from_consv(consv_values_R, adiabatic_R, epsilon, i, j, k);
 
     const amrex::Real density_L  = primv_L[0];
     const amrex::Real density_R  = primv_R[0];
@@ -119,8 +118,8 @@ void estimate_wave_speed_HLLC_TMSb(
     const amrex::Real u_L        = primv_L[1 + dir];
     const amrex::Real u_R        = primv_R[1 + dir];
     // sound speeds
-    const amrex::Real c_L = sound_speed(primv_L, adiabatic_L);
-    const amrex::Real c_R = sound_speed(primv_R, adiabatic_R);
+    const amrex::Real c_L = sound_speed(primv_L, adiabatic_L, epsilon);
+    const amrex::Real c_R = sound_speed(primv_R, adiabatic_R, epsilon);
 
     AMREX_ASSERT_WITH_MESSAGE(adiabatic_L == adiabatic_R, "Not implemented!");
     const amrex::Real adiabatic = adiabatic_L;
@@ -136,10 +135,10 @@ void estimate_wave_speed_HLLC_TMSb(
     const amrex::Real p_max = std::max(pressure_L, pressure_R);
 
     // riemann functions evaluated at p_min and p_max
-    const amrex::Real f_p_min = euler_riemann_function(
-        dir, p_min, primv_L, primv_R, adiabatic_L, adiabatic_R);
-    const amrex::Real f_p_max = euler_riemann_function(
-        dir, p_max, primv_L, primv_R, adiabatic_L, adiabatic_R);
+    const amrex::Real f_p_min = euler_riemann_function<dir>(
+        p_min, primv_L, primv_R, adiabatic_L, adiabatic_R, epsilon);
+    const amrex::Real f_p_max = euler_riemann_function<dir>(
+        p_max, primv_L, primv_R, adiabatic_L, adiabatic_R, epsilon);
     if (f_p_min >= 0)
     {
         speed_L = u_L - c_L;
@@ -149,8 +148,8 @@ void estimate_wave_speed_HLLC_TMSb(
     {
         // following notation in paper
         const amrex::Real f_p_allraref
-            = euler_riemann_function(dir, all_raref_pressure, primv_L, primv_R,
-                                     adiabatic_L, adiabatic_R);
+            = euler_riemann_function<dir>(all_raref_pressure, primv_L, primv_R,
+                                          adiabatic_L, adiabatic_R, epsilon);
         const amrex::Real p_mrr = p_min
                                   - (all_raref_pressure - p_min)
                                         / (f_p_allraref - f_p_min) * f_p_min;
@@ -167,8 +166,8 @@ void estimate_wave_speed_HLLC_TMSb(
     {
         // following notation in paper
         const amrex::Real f_p_allraref
-            = euler_riemann_function(dir, all_raref_pressure, primv_L, primv_R,
-                                     adiabatic_L, adiabatic_R);
+            = euler_riemann_function<dir>(all_raref_pressure, primv_L, primv_R,
+                                          adiabatic_L, adiabatic_R, epsilon);
         const amrex::Real p_mrr = p_min
                                   - (all_raref_pressure - p_min)
                                         / (f_p_allraref - f_p_min) * f_p_min;
@@ -181,8 +180,8 @@ void estimate_wave_speed_HLLC_TMSb(
     else if (f_p_max < 0)
     {
         const amrex::Real f_p_allraref
-            = euler_riemann_function(dir, all_raref_pressure, primv_L, primv_R,
-                                     adiabatic_L, adiabatic_R);
+            = euler_riemann_function<dir>(all_raref_pressure, primv_L, primv_R,
+                                          adiabatic_L, adiabatic_R, epsilon);
         const amrex::Real p_mrr = p_min
                                   - (all_raref_pressure - p_min)
                                         / (f_p_allraref - f_p_min) * f_p_min;
@@ -200,30 +199,33 @@ void estimate_wave_speed_HLLC_TMSb(
     else
     {
         AMREX_ASSERT(false); // internal error
+        speed_L = 0;
+        speed_R = 0;
     }
 
     speed_interm
-        = (pressure_R - pressure_L + density_L * u_L * (speed_L - u_L)
+        = ((pressure_R - pressure_L) / epsilon
+           + density_L * u_L * (speed_L - u_L)
            - density_R * u_R * (speed_R - u_R))
           / (density_L * (speed_L - u_L) - density_R * (speed_R - u_R));
 }
 
-AMREX_GPU_DEVICE
-AMREX_FORCE_INLINE
-void estimate_wave_speed_HLLC_Toro(
-    int dir, int i, int j, int k,
+template <int dir>
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE void estimate_wave_speed_HLLC_Toro(
+    int i, int j, int k,
     const amrex::Array4<const amrex::Real> &consv_values_L,
     const amrex::Array4<const amrex::Real> &consv_values_R,
-    amrex::Real adiabatic_L, amrex::Real adiabatic_R, amrex::Real &speed_L,
-    amrex::Real &speed_R, amrex::Real &speed_interm)
+    amrex::Real adiabatic_L, amrex::Real adiabatic_R, amrex::Real epsilon,
+    amrex::Real &speed_L, amrex::Real &speed_R, amrex::Real &speed_interm)
 {
     const int i_off = (dir == 0) ? 1 : 0; // TODO template direction
     const int j_off = (dir == 1) ? 1 : 0;
     const int k_off = (dir == 2) ? 1 : 0;
 
-    auto primv_L = primv_from_consv(consv_values_L, adiabatic_L, i - i_off,
-                                    j - j_off, k - k_off);
-    auto primv_R = primv_from_consv(consv_values_R, adiabatic_R, i, j, k);
+    auto primv_L = primv_from_consv(consv_values_L, adiabatic_L, epsilon,
+                                    i - i_off, j - j_off, k - k_off);
+    auto primv_R
+        = primv_from_consv(consv_values_R, adiabatic_R, epsilon, i, j, k);
 
     const amrex::Real density_L = primv_L[0];
     const amrex::Real density_R = primv_R[0];
@@ -232,8 +234,8 @@ void estimate_wave_speed_HLLC_Toro(
     const amrex::Real u_L       = primv_L[1 + dir];
     const amrex::Real u_R       = primv_R[1 + dir];
     // sound speeds
-    const amrex::Real c_L = sound_speed(primv_L, adiabatic_L);
-    const amrex::Real c_R = sound_speed(primv_R, adiabatic_R);
+    const amrex::Real c_L = sound_speed(primv_L, adiabatic_L, epsilon);
+    const amrex::Real c_R = sound_speed(primv_R, adiabatic_R, epsilon);
 
     AMREX_ASSERT_WITH_MESSAGE(
         density_L > 0,
@@ -269,11 +271,11 @@ void estimate_wave_speed_HLLC_Toro(
 
     const amrex::Real denom
         = (density_L * (speed_L - u_L) - density_R * (speed_R - u_R));
-    speed_interm = (denom != 0)
-                       ? (p_R - p_L + density_L * u_L * (speed_L - u_L)
-                          - density_R * u_R * (speed_R - u_R))
-                             / denom
-                       : 0;
+    speed_interm = (denom != 0) ? ((p_R - p_L) / epsilon
+                                   + density_L * u_L * (speed_L - u_L)
+                                   - density_R * u_R * (speed_R - u_R))
+                                      / denom
+                                : 0;
 
     // if (speed_L != speed_L || speed_R != speed_R || speed_interm !=
     // speed_interm)
@@ -292,11 +294,11 @@ void estimate_wave_speed_HLLC_Toro(
     ASSERT_NOT_NAN(speed_interm);
 }
 
-AMREX_GPU_DEVICE
-AMREX_FORCE_INLINE
-void HLLC_interm_state_replace(
-    const int dir, amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv,
-    amrex::Real energy, amrex::Real speed_K, amrex::Real speed_interm)
+template <int dir>
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE void
+HLLC_interm_state_replace(amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv,
+                          amrex::Real energy, amrex::Real speed_K,
+                          amrex::Real speed_interm, amrex::Real epsilon)
 {
     const amrex::Real density  = primv[0];
     const amrex::Real u_K      = primv[1 + dir];
@@ -311,7 +313,8 @@ void HLLC_interm_state_replace(
     primv[1 + AMREX_SPACEDIM]
         = energy / density
           + (speed_interm - u_K)
-                * (speed_interm + pressure / (density * (speed_K - u_K)));
+                * (speed_interm * epsilon
+                   + pressure / (density * (speed_K - u_K)));
 
     for (int i = 0; i < EULER_NCOMP; ++i)
     {

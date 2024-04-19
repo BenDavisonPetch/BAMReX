@@ -28,30 +28,36 @@ TEST(RootFinding, Polynomials)
 
 TEST_F(ToroTest1, IntermediatePressure)
 {
-    Real p_interm = euler_RP_interm_p(0, primv_L, primv_R, 1.4, 1.4);
-    EXPECT_NEAR(0.30313, p_interm, 0.000005);
+    Real p_interm = euler_RP_interm_p<0>(primv_L, primv_R, 1.4, 1.4, 1);
+    EXPECT_NEAR(exp_p_interm, p_interm, 0.000005);
 }
 
 TEST_F(ToroTest2, IntermediatePressure)
 {
-    Real p_interm = euler_RP_interm_p(0, primv_L, primv_R, 1.4, 1.4);
-    EXPECT_NEAR(0.00189, p_interm, 0.000005);
+    Real p_interm = euler_RP_interm_p<0>(primv_L, primv_R, 1.4, 1.4, 1);
+    EXPECT_NEAR(exp_p_interm, p_interm, 0.000005);
 }
 
 TEST_F(ToroTest3, IntermediatePressure)
 {
-    Real p_interm = euler_RP_interm_p(0, primv_L, primv_R, 1.4, 1.4);
-    EXPECT_NEAR(460.894, p_interm, 0.0005);
+    Real p_interm = euler_RP_interm_p<0>(primv_L, primv_R, 1.4, 1.4, 1);
+    EXPECT_NEAR(exp_p_interm, p_interm, 0.0005);
 }
 
 TEST_F(ToroTest4, IntermediatePressure)
 {
-    Real p_interm = euler_RP_interm_p(0, primv_L, primv_R, 1.4, 1.4);
-    EXPECT_NEAR(46.0950, p_interm, 0.00005);
+    Real p_interm = euler_RP_interm_p<0>(primv_L, primv_R, 1.4, 1.4, 1);
+    EXPECT_NEAR(exp_p_interm, p_interm, 0.00005);
 }
 
 TEST_F(ToroTest5, IntermediatePressure)
 {
-    Real p_interm = euler_RP_interm_p(0, primv_L, primv_R, 1.4, 1.4);
-    EXPECT_NEAR(1691.64, p_interm, 0.01);
+    Real p_interm = euler_RP_interm_p<0>(primv_L, primv_R, 1.4, 1.4, 1);
+    EXPECT_NEAR(exp_p_interm, p_interm, 0.01);
+}
+
+TEST_F(ToroTest1Scaled, IntermediatePressure)
+{
+    Real p_interm = euler_RP_interm_p<0>(primv_L, primv_R, 1.4, 1.4, epsilon);
+    EXPECT_NEAR(exp_p_interm, p_interm, 0.000005 / p_0);
 }

@@ -10,21 +10,23 @@
 
 using namespace amrex;
 
-AMREX_GPU_HOST
-void compute_SLIC_flux(const int dir, amrex::Real time, const amrex::Box &bx,
-                       const amrex::Array4<amrex::Real>       &flux,
-                       const amrex::Array4<const amrex::Real> &consv_values,
-                       amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr,
-                       amrex::Real                                      dt)
+template <int dir>
+AMREX_GPU_HOST void
+compute_SLIC_flux(amrex::Real time, const amrex::Box &bx,
+                  const amrex::Array4<amrex::Real>       &flux,
+                  const amrex::Array4<const amrex::Real> &consv_values,
+                  amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr,
+                  amrex::Real                                      dt)
 {
     const Real adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Real epsilon   = AmrLevelAdv::h_prob_parm->epsilon;
 
     // const Real &dx = dx_arr[dir];
     // define boxes (i.e. index domains) for cell-centred values with ghost
     // cells, and for fluxes in this direction
     AMREX_ASSERT(AmrLevelAdv::NUM_GROW >= 2);
     // box grown by 1
-    const Box &bx_g1   = grow(bx, 1);
+    const Box &bx_g1 = grow(bx, 1);
     // const Box &flux_bx = growHi(bx, dir, 1);
 
     // Temporary fab
@@ -38,13 +40,31 @@ void compute_SLIC_flux(const int dir, amrex::Real time, const amrex::Box &bx,
     Array4<Real> half_stepped_L = tmpfab.array(0, NSTATE);
     Array4<Real> half_stepped_R = tmpfab.array(NSTATE, NSTATE);
 
-    reconstruct_and_half_time_step(dir, bx_g1, time, half_stepped_L,
-                                   half_stepped_R, adiabatic, adiabatic,
-                                   consv_values, dx_arr, dt);
+    reconstruct_and_half_time_step<dir>(bx_g1, time, half_stepped_L,
+                                        half_stepped_R, adiabatic, adiabatic,
+                                        epsilon, consv_values, dx_arr, dt);
 
     //
     // Compute force flux from half time stepped values
     //
-    compute_force_flux_LR(dir, time, bx, flux, half_stepped_R, half_stepped_L,
-                          adiabatic, adiabatic, dx_arr, dt);
+    compute_force_flux_LR<dir>(time, bx, flux, half_stepped_R, half_stepped_L,
+                               adiabatic, adiabatic, epsilon, dx_arr, dt);
 }
+
+template AMREX_GPU_HOST void compute_SLIC_flux<0>(
+    amrex::Real, const amrex::Box &, const amrex::Array4<amrex::Real> &,
+    const amrex::Array4<const amrex::Real> &,
+    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &, amrex::Real);
+
+#if AMREX_SPACEDIM >= 2
+template AMREX_GPU_HOST void compute_SLIC_flux<1>(
+    amrex::Real, const amrex::Box &, const amrex::Array4<amrex::Real> &,
+    const amrex::Array4<const amrex::Real> &,
+    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &, amrex::Real);
+#endif
+#if AMREX_SPACEDIM >= 3
+template AMREX_GPU_HOST void compute_SLIC_flux<2>(
+    amrex::Real, const amrex::Box &, const amrex::Array4<amrex::Real> &,
+    const amrex::Array4<const amrex::Real> &,
+    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &, amrex::Real);
+#endif

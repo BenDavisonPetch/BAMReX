@@ -14,8 +14,8 @@ TEST_F(ToroTest1, RusanovAdv)
     const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
     ASSERT_EQ(adia, 1.4);
     ASSERT_EQ(AmrLevelAdv::h_prob_parm->epsilon, 1);
-    const auto &consv_L = consv_from_primv(primv_L, adia);
-    const auto &consv_R = consv_from_primv(primv_R, adia);
+    const auto &consv_L = consv_from_primv(primv_L, adia, 1);
+    const auto &consv_R = consv_from_primv(primv_R, adia, 1);
 
     // Define multifabs
     MultiFab                        statein(ba, dm, EULER_NCOMP, 2);
@@ -119,8 +119,8 @@ TEST_F(ToroTest2, RusanovAdv)
     const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
     ASSERT_EQ(adia, 1.4);
     ASSERT_EQ(AmrLevelAdv::h_prob_parm->epsilon, 1);
-    const auto &consv_L = consv_from_primv(primv_L, adia);
-    const auto &consv_R = consv_from_primv(primv_R, adia);
+    const auto &consv_L = consv_from_primv(primv_L, adia, 1);
+    const auto &consv_R = consv_from_primv(primv_R, adia, 1);
 
     // Define multifabs
     MultiFab                        statein(ba, dm, EULER_NCOMP, 2);
@@ -376,8 +376,9 @@ TEST_F(BoxTest, RusanovAdv)
                 [=] AMREX_GPU_DEVICE(int i, int j, int k)
                 {
                     // Check output corresponds to flux
-                    // Print() << "i j k = " << i << " " << j << " " << k << " "
-                            // << std::endl;
+                    // Print() << "i j k = " << i << " " << j << " " << k << "
+                    // "
+                    // << std::endl;
                     for (int n = 0; n < EULER_NCOMP; ++n)
                         EXPECT_NEAR(
                             out(i, j, k, n),

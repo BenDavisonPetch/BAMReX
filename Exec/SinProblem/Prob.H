@@ -11,7 +11,7 @@ void initdata(amrex::MultiFab &S_tmp, const amrex::Geometry &geom);
  * @brief Creates a plotfile for a 1000x1x1 grid containing the values of the
  * exact solution to the Riemann problem at time \c time
  */
-void write_exact_solution(
-    amrex::Real time, amrex::Real adiabatic);
+void write_exact_solution(amrex::Real time, amrex::Real adiabatic,
+                          amrex::Real epsilon);
 
 #endif

@@ -19,37 +19,40 @@
  * @param adiabatic_L The adiabatic constant of the left state
  * @param adiabatic_R The adiabatic constant of the right state
  */
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real euler_RP_interm_p(
-    const int dir, const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_L,
-    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_R,
-    const amrex::Real adiabatic_L, const amrex::Real adiabatic_R);
+template <int dir>
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real
+euler_RP_interm_p(const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_L,
+                  const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_R,
+                  const amrex::Real adiabatic_L, const amrex::Real adiabatic_R,
+                  const amrex::Real epsilon);
 
-AMREX_GPU_HOST
-void compute_exact_RP_solution(
-    const int dir, const amrex::Real time, const amrex::Box &bx,
+template <int dir>
+AMREX_GPU_HOST void compute_exact_RP_solution(
+    const amrex::Real time, const amrex::Box &bx,
     const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &dx_arr,
     const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &prob_lo,
     const amrex::Real                                   initial_position,
     const amrex::GpuArray<amrex::Real, EULER_NCOMP>    &primv_L,
     const amrex::GpuArray<amrex::Real, EULER_NCOMP>    &primv_R,
     const amrex::Real adiabatic_L, const amrex::Real adiabatic_R,
-    const amrex::Array4<amrex::Real> &dest);
+    const amrex::Real epsilon, const amrex::Array4<amrex::Real> &dest);
 
 //
 // Implementations
 //
+template <int dir>
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real
-                                         euler_RP_interm_p(const int                                        dir,
-                                                           const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_L,
-                                                           const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_R,
-                                                           const amrex::Real adiabatic_L, const amrex::Real adiabatic_R)
+euler_RP_interm_p(const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_L,
+                  const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_R,
+                  const amrex::Real adiabatic_L, const amrex::Real adiabatic_R,
+                  const amrex::Real epsilon)
 {
     // Calculate initial guess for pressure
-    amrex::Real c_L = sound_speed(primv_L, adiabatic_L);
-    amrex::Real c_R = sound_speed(primv_R, adiabatic_R);
+    amrex::Real c_L = sound_speed(primv_L, adiabatic_L, 1);
+    amrex::Real c_R = sound_speed(primv_R, adiabatic_R, 1);
     amrex::Real pressure
         = 0.5 * (primv_L[1 + AMREX_SPACEDIM] + primv_R[1 + AMREX_SPACEDIM])
-          - 0.125 * (primv_R[1 + dir] - primv_L[1 + dir])
+          - 0.125 * sqrt(epsilon) * (primv_R[1 + dir] - primv_L[1 + dir])
                 * (primv_L[0] + primv_R[0]) * (c_L + c_R);
     amrex::Real TOL = 1e-6;
     pressure        = std::max(TOL, pressure);
@@ -57,8 +60,8 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real
     // Use NR method to find root
     auto f = [=] AMREX_GPU_HOST_DEVICE(amrex::Real p)
     {
-        return euler_riemann_function(dir, p, primv_L, primv_R, adiabatic_L,
-                                      adiabatic_R);
+        return euler_riemann_function<dir>(p, primv_L, primv_R, adiabatic_L,
+                                           adiabatic_R, epsilon);
     };
     auto f_deriv = [=] AMREX_GPU_HOST_DEVICE(amrex::Real p)
     {
@@ -66,6 +69,7 @@ AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real
                                             adiabatic_R);
     };
     newton_raphson(pressure, f, f_deriv);
+    AMREX_ASSERT(pressure == pressure);
     return pressure;
 }
 

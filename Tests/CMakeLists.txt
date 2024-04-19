@@ -24,12 +24,14 @@ add_executable(tests_1d
   RootFinding01.cpp
   ExactRiemann01.cpp
   RusanovAdv01.cpp
+  HLLC01.cpp
 )
 
 add_executable(tests_2d
   test_main.cpp
   ${SRC_NO_MAIN}
   IMEX_O1_01.cpp
+  Euler01.cpp
 )
 
 add_executable(tests_3d
@@ -38,6 +40,7 @@ add_executable(tests_3d
   RusanovAdv01.cpp
   PressureSourceVec01.cpp
   IMEX_O1_01.cpp
+  Euler01.cpp
 )
 
 if (AMReX_GPU_BACKEND STREQUAL "CUDA")

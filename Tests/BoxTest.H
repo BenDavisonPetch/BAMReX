@@ -18,8 +18,8 @@ class BoxTest : public UnitDomainTest
     const amrex::GpuArray<amrex::Real, EULER_NCOMP> consv_R{ 1, -2, -1, 4,
                                                              7.25 };
 #elif AMREX_SPACEDIM == 2
-    const amrex::GpuArray<amrex::Real, EULER_NCOMP> primv_L{ 2, 1, -2, 0.6 };
-    const amrex::GpuArray<amrex::Real, EULER_NCOMP> primv_R{ 1, -2, -1, 1.2 };
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> primv_L{ 2, 1, -2, 3.3 };
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> primv_R{ 1, -2, -1, 3.6 };
 
     const amrex::GpuArray<amrex::Real, EULER_NCOMP> consv_L{ 2, 2, -4, 8 };
     const amrex::GpuArray<amrex::Real, EULER_NCOMP> consv_R{ 1, -2, -1, 7.25 };

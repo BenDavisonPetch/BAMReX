@@ -281,4 +281,55 @@ class ToroTest5 : public UnitDomainTest
     }
 };
 
+class ToroTest1Scaled : public UnitDomainTest
+{
+  protected:
+    amrex::Real density_0 = 0.5;
+    amrex::Real u_0       = 1.3;
+    amrex::Real p_0       = 10000;
+    amrex::Real x_0       = 1.0;
+    amrex::Real t_0       = x_0 / u_0;
+    amrex::Real epsilon   = density_0 * u_0 * u_0 / p_0;
+
+    amrex::Real density_L = 1.0 / density_0;
+    amrex::Real u_L       = 0.0 / u_0;
+    amrex::Real p_L       = 1.0 / p_0;
+    amrex::Real density_R = 0.125 / density_0;
+    amrex::Real u_R       = 0.0 / u_0;
+    amrex::Real p_R       = 0.1 / p_0;
+    amrex::Real time      = 0.25 / t_0;
+
+    // Expected intermediate states
+    amrex::Real exp_p_interm         = 0.30313 / p_0;
+    amrex::Real exp_u_interm         = 0.92745 / u_0;
+    amrex::Real exp_density_L_interm = 0.42632 / density_0;
+    amrex::Real exp_density_R_interm = 0.26557 / density_0;
+
+    // Initial primitive states
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> primv_L{
+        density_L, AMREX_D_DECL(u_L, 0, 0), p_L
+    };
+
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> primv_R{
+        density_R, AMREX_D_DECL(u_R, 0, 0), p_R
+    };
+
+    // Expected intermediate states after evolution to time
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> expected_interm_L{
+        exp_density_L_interm, AMREX_D_DECL(exp_u_interm, 0, 0), exp_p_interm
+    };
+
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> expected_interm_R{
+        exp_density_R_interm, AMREX_D_DECL(exp_u_interm, 0, 0), exp_p_interm
+    };
+
+    ToroTest1Scaled()
+        : UnitDomainTest()
+    {
+        amrex::ParmParse pp("prob");
+        pp.add("adiabatic", 1.4);
+        pp.add("epsilon", epsilon);
+    }
+};
+
 #endif

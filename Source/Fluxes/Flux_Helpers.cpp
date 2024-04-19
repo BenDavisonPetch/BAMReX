@@ -11,36 +11,37 @@
 
 using namespace amrex;
 
-AMREX_GPU_HOST
-void reconstruct_and_half_time_step(
-    const int dir, const amrex::Box &gbx, const amrex::Real time,
+template <int dir>
+AMREX_GPU_HOST void reconstruct_and_half_time_step(
+    const amrex::Box &gbx, const amrex::Real time,
     const amrex::Array4<amrex::Real> &half_stepped_L,
     const amrex::Array4<amrex::Real> &half_stepped_R,
     const amrex::Real adiabatic_L, const amrex::Real adiabatic_R,
+    const amrex::Real                                epsilon,
     const amrex::Array4<const amrex::Real>          &consv_values,
     amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr, amrex::Real dt)
 {
     switch (AmrLevelAdv::h_prob_parm->limiter)
     {
     case (minbee_limiter):
-        reconstruct_and_half_time_step<minbee_limiter>(
-            dir, gbx, time, half_stepped_L, half_stepped_R, adiabatic_L,
-            adiabatic_R, consv_values, dx_arr, dt);
+        reconstruct_and_half_time_step<minbee_limiter, dir>(
+            gbx, time, half_stepped_L, half_stepped_R, adiabatic_L,
+            adiabatic_R, epsilon, consv_values, dx_arr, dt);
         break;
     case (superbee_limiter):
-        reconstruct_and_half_time_step<superbee_limiter>(
-            dir, gbx, time, half_stepped_L, half_stepped_R, adiabatic_L,
-            adiabatic_R, consv_values, dx_arr, dt);
+        reconstruct_and_half_time_step<superbee_limiter, dir>(
+            gbx, time, half_stepped_L, half_stepped_R, adiabatic_L,
+            adiabatic_R, epsilon, consv_values, dx_arr, dt);
         break;
     case (van_albada_limiter):
-        reconstruct_and_half_time_step<van_albada_limiter>(
-            dir, gbx, time, half_stepped_L, half_stepped_R, adiabatic_L,
-            adiabatic_R, consv_values, dx_arr, dt);
+        reconstruct_and_half_time_step<van_albada_limiter, dir>(
+            gbx, time, half_stepped_L, half_stepped_R, adiabatic_L,
+            adiabatic_R, epsilon, consv_values, dx_arr, dt);
         break;
     case (van_leer_limiter):
-        reconstruct_and_half_time_step<van_leer_limiter>(
-            dir, gbx, time, half_stepped_L, half_stepped_R, adiabatic_L,
-            adiabatic_R, consv_values, dx_arr, dt);
+        reconstruct_and_half_time_step<van_leer_limiter, dir>(
+            gbx, time, half_stepped_L, half_stepped_R, adiabatic_L,
+            adiabatic_R, epsilon, consv_values, dx_arr, dt);
         break;
     default:
         AMREX_ASSERT(false); // internal error
@@ -48,12 +49,13 @@ void reconstruct_and_half_time_step(
     }
 }
 
-template <Limiter limiter>
+template <Limiter limiter, int dir>
 AMREX_GPU_HOST void reconstruct_and_half_time_step(
-    const int dir, const amrex::Box &gbx, const amrex::Real time,
+    const amrex::Box &gbx, const amrex::Real time,
     const amrex::Array4<amrex::Real> &half_stepped_L,
     const amrex::Array4<amrex::Real> &half_stepped_R,
     const amrex::Real adiabatic_L, const amrex::Real adiabatic_R,
+    const amrex::Real                                epsilon,
     const amrex::Array4<const amrex::Real>          &consv_values,
     amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr, amrex::Real dt)
 {
@@ -73,7 +75,7 @@ AMREX_GPU_HOST void reconstruct_and_half_time_step(
     int j_off = (dir == 1) ? 1 : 0;
     int k_off = (dir == 2) ? 1 : 0;
 
-    const auto& limiter_indices = AmrLevelAdv::h_prob_parm->limiter_indices;
+    const auto &limiter_indices = AmrLevelAdv::h_prob_parm->limiter_indices;
 
     //
     // Reconstruct
@@ -87,7 +89,7 @@ AMREX_GPU_HOST void reconstruct_and_half_time_step(
                     // cache locality
 
                     // limiter variable index
-                    int iq = limiter_indices[n];
+                    int        iq = limiter_indices[n];
                     const Real numerator
                         = consv_values(i, j, k, iq)
                           - consv_values(i - i_off, j - j_off, k - k_off, iq);
@@ -122,10 +124,10 @@ AMREX_GPU_HOST void reconstruct_and_half_time_step(
     //
     // Half time-step update
     //
-    compute_flux_function(dir, time, gbx, flux_func_L, half_stepped_L,
-                          adiabatic_L);
-    compute_flux_function(dir, time, gbx, flux_func_R, half_stepped_R,
-                          adiabatic_R);
+    compute_flux_function<dir>(time, gbx, flux_func_L, half_stepped_L,
+                               adiabatic_L, epsilon);
+    compute_flux_function<dir>(time, gbx, flux_func_R, half_stepped_R,
+                               adiabatic_R, epsilon);
 
     double hdtdx = 0.5 * dt / dx;
 
@@ -139,3 +141,24 @@ AMREX_GPU_HOST void reconstruct_and_half_time_step(
                 -= hdtdx * (flux_func_R(i, j, k, n) - flux_func_L(i, j, k, n));
         });
 }
+
+template AMREX_GPU_HOST void reconstruct_and_half_time_step<0>(
+    const amrex::Box &, const amrex::Real, const amrex::Array4<amrex::Real> &,
+    const amrex::Array4<amrex::Real> &, const amrex::Real, const amrex::Real,
+    const amrex::Real, const amrex::Array4<const amrex::Real> &,
+    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &, amrex::Real);
+
+#if AMREX_SPACEDIM >= 2
+template AMREX_GPU_HOST void reconstruct_and_half_time_step<1>(
+    const amrex::Box &, const amrex::Real, const amrex::Array4<amrex::Real> &,
+    const amrex::Array4<amrex::Real> &, const amrex::Real, const amrex::Real,
+    const amrex::Real, const amrex::Array4<const amrex::Real> &,
+    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &, amrex::Real);
+#endif
+#if AMREX_SPACEDIM >= 3
+template AMREX_GPU_HOST void reconstruct_and_half_time_step<2>(
+    const amrex::Box &, const amrex::Real, const amrex::Array4<amrex::Real> &,
+    const amrex::Array4<amrex::Real> &, const amrex::Real, const amrex::Real,
+    const amrex::Real, const amrex::Array4<const amrex::Real> &,
+    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &, amrex::Real);
+#endif

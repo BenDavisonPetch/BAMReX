@@ -3,6 +3,6 @@
 
 // 0 : MUSCL-Hancock
 // 1 : P-IMEX O1
-#define SCHEME 1
+#define SCHEME 0
 
 #endif

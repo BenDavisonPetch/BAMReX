@@ -49,28 +49,29 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
     pp.get("velocity_y_BR", vel_y_BR);
     pp.get("pressure_BR", pressure_BR);
 
-    const double adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Real adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Real epsilon   = AmrLevelAdv::h_prob_parm->epsilon;
 
-    GpuArray<Real, EULER_NCOMP> primv_TR{
-        density_TR, AMREX_D_DECL(vel_x_TR, vel_y_TR, 0), pressure_TR
-    };
+    GpuArray<Real, EULER_NCOMP> primv_TR{ density_TR,
+                                          AMREX_D_DECL(vel_x_TR, vel_y_TR, 0),
+                                          pressure_TR };
 
-    GpuArray<Real, EULER_NCOMP> primv_TL{
-        density_TL, AMREX_D_DECL(vel_x_TL, vel_y_TL, 0), pressure_TL
-    };
+    GpuArray<Real, EULER_NCOMP> primv_TL{ density_TL,
+                                          AMREX_D_DECL(vel_x_TL, vel_y_TL, 0),
+                                          pressure_TL };
 
-    GpuArray<Real, EULER_NCOMP> primv_BL{
-        density_BL, AMREX_D_DECL(vel_x_BL, vel_y_BL, 0), pressure_BL
-    };
+    GpuArray<Real, EULER_NCOMP> primv_BL{ density_BL,
+                                          AMREX_D_DECL(vel_x_BL, vel_y_BL, 0),
+                                          pressure_BL };
 
-    GpuArray<Real, EULER_NCOMP> primv_BR{
-        density_BR, AMREX_D_DECL(vel_x_BR, vel_y_BR, 0), pressure_BR
-    };
+    GpuArray<Real, EULER_NCOMP> primv_BR{ density_BR,
+                                          AMREX_D_DECL(vel_x_BR, vel_y_BR, 0),
+                                          pressure_BR };
 
-    const auto consv_TR = consv_from_primv(primv_TR, adiabatic);
-    const auto consv_TL = consv_from_primv(primv_TL, adiabatic);
-    const auto consv_BL = consv_from_primv(primv_BL, adiabatic);
-    const auto consv_BR = consv_from_primv(primv_BR, adiabatic);
+    const auto consv_TR = consv_from_primv(primv_TR, adiabatic, epsilon);
+    const auto consv_TL = consv_from_primv(primv_TL, adiabatic, epsilon);
+    const auto consv_BL = consv_from_primv(primv_BL, adiabatic, epsilon);
+    const auto consv_BR = consv_from_primv(primv_BR, adiabatic, epsilon);
 
     for (MFIter mfi(S_tmp); mfi.isValid(); ++mfi)
     {
@@ -83,10 +84,14 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
                     {
                         Real x = prob_lo[0] + (i + Real(0.5)) * dx[0];
                         Real y = prob_lo[1] + (j + Real(0.5)) * dx[1];
-                        if (x > 0.5 && y > 0.5) phi(i,j,k,n) = consv_TR[n];
-                        else if (x < 0.5 && y > 0.5) phi(i,j,k,n) = consv_TL[n];
-                        else if (x < 0.5 && y < 0.5) phi(i,j,k,n) = consv_BL[n];
-                        else phi(i,j,k,n) = consv_BR[n];
+                        if (x > 0.5 && y > 0.5)
+                            phi(i, j, k, n) = consv_TR[n];
+                        else if (x < 0.5 && y > 0.5)
+                            phi(i, j, k, n) = consv_TL[n];
+                        else if (x < 0.5 && y < 0.5)
+                            phi(i, j, k, n) = consv_BL[n];
+                        else
+                            phi(i, j, k, n) = consv_BR[n];
                     });
     }
 }

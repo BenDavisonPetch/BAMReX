@@ -4,6 +4,7 @@ stop_time = 0.25
 
 # PROBLEM-SPECIFIC PARAMETERS
 prob.adiabatic  = 1.4
+prob.epsilon    = 1
 init.density_L  = 1.0
 init.velocity_L = 0.0
 init.pressure_L = 1.0

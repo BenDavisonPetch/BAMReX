@@ -26,21 +26,23 @@
  * by 1 cell compared to the box of real cells when using this routine in e.g.
  * SLIC or MUSCL-Hancock
  */
-AMREX_GPU_HOST
-void reconstruct_and_half_time_step(
-    const int dir, const amrex::Box &gbx, const amrex::Real time,
+template <int dir>
+AMREX_GPU_HOST void reconstruct_and_half_time_step(
+    const amrex::Box &gbx, const amrex::Real time,
     const amrex::Array4<amrex::Real> &half_stepped_L,
     const amrex::Array4<amrex::Real> &half_stepped_R,
     const amrex::Real adiabatic_L, const amrex::Real adiabatic_R,
+    const amrex::Real                                epsilon,
     const amrex::Array4<const amrex::Real>          &consv_values,
     amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr, amrex::Real dt);
 
-template <Limiter limiter>
+template <Limiter limiter, int dir>
 AMREX_GPU_HOST void reconstruct_and_half_time_step(
-    const int dir, const amrex::Box &gbx, const amrex::Real time,
+    const amrex::Box &gbx, const amrex::Real time,
     const amrex::Array4<amrex::Real> &half_stepped_L,
     const amrex::Array4<amrex::Real> &half_stepped_R,
     const amrex::Real adiabatic_L, const amrex::Real adiabatic_R,
+    const amrex::Real                                epsilon,
     const amrex::Array4<const amrex::Real>          &consv_values,
     amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr, amrex::Real dt);
 

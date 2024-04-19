@@ -3,34 +3,36 @@
 
 using namespace amrex;
 
-AMREX_GPU_HOST
-void compute_exact_RP_solution(
-    const int dir, const amrex::Real time, const amrex::Box &bx,
+template <int dir>
+AMREX_GPU_HOST void compute_exact_RP_solution(
+    const amrex::Real time, const amrex::Box &bx,
     const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &dx_arr,
     const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &prob_lo,
     const amrex::Real                                   initial_position,
     const amrex::GpuArray<amrex::Real, EULER_NCOMP>    &primv_L,
     const amrex::GpuArray<amrex::Real, EULER_NCOMP>    &primv_R,
     const amrex::Real adiabatic_L, const amrex::Real adiabatic_R,
-    const amrex::Array4<amrex::Real> &dest)
+    const amrex::Real epsilon, const amrex::Array4<amrex::Real> &dest)
 {
     // speeds
     const Real u_L = primv_L[1 + dir];
     const Real u_R = primv_R[1 + dir];
-    const Real c_L = sound_speed(primv_L, adiabatic_L);
-    const Real c_R = sound_speed(primv_R, adiabatic_R);
+    const Real c_L = sound_speed(primv_L, adiabatic_L, epsilon);
+    const Real c_R = sound_speed(primv_R, adiabatic_R, epsilon);
     // pressures
     const Real p_L = primv_L[1 + AMREX_SPACEDIM];
     const Real p_R = primv_R[1 + AMREX_SPACEDIM];
     // calculate intermediate pressure
-    const Real p_interm
-        = euler_RP_interm_p(dir, primv_L, primv_R, adiabatic_L, adiabatic_R);
+    const Real p_interm = euler_RP_interm_p<dir>(primv_L, primv_R, adiabatic_L,
+                                                 adiabatic_R, epsilon);
+
     const Real u_interm = 0.5 * (u_L + u_R)
                           + 0.5
                                 * (euler_riemann_function_one_side(
                                        p_interm, primv_R, adiabatic_R)
                                    - euler_riemann_function_one_side(
-                                       p_interm, primv_L, adiabatic_L));
+                                       p_interm, primv_L, adiabatic_L))
+                                / sqrt(epsilon);
 
     // primitive values for intermediate states
     GpuArray<Real, EULER_NCOMP> primv_interm_L, primv_interm_R;
@@ -126,10 +128,12 @@ void compute_exact_RP_solution(
         speed_R_tail = u_interm + c_interm_R;
     }
 
-    const auto consv_L        = consv_from_primv(primv_L, adiabatic_L);
-    const auto consv_R        = consv_from_primv(primv_R, adiabatic_R);
-    const auto consv_interm_L = consv_from_primv(primv_interm_L, adiabatic_L);
-    const auto consv_interm_R = consv_from_primv(primv_interm_R, adiabatic_R);
+    const auto consv_L = consv_from_primv(primv_L, adiabatic_L, epsilon);
+    const auto consv_R = consv_from_primv(primv_R, adiabatic_R, epsilon);
+    const auto consv_interm_L
+        = consv_from_primv(primv_interm_L, adiabatic_L, epsilon);
+    const auto consv_interm_R
+        = consv_from_primv(primv_interm_R, adiabatic_R, epsilon);
 
     AMREX_ASSERT(speed_L_head <= speed_L_tail);
     AMREX_ASSERT(speed_L_tail <= u_interm);
@@ -172,7 +176,7 @@ void compute_exact_RP_solution(
                     = p_L * std::pow(tmp, 2 * adiabatic_L / (adiabatic_L - 1));
 
                 const auto consv_fan
-                    = consv_from_primv(primv_fan, adiabatic_L);
+                    = consv_from_primv(primv_fan, adiabatic_L, epsilon);
 
                 for (int n = 0; n < NSTATE; ++n)
                     dest(i, j, k, n) = consv_fan[n];
@@ -208,7 +212,7 @@ void compute_exact_RP_solution(
                     = p_R * std::pow(tmp, 2 * adiabatic_R / (adiabatic_R - 1));
 
                 const auto consv_fan
-                    = consv_from_primv(primv_fan, adiabatic_R);
+                    = consv_from_primv(primv_fan, adiabatic_R, epsilon);
 
                 for (int n = 0; n < NSTATE; ++n)
                     dest(i, j, k, n) = consv_fan[n];
@@ -220,3 +224,27 @@ void compute_exact_RP_solution(
             }
         });
 }
+
+template AMREX_GPU_HOST void compute_exact_RP_solution<0>(
+    const amrex::Real, const amrex::Box &,
+    const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &,
+    const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &, const amrex::Real,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &, const amrex::Real,
+    const amrex::Real, const amrex::Real, const amrex::Array4<amrex::Real> &);
+
+template AMREX_GPU_HOST void compute_exact_RP_solution<1>(
+    const amrex::Real, const amrex::Box &,
+    const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &,
+    const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &, const amrex::Real,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &, const amrex::Real,
+    const amrex::Real, const amrex::Real, const amrex::Array4<amrex::Real> &);
+
+template AMREX_GPU_HOST void compute_exact_RP_solution<2>(
+    const amrex::Real, const amrex::Box &,
+    const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &,
+    const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &, const amrex::Real,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &,
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> &, const amrex::Real,
+    const amrex::Real, const amrex::Real, const amrex::Array4<amrex::Real> &);

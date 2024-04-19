@@ -45,14 +45,19 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
         pp2.get("stop_time", stop_time);
     }
 
-    const double adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Real adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Real epsilon   = AmrLevelAdv::h_prob_parm->epsilon;
 
-    GpuArray<Real, EULER_NCOMP> primv_L{
-        density_L, AMREX_D_DECL(velocity_L*cos(rotation), velocity_L*sin(rotation), 0), pressure_L
-    };
-    GpuArray<Real, EULER_NCOMP> primv_R{
-        density_R, AMREX_D_DECL(velocity_R*cos(rotation), velocity_R*sin(rotation), 0), pressure_R
-    };
+    GpuArray<Real, EULER_NCOMP> primv_L{ density_L,
+                                         AMREX_D_DECL(
+                                             velocity_L * cos(rotation),
+                                             velocity_L * sin(rotation), 0),
+                                         pressure_L };
+    GpuArray<Real, EULER_NCOMP> primv_R{ density_R,
+                                         AMREX_D_DECL(
+                                             velocity_R * cos(rotation),
+                                             velocity_R * sin(rotation), 0),
+                                         pressure_R };
 
     GpuArray<Real, EULER_NCOMP> primv_L_x_oriented{
         density_L, AMREX_D_DECL(velocity_L, 0, 0), pressure_L
@@ -62,10 +67,10 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
     };
 
     write_exact_solution(stop_time, primv_L_x_oriented, primv_R_x_oriented,
-                         adiabatic, adiabatic);
+                         adiabatic, adiabatic, epsilon);
 
-    const auto consv_L = consv_from_primv(primv_L, adiabatic);
-    const auto consv_R = consv_from_primv(primv_R, adiabatic);
+    const auto consv_L = consv_from_primv(primv_L, adiabatic, epsilon);
+    const auto consv_R = consv_from_primv(primv_R, adiabatic, epsilon);
 
     for (MFIter mfi(S_tmp); mfi.isValid(); ++mfi)
     {
@@ -78,7 +83,8 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
                     {
                         const Real x = prob_lo[0] + (i + Real(0.5)) * dx[0];
                         const Real y = prob_lo[1] + (j + Real(0.5)) * dx[1];
-                        const Real d     = (x - 0.5) * cos(rotation) + (y - 0.5) * sin(rotation);
+                        const Real d = (x - 0.5) * cos(rotation)
+                                       + (y - 0.5) * sin(rotation);
                         if (d <= 0)
                             phi(i, j, k, n) = consv_L[n];
                         else
@@ -88,10 +94,11 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
 }
 
 void write_exact_solution(
-    const amrex::Real                                   time,
+    const amrex::Real                                time,
     const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_L,
     const amrex::GpuArray<amrex::Real, EULER_NCOMP> &primv_R,
-    const amrex::Real adiabatic_L, const amrex::Real adiabatic_R)
+    const amrex::Real adiabatic_L, const amrex::Real adiabatic_R,
+    const amrex::Real epsilon)
 {
     // We basically just do a 1D simulation here and write it to file
     const int                      resolution = 1000;
@@ -111,8 +118,9 @@ void write_exact_solution(
         const auto &bx  = mfi.tilebox();
         const auto &arr = mf.array(mfi);
 
-        compute_exact_RP_solution(0, time, bx, dx, prob_lo, 0.5, primv_L,
-                                  primv_R, adiabatic_L, adiabatic_R, arr);
+        compute_exact_RP_solution<0>(time, bx, dx, prob_lo, 0.5, primv_L,
+                                     primv_R, adiabatic_L, adiabatic_R,
+                                     epsilon, arr);
     }
     ParmParse   pp("amr");
     std::string plotfile_name;

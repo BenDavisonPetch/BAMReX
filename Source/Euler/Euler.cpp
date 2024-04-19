@@ -7,12 +7,12 @@
 
 using namespace amrex;
 
-AMREX_GPU_HOST
-void compute_flux_function(
-    const int dir, amrex::Real /*time*/, const amrex::Box &bx,
-    const amrex::Array4<amrex::Real>       &flux_func,
-    const amrex::Array4<const amrex::Real> &consv_values,
-    const amrex::Real                       adiabatic)
+template <int dir>
+AMREX_GPU_HOST void
+compute_flux_function(amrex::Real /*time*/, const amrex::Box &bx,
+                      const amrex::Array4<amrex::Real>       &flux_func,
+                      const amrex::Array4<const amrex::Real> &consv_values,
+                      const amrex::Real adiabatic, const amrex::Real epsilon)
 {
     AMREX_ASSERT(dir < AMREX_SPACEDIM);
     ParallelFor(
@@ -20,7 +20,7 @@ void compute_flux_function(
         [=] AMREX_GPU_DEVICE(int i, int j, int k)
         {
             const auto primv_values
-                = primv_from_consv(consv_values, adiabatic, i, j, k);
+                = primv_from_consv(consv_values, adiabatic, epsilon, i, j, k);
             const double pressure = primv_values[1 + AMREX_SPACEDIM];
             const double energy   = consv_values(i, j, k, 1 + AMREX_SPACEDIM);
 
@@ -35,7 +35,7 @@ void compute_flux_function(
                          , flux_func(i, j, k, 3)
                            = consv_values(i, j, k, 1 + dir) * primv_values[3];)
 
-            flux_func(i, j, k, 1 + dir) += pressure;
+            flux_func(i, j, k, 1 + dir) += pressure / epsilon;
 
             // energy flux
             flux_func(i, j, k, 1 + AMREX_SPACEDIM)
@@ -47,6 +47,7 @@ AMREX_GPU_HOST
 amrex::Real max_wave_speed(amrex::Real /*time*/, const amrex::MultiFab &S_new)
 {
     const Real adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Real epsilon   = AmrLevelAdv::h_prob_parm->epsilon;
 
     auto const &ma = S_new.const_arrays();
     return ParReduce(
@@ -56,12 +57,13 @@ amrex::Real max_wave_speed(amrex::Real /*time*/, const amrex::MultiFab &S_new)
             noexcept -> GpuTuple<Real>
         {
             const Array4<const Real> &consv = ma[box_no];
-            const auto primv_arr = primv_from_consv(consv, adiabatic, i, j, k);
-            const Real velocity  = std::sqrt(AMREX_D_TERM(
-                 primv_arr[1] * primv_arr[1], +primv_arr[2] * primv_arr[2],
-                 +primv_arr[3] * primv_arr[3]));
+            const auto                primv_arr
+                = primv_from_consv(consv, adiabatic, epsilon, i, j, k);
+            const Real velocity = std::sqrt(AMREX_D_TERM(
+                primv_arr[1] * primv_arr[1], +primv_arr[2] * primv_arr[2],
+                +primv_arr[3] * primv_arr[3]));
             return sqrt(adiabatic * primv_arr[1 + AMREX_SPACEDIM]
-                        / primv_arr[0])
+                        / (primv_arr[0] * epsilon))
                    + velocity;
         });
 }
@@ -87,23 +89,45 @@ amrex::Real max_speed(const amrex::MultiFab &state)
 }
 
 /**
- * \brief Calculates the maximum value of (|u| / dx + |v| / dy + |w| / dz) on the
- * domain
+ * \brief Calculates the maximum value of (|u| / dx + |v| / dy + |w| / dz) on
+ * the domain
  */
 AMREX_GPU_HOST
 amrex::Real max_dx_scaled_speed(const amrex::MultiFab                &state,
                                 const GpuArray<Real, AMREX_SPACEDIM> &dx)
 {
     auto const &ma = state.const_arrays();
-    return ParReduce(TypeList<ReduceOpMax>{}, TypeList<Real>{}, state,
-                     IntVect(0), // no ghost cells
-                     [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k)
-                         noexcept -> GpuTuple<Real>
-                     {
-                         const Array4<const Real> &consv = ma[box_no];
-                         return (AMREX_D_TERM(fabs(consv(i, j, k, 1)) / dx[0],
-                                              +fabs(consv(i, j, k, 2)) / dx[1],
-                                              +fabs(consv(i, j, k, 3)) / dx[2]))
-                                / consv(i, j, k, 0);
-                     });
+    return ParReduce(
+        TypeList<ReduceOpMax>{}, TypeList<Real>{}, state,
+        IntVect(0), // no ghost cells
+        [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k)
+            noexcept -> GpuTuple<Real>
+        {
+            const Array4<const Real> &consv = ma[box_no];
+            return (AMREX_D_TERM(fabs(consv(i, j, k, 1)) / dx[0],
+                                 +fabs(consv(i, j, k, 2)) / dx[1],
+                                 +fabs(consv(i, j, k, 3)) / dx[2]))
+                   / consv(i, j, k, 0);
+        });
 }
+
+template AMREX_GPU_HOST void
+compute_flux_function<0>(amrex::Real, const amrex::Box &,
+                         const amrex::Array4<amrex::Real> &,
+                         const amrex::Array4<const amrex::Real> &,
+                         const amrex::Real, const amrex::Real);
+
+#if AMREX_SPACEDIM >= 2
+template AMREX_GPU_HOST void
+compute_flux_function<1>(amrex::Real, const amrex::Box &,
+                         const amrex::Array4<amrex::Real> &,
+                         const amrex::Array4<const amrex::Real> &,
+                         const amrex::Real, const amrex::Real);
+#endif
+#if AMREX_SPACEDIM >= 3
+template AMREX_GPU_HOST void
+compute_flux_function<2>(amrex::Real, const amrex::Box &,
+                         const amrex::Array4<amrex::Real> &,
+                         const amrex::Array4<const amrex::Real> &,
+                         const amrex::Real, const amrex::Real);
+#endif
