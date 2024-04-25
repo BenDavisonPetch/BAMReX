@@ -372,7 +372,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     if (verbose)
         Print() << "\tFilled ghost states" << std::endl;
 
-#if SCHEME == 0
+#if (SCHEME == 0 || SCHEME == 2)
     for (int d = 0; d < amrex::SpaceDim; d++)
     {
         if (verbose)
@@ -415,19 +415,31 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
                 switch (d)
                 {
                 case 0:
+#if SCHEME == 0
                     compute_MUSCL_hancock_flux<0>(time, bx, fluxArr, arr, dx,
                                                   dt);
+#elif SCHEME == 2
+                    compute_HLLC_flux<0>(time, bx, fluxArr, arr, dx, dt);
+#endif
                     break;
 #if AMREX_SPACEDIM >= 2
                 case 1:
+#if SCHEME == 0
                     compute_MUSCL_hancock_flux<1>(time, bx, fluxArr, arr, dx,
                                                   dt);
+#elif SCHEME == 2
+                    compute_HLLC_flux<1>(time, bx, fluxArr, arr, dx, dt);
+#endif
                     break;
 #endif
 #if AMREX_SPACEDIM >= 3
                 case 2:
+#if SCHEME == 0
                     compute_MUSCL_hancock_flux<2>(time, bx, fluxArr, arr, dx,
                                                   dt);
+#elif SCHEME == 2
+                    compute_HLLC_flux<2>(time, bx, fluxArr, arr, dx, dt);
+#endif
                     break;
 #endif
                 }
@@ -583,7 +595,7 @@ Real AmrLevelAdv::estTimeStep(Real)
 
     // This is just a dummy value to start with
     Real dt_est = 1.0e+20;
-#if SCHEME == 0
+#if (SCHEME == 0 || SCHEME == 2)
     const Real wave_speed = max_wave_speed(cur_time, S_new);
 
     if (verbose)

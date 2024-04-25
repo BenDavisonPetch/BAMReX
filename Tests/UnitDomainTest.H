@@ -81,6 +81,8 @@ class ToroTest1 : public UnitDomainTest
     amrex::Real p_R       = 0.1;
     amrex::Real time      = 0.25;
 
+    // shock is M = 1.6556
+
     // Expected intermediate states
     amrex::Real exp_p_interm         = 0.30313;
     amrex::Real exp_u_interm         = 0.92745;

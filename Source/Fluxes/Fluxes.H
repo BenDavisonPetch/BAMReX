@@ -109,6 +109,23 @@ compute_HLLC_flux_LR(amrex::Real time, const amrex::Box &bx,
                      amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr,
                      amrex::Real                                      dt);
 
+/**
+ * @brief For convenience. Calls \c compute_HLLC_flux_LR
+ */
+template <int dir>
+AMREX_GPU_HOST AMREX_FORCE_INLINE void
+compute_HLLC_flux(amrex::Real time, const amrex::Box &bx,
+                  const amrex::Array4<amrex::Real>       &flux,
+                  const amrex::Array4<const amrex::Real> &consv_values,
+                  amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr,
+                  amrex::Real                                      dt)
+{
+    const amrex::Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
+    const amrex::Real eps  = AmrLevelAdv::h_prob_parm->epsilon;
+    compute_HLLC_flux_LR<dir>(time, bx, flux, consv_values, consv_values, adia,
+                              adia, eps, dx_arr, dt);
+}
+
 template <int dir>
 AMREX_GPU_HOST void compute_MUSCL_hancock_flux(
     amrex::Real time, const amrex::Box &bx,
