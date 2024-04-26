@@ -12,7 +12,11 @@
 #include "CONTROL.H"
 #include "Euler/Euler.H"
 #include "Fluxes/Fluxes.H"
+#if SCHEME == 1
 #include "IMEX/IMEX_O1.H"
+#elif SCHEME == 3
+#include "IMEX/IMEX_O1_bp.H"
+#endif
 #include "MFIterLoop.H"
 #include "Prob.H"
 #include "tagging_K.H"
@@ -492,6 +496,10 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     advance_o1_pimex(
         level, crse_ratio, time, geom, Sborder, S_new, fluxes, nullptr, dt,
         get_state_data(Phi_Type).descriptor()->getBCs(), verbose, verbose);
+#elif SCHEME == 3
+    advance_o1_pimex_bp(
+        level, crse_ratio, time, geom, Sborder, S_new, fluxes, nullptr, dt,
+        get_state_data(Phi_Type).descriptor()->getBCs(), verbose, verbose);
 #else
 #error "Invalid scheme!"
 #endif
@@ -606,10 +614,11 @@ Real AmrLevelAdv::estTimeStep(Real)
         dt_est = std::min(dt_est, dx[d] / wave_speed);
     }
 
-#elif SCHEME == 1
+#elif (SCHEME == 1 || SCHEME == 3)
     Real wave_speed;
     if (cur_time < acoustic_timestep_end_time)
     {
+        if (verbose) Print() << "\tUsing acoustic time step" << std::endl;
         wave_speed = max_wave_speed(cur_time, S_new);
         for (unsigned int d = 0; d < amrex::SpaceDim; ++d)
         {
@@ -618,6 +627,7 @@ Real AmrLevelAdv::estTimeStep(Real)
     }
     else
     {
+        if (verbose) Print() << "\tUsing advective time step" << std::endl;
         dt_est = 1 / max_dx_scaled_speed(S_new, dx);
     }
 #else

@@ -96,4 +96,12 @@ void update_ex_from_pressure(
 AMREX_GPU_HOST
 void copy_pressure(const amrex::MultiFab &statesrc, amrex::MultiFab &dst);
 
+namespace details
+{
+AMREX_GPU_HOST
+void set_pressure_domain_BC(amrex::MLLinOp            &pressure_op,
+                            const amrex::Geometry             &geom,
+                            const amrex::Vector<amrex::BCRec> &bcs);
+}
+
 #endif

@@ -54,14 +54,14 @@ TEST_F(BoxTest, PressureSourceVector)
         const auto &b = MFb.const_array(mfi);
         // along edges
         ASSERT_IF_CONTAINS(b, 0, 0, 0, 0.5, 1e-12);
-        ASSERT_IF_CONTAINS(b, 1, 0, 0, 0.5 + dt / dx[0], 1e-12);
-        ASSERT_IF_CONTAINS(b, 2, 0, 0, 1 + dt / dx[0], 1e-12);
+        ASSERT_IF_CONTAINS(b, 1, 0, 0, 0.5 + 2 * dt / dx[0], 1e-12);
+        ASSERT_IF_CONTAINS(b, 2, 0, 0, 1 + 2 * dt / dx[0], 1e-12);
         ASSERT_IF_CONTAINS(b, 3, 0, 0, 1, 1e-12);
         ASSERT_IF_CONTAINS(b, 0, 1, 0, 0.5, 1e-12);
         ASSERT_IF_CONTAINS(b, 0, 2, 0, 1, 1e-12);
         ASSERT_IF_CONTAINS(b, 0, 3, 0, 1, 1e-12);
-        ASSERT_IF_CONTAINS(b, 0, 0, 1, 0.5 - dt / dx[2], 1e-12);
-        ASSERT_IF_CONTAINS(b, 0, 0, 2, 1 - dt / dx[2], 1e-12);
+        ASSERT_IF_CONTAINS(b, 0, 0, 1, 0.5 - 2 * dt / dx[2], 1e-12);
+        ASSERT_IF_CONTAINS(b, 0, 0, 2, 1 - 2 * dt / dx[2], 1e-12);
         ASSERT_IF_CONTAINS(b, 0, 0, 3, 1, 1e-12);
 
         // boring terms
@@ -70,13 +70,15 @@ TEST_F(BoxTest, PressureSourceVector)
         ASSERT_IF_CONTAINS(b, 1, 3, 0, 1, 1e-12);
 
         // less boring terms
-        ASSERT_IF_CONTAINS(b, 1, 1, 0, 0.5 + dt / dx[0], 1e-12);
-        ASSERT_IF_CONTAINS(b, 1, 1, 1, 0.5 + dt / dx[0] - dt / dx[2], 1e-12);
-        ASSERT_IF_CONTAINS(b, 1, 0, 1, 0.5 + dt / dx[0] - dt / dx[2], 1e-12);
-        ASSERT_IF_CONTAINS(b, 0, 1, 1, 0.5 - dt / dx[2], 1e-12);
-        ASSERT_IF_CONTAINS(b, 2, 1, 1, 1 + dt / dx[0], 1e-12);
+        ASSERT_IF_CONTAINS(b, 1, 1, 0, 0.5 + 2 * dt / dx[0], 1e-12);
+        ASSERT_IF_CONTAINS(b, 1, 1, 1, 0.5 + 2 * dt / dx[0] - 2 * dt / dx[2],
+                           1e-12);
+        ASSERT_IF_CONTAINS(b, 1, 0, 1, 0.5 + 2 * dt / dx[0] - 2 * dt / dx[2],
+                           1e-12);
+        ASSERT_IF_CONTAINS(b, 0, 1, 1, 0.5 - 2 * dt / dx[2], 1e-12);
+        ASSERT_IF_CONTAINS(b, 2, 1, 1, 1 + 2 * dt / dx[0], 1e-12);
         ASSERT_IF_CONTAINS(b, 1, 2, 1, 1, 1e-12);
-        ASSERT_IF_CONTAINS(b, 1, 1, 2, 1 - dt / dx[2], 1e-12);
+        ASSERT_IF_CONTAINS(b, 1, 1, 2, 1 - 2 * dt / dx[2], 1e-12);
     }
 }
 #endif

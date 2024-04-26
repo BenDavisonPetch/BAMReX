@@ -4,6 +4,7 @@
 // 0 : MUSCL-Hancock
 // 1 : P-IMEX O1
 // 2 : HLLC
-#define SCHEME 1
+// 3 : IMEX Boscheri and Pareshi
+#define SCHEME 3
 
 #endif

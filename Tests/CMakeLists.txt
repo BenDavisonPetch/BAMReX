@@ -25,6 +25,7 @@ add_executable(tests_1d
   ExactRiemann01.cpp
   RusanovAdv01.cpp
   HLLC01.cpp
+  MLABecLapGrad01.cpp
 )
 
 add_executable(tests_2d
@@ -32,6 +33,7 @@ add_executable(tests_2d
   ${SRC_NO_MAIN}
   IMEX_O1_01.cpp
   Euler01.cpp
+  MLABecLapGrad01.cpp
 )
 
 add_executable(tests_3d
@@ -41,6 +43,7 @@ add_executable(tests_3d
   PressureSourceVec01.cpp
   IMEX_O1_01.cpp
   Euler01.cpp
+  MLABecLapGrad01.cpp
 )
 
 if (AMReX_GPU_BACKEND STREQUAL "CUDA")

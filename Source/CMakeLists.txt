@@ -12,8 +12,10 @@ set (SRC_NO_MAIN ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Fluxes/MUSCL_Hancock.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Fluxes/HLLC.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/IMEX/IMEX_O1.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/IMEX/IMEX_O1_bp.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Euler/Euler.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Euler/RiemannSolver.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/LinearSolver/MLALaplacianGrad.cpp
 )
 
 set (SRC_NO_MAIN ${SRC_NO_MAIN} PARENT_SCOPE)

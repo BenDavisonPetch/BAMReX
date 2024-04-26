@@ -1,6 +1,6 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
-max_step = 4
-stop_time = 0.25
+max_step = 1000
+stop_time = 0.11
 
 # PROBLEM-SPECIFIC PARAMETERS
 prob.adiabatic  = 1.4

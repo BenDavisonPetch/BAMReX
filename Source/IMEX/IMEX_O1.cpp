@@ -10,14 +10,6 @@
 
 using namespace amrex;
 
-namespace details
-{
-AMREX_GPU_HOST
-void set_pressure_domain_BC(amrex::MLABecLaplacian            &pressure_op,
-                            const amrex::Geometry             &geom,
-                            const amrex::Vector<amrex::BCRec> &bcs);
-}
-
 AMREX_GPU_HOST
 void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
                       const amrex::Real time, const amrex::Geometry &geom,
@@ -186,65 +178,6 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
     MFpressure.FillBoundary(geom.periodicity());
     FillDomainBoundary(MFpressure, geom, { bcs[1 + AMREX_SPACEDIM] });
 
-#ifdef DEBUG_PRINT
-    Print() << std::endl << "exp quantities: " << std::endl;
-    for (MFIter mfi(MFex, false); mfi.isValid(); ++mfi)
-    {
-        const Box bx = amrex::grow(mfi.validbox(), 1);
-        for (int i = bx.smallEnd(0); i <= bx.bigEnd(0); ++i)
-        {
-            Print() << MFex.array(mfi)(i, 0, 0, 0) << "\t"
-                    << MFex.array(mfi)(i, 0, 0, 1) << "\t"
-                    << MFex.array(mfi)(i, 0, 0, 2) << std::endl;
-        }
-    }
-    Print() << std::endl;
-
-    Print() << std::endl << "Scaled enthalpy (cc): " << std::endl;
-    for (MFIter mfi(MFscaledenth_cc, false); mfi.isValid(); ++mfi)
-    {
-        const Box bx = mfi.growntilebox();
-        for (int i = bx.smallEnd(0); i <= bx.bigEnd(0); ++i)
-        {
-            Print() << MFscaledenth_cc.array(mfi)(i, 0, 0) << ", ";
-        }
-    }
-    Print() << std::endl;
-
-    Print() << std::endl << "Scaled enthalpy (f): " << std::endl;
-    for (MFIter mfi(MFscaledenth_f[0], false); mfi.isValid(); ++mfi)
-    {
-        const Box bx = mfi.growntilebox();
-        for (int i = bx.smallEnd(0); i <= bx.bigEnd(0); ++i)
-        {
-            Print() << MFscaledenth_f[0].array(mfi)(i, 0, 0) << ", ";
-        }
-    }
-    Print() << std::endl;
-
-    Print() << std::endl << "b: " << std::endl;
-    for (MFIter mfi(MFb, false); mfi.isValid(); ++mfi)
-    {
-        const Box bx = mfi.growntilebox();
-        for (int i = bx.smallEnd(0); i <= bx.bigEnd(0); ++i)
-        {
-            Print() << MFb.array(mfi)(i, 0, 0) << ", ";
-        }
-    }
-    Print() << std::endl;
-
-    Print() << std::endl << "Pressure: " << std::endl;
-    for (MFIter mfi(MFpressure, false); mfi.isValid(); ++mfi)
-    {
-        const Box bx = mfi.growntilebox();
-        for (int i = bx.smallEnd(0); i <= bx.bigEnd(0); ++i)
-        {
-            Print() << MFpressure.array(mfi)(i, 0, 0) << ", ";
-        }
-    }
-    Print() << std::endl;
-#endif
-
     BL_PROFILE_VAR_STOP(ppressure);
     BL_PROFILE_VAR("advance_o1_pimex() updating", pupdate);
 
@@ -384,7 +317,7 @@ void pressure_source_vector(
                     b(i, j, k)
                         = epsilon
                           * (consv_ex(i, j, k, 1 + AMREX_SPACEDIM)
-                             - kinetic_energy(i, j, k, consv_ex)
+                             - kinetic_energy(i, j, k, consv_ex))
                              - (AMREX_D_TERM(
                                  hedtdx
                                      * (sh_cc(i + 1, j, k)
@@ -400,7 +333,7 @@ void pressure_source_vector(
                                      * (sh_cc(i, j, k + 1)
                                             * consv_ex(i, j, k + 1, 3)
                                         - sh_cc(i, j, k - 1)
-                                              * consv_ex(i, j, k - 1, 3)))));
+                                              * consv_ex(i, j, k - 1, 3))));
                 });
         }
     }
@@ -581,7 +514,7 @@ LinOpBCType linop_from_BCType(int bc)
 }
 
 AMREX_GPU_HOST
-void set_pressure_domain_BC(amrex::MLABecLaplacian            &pressure_op,
+void set_pressure_domain_BC(amrex::MLLinOp            &pressure_op,
                             const amrex::Geometry             &geom,
                             const amrex::Vector<amrex::BCRec> &bcs)
 {
