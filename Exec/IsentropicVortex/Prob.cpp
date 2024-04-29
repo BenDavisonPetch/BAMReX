@@ -42,17 +42,18 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
         pp2.get("stop_time", stop_time);
     }
 
-    const double adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Real adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Real epsilon   = AmrLevelAdv::h_prob_parm->epsilon;
 
     // initial conditions
     init_exact_solution(0, S_tmp, geom, density_bg, u_bg, v_bg, w_bg,
-                        pressure_bg, x_c, y_c, lambda, adiabatic);
+                        pressure_bg, x_c, y_c, lambda, adiabatic, epsilon);
 
     // Write exact solution
     MultiFab S_exact(S_tmp.boxArray(), S_tmp.DistributionMap(), EULER_NCOMP,
                      0);
     init_exact_solution(stop_time, S_exact, geom, density_bg, u_bg, v_bg, w_bg,
-                        pressure_bg, x_c, y_c, lambda, adiabatic);
+                        pressure_bg, x_c, y_c, lambda, adiabatic, epsilon);
     write_exact_solution(stop_time, S_exact, geom);
 }
 
@@ -69,7 +70,8 @@ void init_exact_solution(const amrex::Real time, amrex::MultiFab &S,
                          const amrex::Real v_bg, const amrex::Real w_bg,
                          const amrex::Real pressure_bg, const amrex::Real x_c,
                          const amrex::Real y_c, const amrex::Real lambda,
-                         const amrex::Real adiabatic)
+                         const amrex::Real adiabatic,
+                         const amrex::Real epsilon)
 {
 #if AMREX_SPACEDIM < 3
     amrex::ignore_unused(w_bg);
@@ -118,7 +120,7 @@ void init_exact_solution(const amrex::Real time, amrex::MultiFab &S,
                     const Real  v     = v_bg + vel_mult * x;
                     const auto &consv = consv_from_primv(
                         { density, AMREX_D_DECL(u, v, w_bg), pressure },
-                        adiabatic);
+                        adiabatic, epsilon);
                     for (int n = 0; n < EULER_NCOMP; ++n)
                         phi(i, j, k, n) = consv[n];
                 });

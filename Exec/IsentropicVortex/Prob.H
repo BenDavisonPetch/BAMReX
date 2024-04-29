@@ -17,7 +17,8 @@ void init_exact_solution(const amrex::Real time, amrex::MultiFab &S,
                          const amrex::Real v_bg, const amrex::Real w_bg,
                          const amrex::Real pressure_bg, const amrex::Real x_c,
                          const amrex::Real y_c, const amrex::Real lambda,
-                         const amrex::Real adiabatic);
+                         const amrex::Real adiabatic,
+                         const amrex::Real epsilon);
 
 void write_exact_solution(const amrex::Real time, const amrex::MultiFab &soln,
                           const amrex::Geometry &geom);
