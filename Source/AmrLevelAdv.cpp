@@ -37,6 +37,10 @@ const int AmrLevelAdv::NUM_GROW  = 2;                  // number of ghost cells
 ProbParm *AmrLevelAdv::h_prob_parm = nullptr;
 // ProbParm *AmrLevelAdv::d_prob_parm = nullptr;
 
+#if REUSE_PRESSURE
+MultiFab AmrLevelAdv::MFpressure;
+#endif
+
 // Parameters for mesh refinement
 int          AmrLevelAdv::max_phierr_lev  = -1;
 int          AmrLevelAdv::max_phigrad_lev = -1;

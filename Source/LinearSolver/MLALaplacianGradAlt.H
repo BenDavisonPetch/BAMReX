@@ -1,8 +1,8 @@
-#ifndef MLALaplacianGrad_H_
-#define MLALaplacianGrad_H_
+#ifndef MLALaplacianGradAlt_H_
+#define MLALaplacianGradAlt_H_
 #include <AMReX_Config.H>
 
-#include "MLALapGrad_K.H"
+#include "MLALapGradAlt_K.H"
 #include <AMReX_MLCellLinOp.H>
 
 namespace amrex
@@ -11,7 +11,7 @@ namespace amrex
 /**
  * (Aa - B div(b grad) + C c dot grad) phi
  */
-template <typename MF> class MLABecLaplacianGradT : public MLCellLinOpT<MF>
+template <typename MF> class MLABecLaplacianGradAltT : public MLCellLinOpT<MF>
 {
   public:
     using FAB = typename MF::fab_type;
@@ -20,15 +20,15 @@ template <typename MF> class MLABecLaplacianGradT : public MLCellLinOpT<MF>
     using BCType   = LinOpBCType;
     using Location = typename MLLinOpT<MF>::Location;
 
-    MLABecLaplacianGradT() = default;
-    MLABecLaplacianGradT(const Vector<Geometry>            &a_geom,
+    MLABecLaplacianGradAltT() = default;
+    MLABecLaplacianGradAltT(const Vector<Geometry>            &a_geom,
                          const Vector<BoxArray>            &a_grids,
                          const Vector<DistributionMapping> &a_dmap,
                          const LPInfo                      &a_info = LPInfo(),
                          const Vector<FabFactory<FAB> const *> &a_factory = {},
                          int                                    a_ncomp   = 1);
 
-    // MLABecLaplacianGradT (const Vector<Geometry>& a_geom,
+    // MLABecLaplacianGradAltT (const Vector<Geometry>& a_geom,
     //                   const Vector<BoxArray>& a_grids,
     //                   const Vector<DistributionMapping>& a_dmap,
     //                   const Vector<iMultiFab const*>& a_overset_mask, // 1:
@@ -36,13 +36,13 @@ template <typename MF> class MLABecLaplacianGradT : public MLCellLinOpT<MF>
     //                   const Vector<FabFactory<FAB> const*>& a_factory = {},
     //                   int a_ncomp = 1);
 
-    ~MLABecLaplacianGradT() override;
+    ~MLABecLaplacianGradAltT() override;
 
-    MLABecLaplacianGradT(const MLABecLaplacianGradT<MF> &) = delete;
-    MLABecLaplacianGradT(MLABecLaplacianGradT<MF> &&)      = delete;
-    MLABecLaplacianGradT<MF> &operator=(const MLABecLaplacianGradT<MF> &)
+    MLABecLaplacianGradAltT(const MLABecLaplacianGradAltT<MF> &) = delete;
+    MLABecLaplacianGradAltT(MLABecLaplacianGradAltT<MF> &&)      = delete;
+    MLABecLaplacianGradAltT<MF> &operator=(const MLABecLaplacianGradAltT<MF> &)
         = delete;
-    MLABecLaplacianGradT<MF> &operator=(MLABecLaplacianGradT<MF> &&) = delete;
+    MLABecLaplacianGradAltT<MF> &operator=(MLABecLaplacianGradAltT<MF> &&) = delete;
 
     void define(const Vector<Geometry>                &a_geom,
                 const Vector<BoxArray>                &a_grids,
@@ -107,12 +107,12 @@ template <typename MF> class MLABecLaplacianGradT : public MLCellLinOpT<MF>
 
     /**
      * Sets beta as a scalar field to be the values defined
-     * in the supplied multifabs (one for each space dimension).
+     * in the supplied multifab.
      *
      * \param [in] amrlev The level of the multifab for the solver, with
      *                    \p amrlev = 0 always being the lowest level in the
      *                    AMR hierarchy represented in the solve.
-     * \param [in] beta   Array of Multifabs of beta values.
+     * \param [in] beta   Multifab of beta values.
      */
     template <
         typename AMF,
@@ -121,7 +121,7 @@ template <typename MF> class MLABecLaplacianGradT : public MLCellLinOpT<MF>
                                                       typename MF::value_type>,
                          int> = 0>
     void setBCoeffs(int                                       amrlev,
-                    const Array<AMF const *, AMREX_SPACEDIM> &beta);
+                    const AMF &beta);
 
     /**
      * Sets beta as a single scalar constant value across
@@ -136,20 +136,6 @@ template <typename MF> class MLABecLaplacianGradT : public MLCellLinOpT<MF>
               std::enable_if_t<
                   std::is_convertible_v<T, typename MF::value_type>, int> = 0>
     void setBCoeffs(int amrlev, T beta);
-
-    /**
-     * Set each beta component to a single scalar constant value corresponding
-     * to the respective component of the supplied vector.
-     *
-     * \param [in] amrlev The level of the multifab for the solver, with
-     *                    \p amrlev = 0 always being the lowest level in the
-     *                    AMR hierarchy represented in the solve.
-     * \param [in] beta   Vector of scalar constant values.
-     */
-    template <typename T,
-              std::enable_if_t<
-                  std::is_convertible_v<T, typename MF::value_type>, int> = 0>
-    void setBCoeffs(int amrlev, Vector<T> const &beta);
 
     /**
      * Sets gamma as a scalar field to values from a spacedim component
@@ -215,10 +201,10 @@ template <typename MF> class MLABecLaplacianGradT : public MLCellLinOpT<MF>
     {
         return &(m_a_coeffs[amrlev][mglev]);
     }
-    [[nodiscard]] Array<MF const *, AMREX_SPACEDIM> getBCoeffs(int amrlev,
+    [[nodiscard]] MF const *getBCoeffs(int amrlev,
                                                                int mglev) const
     {
-        return amrex::GetArrOfConstPtrs(m_b_coeffs[amrlev][mglev]);
+        return &(m_b_coeffs[amrlev][mglev]);
     }
     [[nodiscard]] MF const *getCCoeffs(int amrlev, int mglev) const
     {
@@ -233,7 +219,7 @@ template <typename MF> class MLABecLaplacianGradT : public MLCellLinOpT<MF>
     // void copyNSolveSolution (MF& dst, MF const& src) const final;
 
     void averageDownCoeffsSameAmrLevel(int amrlev, Vector<MF> &a,
-                                       Vector<Array<MF, AMREX_SPACEDIM> > &b,
+                                       Vector<MF> &b,
                                        Vector<MF>                         &c);
     void averageDownCoeffs();
     void averageDownCoeffsToCoarseAmrLevel(int flev);
@@ -251,12 +237,13 @@ template <typename MF> class MLABecLaplacianGradT : public MLCellLinOpT<MF>
     RT                  m_b_scalar = std::numeric_limits<RT>::quiet_NaN();
     RT                  m_c_scalar = std::numeric_limits<RT>::quiet_NaN();
     Vector<Vector<MF> > m_a_coeffs;
-    Vector<Vector<Array<MF, AMREX_SPACEDIM> > > m_b_coeffs;
+    Vector<Vector<MF > > m_b_coeffs;
     // m_c_coeffs has ncomp = AMREX_SPACEDIM
     Vector<Vector<MF> > m_c_coeffs;
 
     bool m_scalars_set = false;
     bool m_acoef_set   = false;
+    bool m_bcoef_set = false;
     bool m_ccoef_set   = false;
 
   protected:
@@ -278,7 +265,7 @@ template <typename MF> class MLABecLaplacianGradT : public MLCellLinOpT<MF>
 };
 
 template <typename MF>
-MLABecLaplacianGradT<MF>::MLABecLaplacianGradT(
+MLABecLaplacianGradAltT<MF>::MLABecLaplacianGradAltT(
     const Vector<Geometry> &a_geom, const Vector<BoxArray> &a_grids,
     const Vector<DistributionMapping> &a_dmap, const LPInfo &a_info,
     const Vector<FabFactory<FAB> const *> &a_factory, int a_ncomp)
@@ -287,7 +274,7 @@ MLABecLaplacianGradT<MF>::MLABecLaplacianGradT(
 }
 
 // template <typename MF>
-// MLABecLaplacianGradT<MF>::MLABecLaplacianGradT (const Vector<Geometry>&
+// MLABecLaplacianGradAltT<MF>::MLABecLaplacianGradAltT (const Vector<Geometry>&
 // a_geom,
 //                                         const Vector<BoxArray>& a_grids,
 //                                         const Vector<DistributionMapping>&
@@ -302,15 +289,15 @@ MLABecLaplacianGradT<MF>::MLABecLaplacianGradT(
 // }
 
 template <typename MF>
-MLABecLaplacianGradT<MF>::~MLABecLaplacianGradT() = default;
+MLABecLaplacianGradAltT<MF>::~MLABecLaplacianGradAltT() = default;
 
 template <typename MF>
-void MLABecLaplacianGradT<MF>::define(
+void MLABecLaplacianGradAltT<MF>::define(
     const Vector<Geometry> &a_geom, const Vector<BoxArray> &a_grids,
     const Vector<DistributionMapping> &a_dmap, const LPInfo &a_info,
     const Vector<FabFactory<FAB> const *> &a_factory, int a_ncomp)
 {
-    BL_PROFILE("MLABecLaplacianGrad::define()");
+    BL_PROFILE("MLABecLaplacianGradAlt::define()");
     this->m_ncomp = a_ncomp;
     MLCellLinOpT<MF>::define(a_geom, a_grids, a_dmap, a_info, a_factory);
     define_abc_coeffs();
@@ -318,7 +305,7 @@ void MLABecLaplacianGradT<MF>::define(
 
 // template <typename MF>
 // void
-// MLABecLaplacianGradT<MF>::define (const Vector<Geometry>& a_geom,
+// MLABecLaplacianGradAltT<MF>::define (const Vector<Geometry>& a_geom,
 //                               const Vector<BoxArray>& a_grids,
 //                               const Vector<DistributionMapping>& a_dmap,
 //                               const Vector<iMultiFab const*>&
@@ -326,13 +313,13 @@ void MLABecLaplacianGradT<MF>::define(
 //                               Vector<FabFactory<FAB> const*>& a_factory, int
 //                               a_ncomp)
 // {
-//     BL_PROFILE("MLABecLaplacianGrad::define(overset)");
+//     BL_PROFILE("MLABecLaplacianGradAlt::define(overset)");
 //     this->m_ncomp = a_ncomp;
 //     MLCellABecLapT<MF>::define(a_geom, a_grids, a_dmap, a_overset_mask,
 //     a_info, a_factory); define_abc_coeffs();
 // }
 
-template <typename MF> void MLABecLaplacianGradT<MF>::define_abc_coeffs()
+template <typename MF> void MLABecLaplacianGradAltT<MF>::define_abc_coeffs()
 {
     m_a_coeffs.resize(this->m_num_amr_levels);
     m_b_coeffs.resize(this->m_num_amr_levels);
@@ -351,15 +338,9 @@ template <typename MF> void MLABecLaplacianGradT<MF>::define_abc_coeffs()
                 this->m_grids[amrlev][mglev], this->m_dmap[amrlev][mglev],
                 AMREX_SPACEDIM, 0, MFInfo(),
                 *(this->m_factory[amrlev][mglev]));
-            for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
-            {
-                const BoxArray &ba
-                    = amrex::convert(this->m_grids[amrlev][mglev],
-                                     IntVect::TheDimensionVector(idim));
-                m_b_coeffs[amrlev][mglev][idim].define(
-                    ba, this->m_dmap[amrlev][mglev], m_ncomp, 0, MFInfo(),
-                    *(this->m_factory[amrlev][mglev]));
-            }
+            m_b_coeffs[amrlev][mglev].define(
+                this->m_grids[amrlev][mglev], this->m_dmap[amrlev][mglev], 1,
+                1, MFInfo(), *(this->m_factory[amrlev][mglev]));
         }
     }
 }
@@ -373,7 +354,7 @@ template <
             typename MF::
                 value_type> && std::is_convertible_v<T2, typename MF::value_type> && std::is_convertible_v<T3, typename MF::value_type>,
         int> >
-void MLABecLaplacianGradT<MF>::setScalars(T1 a, T2 b, T3 c) noexcept
+void MLABecLaplacianGradAltT<MF>::setScalars(T1 a, T2 b, T3 c) noexcept
 {
     m_a_scalar = RT(a);
     m_b_scalar = RT(b);
@@ -394,6 +375,14 @@ void MLABecLaplacianGradT<MF>::setScalars(T1 a, T2 b, T3 c) noexcept
         }
         m_ccoef_set = true;
     }
+    if (m_b_scalar == RT(0.0))
+    {
+        for (int amrlev = 0; amrlev < this->m_num_amr_levels; ++amrlev)
+        {
+            m_b_coeffs[amrlev][0].setVal(RT(0.0));
+        }
+        m_bcoef_set = true;
+    }
     m_scalars_set = true;
 }
 
@@ -404,10 +393,10 @@ template <
                          && std::is_convertible_v<typename AMF::value_type,
                                                   typename MF::value_type>,
                      int> >
-void MLABecLaplacianGradT<MF>::setACoeffs(int amrlev, const AMF &alpha)
+void MLABecLaplacianGradAltT<MF>::setACoeffs(int amrlev, const AMF &alpha)
 {
     AMREX_ASSERT_WITH_MESSAGE(alpha.nComp() == 1,
-                              "MLABecLaplacianGrad::setACoeffs: alpha is "
+                              "MLABecLaplacianGradAlt::setACoeffs: alpha is "
                               "supposed to be single component.");
     m_a_coeffs[amrlev][0].LocalCopy(alpha, 0, 0, 1, IntVect(0));
     m_needs_update = true;
@@ -418,7 +407,7 @@ template <typename MF>
 template <
     typename T,
     std::enable_if_t<std::is_convertible_v<T, typename MF::value_type>, int> >
-void MLABecLaplacianGradT<MF>::setACoeffs(int amrlev, T alpha)
+void MLABecLaplacianGradAltT<MF>::setACoeffs(int amrlev, T alpha)
 {
     m_a_coeffs[amrlev][0].setVal(RT(alpha));
     m_needs_update = true;
@@ -432,64 +421,27 @@ template <
                          && std::is_convertible_v<typename AMF::value_type,
                                                   typename MF::value_type>,
                      int> >
-void MLABecLaplacianGradT<MF>::setBCoeffs(
-    int amrlev, const Array<AMF const *, AMREX_SPACEDIM> &beta)
+void MLABecLaplacianGradAltT<MF>::setBCoeffs(
+    int amrlev, const AMF &beta)
 {
-    const int ncomp = this->getNComp();
-    AMREX_ASSERT(beta[0]->nComp() == 1 || beta[0]->nComp() == ncomp);
-    if (beta[0]->nComp() == ncomp)
-    {
-        for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
-        {
-            for (int icomp = 0; icomp < ncomp; ++icomp)
-            {
-                m_b_coeffs[amrlev][0][idim].LocalCopy(*beta[idim], icomp,
-                                                      icomp, 1, IntVect(0));
-            }
-        }
-    }
-    else
-    {
-        for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
-        {
-            for (int icomp = 0; icomp < ncomp; ++icomp)
-            {
-                m_b_coeffs[amrlev][0][idim].LocalCopy(*beta[idim], 0, icomp, 1,
-                                                      IntVect(0));
-            }
-        }
-    }
+    AMREX_ASSERT_WITH_MESSAGE(beta.nComp() == 1,
+                              "MLABecLaplacianGradAlt::setBCoeffs: beta must have a single component");
+    AMREX_ASSERT_WITH_MESSAGE(beta.nGrow() >= 1,
+                              "MLABecLaplacianGradAlt::setBCoeffs: beta must have at least 1 ghost cell");
+    m_b_coeffs[amrlev][0].LocalCopy(beta, 0, 0, 1, IntVect(1));
     m_needs_update = true;
+    m_bcoef_set = true;
 }
 
 template <typename MF>
 template <
     typename T,
     std::enable_if_t<std::is_convertible_v<T, typename MF::value_type>, int> >
-void MLABecLaplacianGradT<MF>::setBCoeffs(int amrlev, T beta)
+void MLABecLaplacianGradAltT<MF>::setBCoeffs(int amrlev, T beta)
 {
-    for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
-    {
-        m_b_coeffs[amrlev][0][idim].setVal(RT(beta));
-    }
+        m_b_coeffs[amrlev][0].setVal(RT(beta));
     m_needs_update = true;
-}
-
-template <typename MF>
-template <
-    typename T,
-    std::enable_if_t<std::is_convertible_v<T, typename MF::value_type>, int> >
-void MLABecLaplacianGradT<MF>::setBCoeffs(int amrlev, Vector<T> const &beta)
-{
-    const int ncomp = this->getNComp();
-    for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
-    {
-        for (int icomp = 0; icomp < ncomp; ++icomp)
-        {
-            m_b_coeffs[amrlev][0][idim].setVal(RT(beta[icomp]));
-        }
-    }
-    m_needs_update = true;
+    m_bcoef_set = true;
 }
 
 template <typename MF>
@@ -499,10 +451,10 @@ template <
                          && std::is_convertible_v<typename AMF::value_type,
                                                   typename MF::value_type>,
                      int> >
-void MLABecLaplacianGradT<MF>::setCCoeffs(int amrlev, const AMF &gamma)
+void MLABecLaplacianGradAltT<MF>::setCCoeffs(int amrlev, const AMF &gamma)
 {
     AMREX_ASSERT_WITH_MESSAGE(gamma.nComp() == AMREX_SPACEDIM,
-                              "MLABecLaplacianGrad::setACoeffs: gamma is "
+                              "MLABecLaplacianGradAlt::setACoeffs: gamma is "
                               "supposed to have SPACEDIM components.");
     m_c_coeffs[amrlev][0].LocalCopy(gamma, 0, 0, AMREX_SPACEDIM, IntVect(0));
     m_needs_update = true;
@@ -513,14 +465,14 @@ template <typename MF>
 template <
     typename T,
     std::enable_if_t<std::is_convertible_v<T, typename MF::value_type>, int> >
-void MLABecLaplacianGradT<MF>::setCCoeffs(int amrlev, T gamma)
+void MLABecLaplacianGradAltT<MF>::setCCoeffs(int amrlev, T gamma)
 {
     m_c_coeffs[amrlev][0].setVal(RT(gamma));
     m_needs_update = true;
     m_ccoef_set    = true;
 }
 
-template <typename MF> void MLABecLaplacianGradT<MF>::update()
+template <typename MF> void MLABecLaplacianGradAltT<MF>::update()
 {
     if (MLCellLinOpT<MF>::needsUpdate())
     {
@@ -540,9 +492,9 @@ template <typename MF> void MLABecLaplacianGradT<MF>::update()
     m_needs_update = false;
 }
 
-template <typename MF> void MLABecLaplacianGradT<MF>::prepareForSolve()
+template <typename MF> void MLABecLaplacianGradAltT<MF>::prepareForSolve()
 {
-    BL_PROFILE("MLABecLaplacianGrad::prepareForSolve()");
+    BL_PROFILE("MLABecLaplacianGradAlt::prepareForSolve()");
 
     MLCellLinOpT<MF>::prepareForSolve();
 
@@ -561,7 +513,7 @@ template <typename MF> void MLABecLaplacianGradT<MF>::prepareForSolve()
 
 // template <typename MF>
 // void
-// MLABecLaplacianGradT<MF>::applyMetricTermsCoeffs ()
+// MLABecLaplacianGradAltT<MF>::applyMetricTermsCoeffs ()
 // {
 // #if (AMREX_SPACEDIM != 3)
 //     for (int alev = 0; alev < this->m_num_amr_levels; ++alev)
@@ -754,16 +706,16 @@ template <typename MF> void MLABecLaplacianGradT<MF>::prepareForSolve()
 
 // template <typename MF>
 // void
-// MLABecLaplacianGradT<MF>::applyRobinBCTermsCoeffs ()
+// MLABecLaplacianGradAltT<MF>::applyRobinBCTermsCoeffs ()
 // {
 //     if (this->hasRobinBC()) {
 //         detail::applyRobinBCTermsCoeffs(*this);
 //     }
 // }
 
-template <typename MF> void MLABecLaplacianGradT<MF>::averageDownCoeffs()
+template <typename MF> void MLABecLaplacianGradAltT<MF>::averageDownCoeffs()
 {
-    BL_PROFILE("MLABecLaplacianGrad::averageDownCoeffs()");
+    BL_PROFILE("MLABecLaplacianGradAlt::averageDownCoeffs()");
 
     for (int amrlev = this->m_num_amr_levels - 1; amrlev > 0; --amrlev)
     {
@@ -781,10 +733,12 @@ template <typename MF> void MLABecLaplacianGradT<MF>::averageDownCoeffs()
 }
 
 template <typename MF>
-void MLABecLaplacianGradT<MF>::averageDownCoeffsSameAmrLevel(
-    int amrlev, Vector<MF> &a, Vector<Array<MF, AMREX_SPACEDIM> > &b,
+void MLABecLaplacianGradAltT<MF>::averageDownCoeffsSameAmrLevel(
+    int amrlev, Vector<MF> &a, Vector<MF> &b,
     Vector<MF> &c)
 {
+    // Print() << "averageDownCoeffsSameAmrLevel amrlev = " << amrlev << std::endl;
+
     int nmglevs = a.size();
     for (int mglev = 1; mglev < nmglevs; ++mglev)
     {
@@ -810,13 +764,26 @@ void MLABecLaplacianGradT<MF>::averageDownCoeffsSameAmrLevel(
                                 ratio);
         }
 
-        Vector<const MF *> fine{ AMREX_D_DECL(
-            &(b[mglev - 1][0]), &(b[mglev - 1][1]), &(b[mglev - 1][2])) };
-        Vector<MF *>       crse{ AMREX_D_DECL(&(b[mglev][0]), &(b[mglev][1]),
-                                              &(b[mglev][2])) };
+        if (m_b_scalar == 0.0)
+        {
+            b[mglev].setVal(RT(0.0));
+        }
+        else
+        {
+            Print() << "averaging b mglev " << mglev - 1 << " -> " << mglev << std::endl;
+            Print() << "local size  mglev-1 " << b[mglev - 1].local_size() << "\tmglev " << b[mglev].local_size() << std::endl;
+            Print() << "fabbox[0]  mglev-1 " << b[mglev - 1].fabbox(0) << " " << b[mglev - 1].fabbox(0) << "\tmglev " << b[mglev].fabbox(0) << " " << b[mglev].fabbox(0) << std::endl;
+            Print() << "box[0]  mglev-1 " << b[mglev - 1].box(0) << " " << b[mglev - 1].box(0) << "\tmglev " << b[mglev].box(0) << " " << b[mglev].box(0) << std::endl;
 
-        amrex::average_down_faces(fine, crse, ratio, 0);
+            amrex::Abort("Not implemented properly! Use without any MG levels");
+            amrex::average_down(b[mglev - 1], b[mglev], 0, AMREX_SPACEDIM,
+                                ratio);
+            
+            AMREX_ASSERT(!b[mglev].contains_nan());
+        }
     }
+
+    // Print() << "\tdone" << std::endl;
 
     //     for (int mglev = 1; mglev < nmglevs; ++mglev)
     //     {
@@ -860,7 +827,7 @@ void MLABecLaplacianGradT<MF>::averageDownCoeffsSameAmrLevel(
 }
 
 template <typename MF>
-void MLABecLaplacianGradT<MF>::averageDownCoeffsToCoarseAmrLevel(int flev)
+void MLABecLaplacianGradAltT<MF>::averageDownCoeffsToCoarseAmrLevel(int flev)
 {
     auto &fine_a_coeffs = m_a_coeffs[flev].back();
     auto &fine_b_coeffs = m_b_coeffs[flev].back();
@@ -877,6 +844,14 @@ void MLABecLaplacianGradT<MF>::averageDownCoeffsToCoarseAmrLevel(int flev)
                             this->mg_coarsen_ratio);
     }
 
+    if (m_b_scalar != 0.0)
+    {
+        // We coarsen from the back of flev to the front of flev-1.
+        // So we use mg_coarsen_ratio.
+        amrex::average_down(fine_b_coeffs, crse_b_coeffs, 0, AMREX_SPACEDIM,
+                            this->mg_coarsen_ratio);
+    }
+
     if (m_c_scalar != 0.0)
     {
         // We coarsen from the back of flev to the front of flev-1.
@@ -884,14 +859,9 @@ void MLABecLaplacianGradT<MF>::averageDownCoeffsToCoarseAmrLevel(int flev)
         amrex::average_down(fine_c_coeffs, crse_c_coeffs, 0, AMREX_SPACEDIM,
                             this->mg_coarsen_ratio);
     }
-
-    amrex::average_down_faces(amrex::GetArrOfConstPtrs(fine_b_coeffs),
-                              amrex::GetArrOfPtrs(crse_b_coeffs),
-                              IntVect(this->mg_coarsen_ratio),
-                              this->m_geom[flev - 1][0]);
 }
 
-template <typename MF> void MLABecLaplacianGradT<MF>::update_singular_flags()
+template <typename MF> void MLABecLaplacianGradAltT<MF>::update_singular_flags()
 {
     m_is_singular.clear();
     m_is_singular.resize(this->m_num_amr_levels, false);
@@ -926,15 +896,17 @@ template <typename MF> void MLABecLaplacianGradT<MF>::update_singular_flags()
 }
 
 template <typename MF>
-void MLABecLaplacianGradT<MF>::Fapply(int amrlev, int mglev, MF &out,
+void MLABecLaplacianGradAltT<MF>::Fapply(int amrlev, int mglev, MF &out,
                                       const MF &in) const
 {
-    BL_PROFILE("MLABecLaplacianGrad::Fapply()");
+    BL_PROFILE("MLABecLaplacianGradAlt::Fapply()");
+
+    AMREX_ASSERT_WITH_MESSAGE(amrlev == 0, "Not implemented for multiple levels!");
+
+    // Print() << "Fapply with amrlev, mglev = " << amrlev << " " << mglev << std::endl;
 
     const MF &acoef = m_a_coeffs[amrlev][mglev];
-    AMREX_D_TERM(const MF &bxcoef = m_b_coeffs[amrlev][mglev][0];
-                 , const MF &bycoef = m_b_coeffs[amrlev][mglev][1];
-                 , const MF &bzcoef = m_b_coeffs[amrlev][mglev][2];);
+    const MF &bcoef = m_b_coeffs[amrlev][mglev];
     const MF &ccoef = m_c_coeffs[amrlev][mglev];
 
     const GpuArray<RT, AMREX_SPACEDIM> dxinv{ AMREX_D_DECL(
@@ -949,6 +921,7 @@ void MLABecLaplacianGradT<MF>::Fapply(int amrlev, int mglev, MF &out,
     const int ncomp = this->getNComp();
 
 #ifdef AMREX_USE_GPU
+#error "Not implemented"
     if (Gpu::inLaunchRegion())
     {
         const auto &xma = in.const_arrays();
@@ -997,9 +970,7 @@ void MLABecLaplacianGradT<MF>::Fapply(int amrlev, int mglev, MF &out,
             const auto &yfab = out.array(mfi);
             const auto &afab = acoef.array(mfi);
             const auto &cfab = ccoef.array(mfi);
-            AMREX_D_TERM(const auto &bxfab = bxcoef.array(mfi);
-                         , const auto &byfab = bycoef.array(mfi);
-                         , const auto &bzfab = bzcoef.array(mfi););
+            const auto &bfab = bcoef.array(mfi);
             // if (this->m_overset_mask[amrlev][mglev]) {
             //     const auto& osm =
             //     this->m_overset_mask[amrlev][mglev]->const_array(mfi);
@@ -1011,20 +982,25 @@ void MLABecLaplacianGradT<MF>::Fapply(int amrlev, int mglev, MF &out,
             //     });
             // } else {
             AMREX_HOST_DEVICE_PARALLEL_FOR_4D(bx, ncomp, i, j, k, n, {
-                mlalapgrad_adotx(i, j, k, n, yfab, xfab, afab, cfab,
-                                 AMREX_D_DECL(bxfab, byfab, bzfab), dxinv,
+                mlalapgradalt_adotx(i, j, k, n, yfab, xfab, afab, cfab,
+                                 bfab, dxinv,
                                  ascalar, bscalar, cscalar);
             });
             // }
         }
     }
+
+    // Print() << "\tdone" << std::endl;
 }
 
 template <typename MF>
-void MLABecLaplacianGradT<MF>::Fsmooth(int amrlev, int mglev, MF &sol,
+void MLABecLaplacianGradAltT<MF>::Fsmooth(int amrlev, int mglev, MF &sol,
                                        const MF &rhs, int redblack) const
 {
-    BL_PROFILE("MLABecLaplacianGrad::Fsmooth()");
+    BL_PROFILE("MLABecLaplacianGradAlt::Fsmooth()");
+
+    // Print() << "Fsmooth with amrlev, mglev = " << amrlev << " " << mglev << std::endl;
+
 
     bool regular_coarsening = true;
     if (amrlev == 0 && mglev > 0)
@@ -1035,10 +1011,8 @@ void MLABecLaplacianGradT<MF>::Fsmooth(int amrlev, int mglev, MF &sol,
 
     const MF &acoef = m_a_coeffs[amrlev][mglev];
     const MF &ccoef = m_c_coeffs[amrlev][mglev];
+    const MF &bcoef = m_b_coeffs[amrlev][mglev];
     AMREX_ALWAYS_ASSERT(acoef.nGrowVect() == 0);
-    AMREX_D_TERM(const MF &bxcoef = m_b_coeffs[amrlev][mglev][0];
-                 , const MF &bycoef = m_b_coeffs[amrlev][mglev][1];
-                 , const MF &bzcoef = m_b_coeffs[amrlev][mglev][2];);
     const auto &undrrelxr = this->m_undrrelxr[amrlev][mglev];
     const auto &maskvals  = this->m_maskvals[amrlev][mglev];
 
@@ -1083,6 +1057,7 @@ void MLABecLaplacianGradT<MF>::Fsmooth(int amrlev, int mglev, MF &sol,
     const RT alpha = m_a_scalar;
 
 #ifdef AMREX_USE_GPU
+#error "Not implemented"
     // if (Gpu::inLaunchRegion()
     //     && (this->m_overset_mask[amrlev][mglev] || regular_coarsening))
     if (Gpu::inLaunchRegion() && regular_coarsening)
@@ -1188,10 +1163,7 @@ void MLABecLaplacianGradT<MF>::Fsmooth(int amrlev, int mglev, MF &sol,
             const auto &rhsfab  = rhs.const_array(mfi);
             const auto &afab    = acoef.const_array(mfi);
             const auto &cfab    = ccoef.const_array(mfi);
-
-            AMREX_D_TERM(const auto &bxfab = bxcoef.const_array(mfi);
-                         , const auto &byfab = bycoef.const_array(mfi);
-                         , const auto &bzfab = bzcoef.const_array(mfi););
+            const auto &bfab = bcoef.const_array(mfi);
 
             const auto &f0fab = f0.const_array(mfi);
             const auto &f1fab = f1.const_array(mfi);
@@ -1222,11 +1194,11 @@ void MLABecLaplacianGradT<MF>::Fsmooth(int amrlev, int mglev, MF &sol,
             if (regular_coarsening)
             {
                 AMREX_HOST_DEVICE_PARALLEL_FOR_4D(tbx, nc, i, j, k, n, {
-                    alapgrad_gsrb(
+                    alapgradalt_gsrb(
                         i, j, k, n, solnfab, rhsfab, alpha, afab, cfab,
                         AMREX_D_DECL(dhx, dhy, dhz),
                         AMREX_D_DECL(cdhx, cdhy, cdhz),
-                        AMREX_D_DECL(bxfab, byfab, bzfab),
+                        bfab,
                         AMREX_D_DECL(m0, m2, m4), AMREX_D_DECL(m1, m3, m5),
                         AMREX_D_DECL(f0fab, f2fab, f4fab),
                         AMREX_D_DECL(f1fab, f3fab, f5fab), vbx, redblack);
@@ -1237,10 +1209,10 @@ void MLABecLaplacianGradT<MF>::Fsmooth(int amrlev, int mglev, MF &sol,
                 Gpu::LaunchSafeGuard lsg(false); // xxxxx gpu todo
                 // line solve does not with with GPU
                 AMREX_LAUNCH_HOST_DEVICE_LAMBDA(tbx, thread_box, {
-                    alapgrad_gsrb_with_line_solve(
+                    alapgradalt_gsrb_with_line_solve(
                         thread_box, solnfab, rhsfab, alpha, afab,
                         AMREX_D_DECL(dhx, dhy, dhz),
-                        AMREX_D_DECL(bxfab, byfab, bzfab),
+                        bfab,
                         AMREX_D_DECL(m0, m2, m4), AMREX_D_DECL(m1, m3, m5),
                         AMREX_D_DECL(f0fab, f2fab, f4fab),
                         AMREX_D_DECL(f1fab, f3fab, f5fab), vbx, redblack, nc);
@@ -1248,15 +1220,17 @@ void MLABecLaplacianGradT<MF>::Fsmooth(int amrlev, int mglev, MF &sol,
             }
         }
     }
+
+    // Print() << "\tdone" << std::endl;
 }
 
 template <typename MF>
-void MLABecLaplacianGradT<MF>::FFlux(int amrlev, const MFIter &mfi,
+void MLABecLaplacianGradAltT<MF>::FFlux(int amrlev, const MFIter &mfi,
                                      const Array<FAB *, AMREX_SPACEDIM> &flux,
                                      const FAB &sol, Location,
                                      int        face_only) const
 {
-    BL_PROFILE("MLABecLaplacianGrad::FFlux()");
+    BL_PROFILE("MLABecLaplacianGradAlt::FFlux()");
     AMREX_ALWAYS_ASSERT_WITH_MESSAGE(false,
                                      "Cannot implement for this operator!");
     amrex::ignore_unused(amrlev, mfi, flux, sol, face_only);
@@ -1275,7 +1249,7 @@ void MLABecLaplacianGradT<MF>::FFlux(int amrlev, const MFIter &mfi,
 
 // template <typename MF>
 // void
-// MLABecLaplacianGradT<MF>::FFlux (Box const& box, Real const* dxinv, RT
+// MLABecLaplacianGradAltT<MF>::FFlux (Box const& box, Real const* dxinv, RT
 // bscalar,
 //                              Array<FAB const*, AMREX_SPACEDIM> const& bcoef,
 //                              Array<FAB*,AMREX_SPACEDIM> const& flux,
@@ -1345,14 +1319,14 @@ void MLABecLaplacianGradT<MF>::FFlux(int amrlev, const MFIter &mfi,
 // }
 
 template <typename MF>
-void MLABecLaplacianGradT<MF>::normalize(int amrlev, int mglev, MF &mf) const
+void MLABecLaplacianGradAltT<MF>::normalize(int amrlev, int mglev, MF &mf) const
 {
-    BL_PROFILE("MLABecLaplacianGrad::normalize()");
+    BL_PROFILE("MLABecLaplacianGradAlt::normalize()");
+
+    // Print() << "normalize with amrlev, mglev = " << amrlev << " " << mglev << std::endl;
 
     const auto &acoef = m_a_coeffs[amrlev][mglev];
-    AMREX_D_TERM(const auto &bxcoef = m_b_coeffs[amrlev][mglev][0];
-                 , const auto &bycoef = m_b_coeffs[amrlev][mglev][1];
-                 , const auto &bzcoef = m_b_coeffs[amrlev][mglev][2];);
+    const auto& bcoef = m_b_coeffs[amrlev][mglev];
 
     const GpuArray<RT, AMREX_SPACEDIM> dxinv{ AMREX_D_DECL(
         static_cast<RT>(this->m_geom[amrlev][mglev].InvCellSize(0)),
@@ -1365,6 +1339,7 @@ void MLABecLaplacianGradT<MF>::normalize(int amrlev, int mglev, MF &mf) const
     const int ncomp = getNComp();
 
 #ifdef AMREX_USE_GPU
+#error "Not implemented"
     if (Gpu::inLaunchRegion())
     {
         const auto &ma  = mf.arrays();
@@ -1395,22 +1370,22 @@ void MLABecLaplacianGradT<MF>::normalize(int amrlev, int mglev, MF &mf) const
             const Box  &bx   = mfi.tilebox();
             const auto &fab  = mf.array(mfi);
             const auto &afab = acoef.array(mfi);
-            AMREX_D_TERM(const auto &bxfab = bxcoef.array(mfi);
-                         , const auto &byfab = bycoef.array(mfi);
-                         , const auto &bzfab = bzcoef.array(mfi););
+            const auto& bfab = bcoef.array(mfi);
 
             AMREX_HOST_DEVICE_PARALLEL_FOR_4D(bx, ncomp, i, j, k, n, {
-                mlalapgrad_normalize(i, j, k, n, fab, afab,
-                                     AMREX_D_DECL(bxfab, byfab, bzfab), dxinv,
+                mlalapgradalt_normalize(i, j, k, n, fab, afab,
+                                     bfab, dxinv,
                                      ascalar, bscalar);
             });
         }
     }
+
+    // Print() << "\tdone" << std::endl;
 }
 
 // template <typename MF>
 // bool
-// MLABecLaplacianGradT<MF>::supportNSolve () const
+// MLABecLaplacianGradAltT<MF>::supportNSolve () const
 // {
 //     bool support = false;
 //     if (this->m_overset_mask[0][0]) {
@@ -1429,7 +1404,7 @@ void MLABecLaplacianGradT<MF>::normalize(int amrlev, int mglev, MF &mf) const
 
 // template <typename MF>
 // std::unique_ptr<MLLinOpT<MF>>
-// MLABecLaplacianGradT<MF>::makeNLinOp (int /*grid_size*/) const
+// MLABecLaplacianGradAltT<MF>::makeNLinOp (int /*grid_size*/) const
 // {
 //     if (this->m_overset_mask[0][0] == nullptr) { return nullptr; }
 
@@ -1438,10 +1413,10 @@ void MLABecLaplacianGradT<MF>::normalize(int amrlev, int mglev, MF &mf) const
 //     const DistributionMapping& dm = this->m_dmap[0].back();
 
 //     std::unique_ptr<MLLinOpT<MF>> r
-//         {new MLABecLaplacianGradT<MF>({geom}, {ba}, {dm},
+//         {new MLABecLaplacianGradAltT<MF>({geom}, {ba}, {dm},
 //         this->m_lpinfo_arg)};
 
-//     auto nop = dynamic_cast<MLABecLaplacianGradT<MF>*>(r.get());
+//     auto nop = dynamic_cast<MLABecLaplacianGradAltT<MF>*>(r.get());
 //     if (!nop) {
 //         return nullptr;
 //     }
@@ -1533,7 +1508,7 @@ void MLABecLaplacianGradT<MF>::normalize(int amrlev, int mglev, MF &mf) const
 
 // template <typename MF>
 // void
-// MLABecLaplacianGradT<MF>::copyNSolveSolution (MF& dst, MF const& src) const
+// MLABecLaplacianGradAltT<MF>::copyNSolveSolution (MF& dst, MF const& src) const
 // {
 //     if (this->m_overset_mask[0].back() == nullptr) { return; }
 
@@ -1579,9 +1554,9 @@ void MLABecLaplacianGradT<MF>::normalize(int amrlev, int mglev, MF &mf) const
 //     }
 // }
 
-extern template class MLABecLaplacianGradT<MultiFab>;
+extern template class MLABecLaplacianGradAltT<MultiFab>;
 
-using MLABecLaplacianGrad = MLABecLaplacianGradT<MultiFab>;
+using MLABecLaplacianGradAlt = MLABecLaplacianGradAltT<MultiFab>;
 
 }
 

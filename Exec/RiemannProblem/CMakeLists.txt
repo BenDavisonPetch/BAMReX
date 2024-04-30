@@ -15,6 +15,24 @@ endif()
 
 target_link_libraries(riemann_prob AMReX::amrex_1d)
 
+add_custom_target(run_lax
+    COMMAND
+        find ${CMAKE_CURRENT_SOURCE_DIR}/inputs -iname "inputs-lax*" -exec $<TARGET_FILE:riemann_prob> {} \;
+    COMMENT "Running Lax tests"
+    DEPENDS
+        riemann_prob
+    VERBATIM
+)
+
+add_custom_target(run_sod
+    COMMAND
+        find ${CMAKE_CURRENT_SOURCE_DIR}/inputs -iname "inputs-test1*" -exec $<TARGET_FILE:riemann_prob> {} \;
+    COMMENT "Running Sod test"
+    DEPENDS
+        riemann_prob
+    VERBATIM
+)
+
 add_custom_target(run_rp
     COMMAND
         rm -rf ${CMAKE_CURRENT_BINARY_DIR}/output

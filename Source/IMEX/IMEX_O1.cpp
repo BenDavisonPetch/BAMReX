@@ -2,6 +2,7 @@
 #include "AmrLevelAdv.H"
 #include "IMEX_K/euler_K.H"
 #include "MFIterLoop.H"
+#include "CONTROL.H"
 
 #include <AMReX_BCUtil.H>
 #include <AMReX_BC_TYPES.H>
@@ -37,10 +38,9 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
     // MFpressure has 2
 
     const int                       NSTATE = AmrLevelAdv::NUM_STATE;
-    MultiFab                        MFex, MFpressure, MFb, MFscaledenth_cc;
+    MultiFab                        MFex, MFb, MFscaledenth_cc;
     Array<MultiFab, AMREX_SPACEDIM> MFscaledenth_f;
     MFex.define(stateout.boxArray(), stateout.DistributionMap(), NSTATE, 1);
-    MFpressure.define(stateout.boxArray(), stateout.DistributionMap(), 1, 2);
     MFb.define(stateout.boxArray(), stateout.DistributionMap(), 1, 0);
     MFscaledenth_cc.define(stateout.boxArray(), stateout.DistributionMap(), 1,
                            1);
@@ -50,6 +50,19 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
         ba.surroundingNodes(d);
         MFscaledenth_f[d].define(ba, stateout.DistributionMap(), 1, 0);
     }
+
+#if REUSE_PRESSURE
+    MultiFab& MFpressure = AmrLevelAdv::MFpressure;
+    bool p_needs_update = false;
+    if (!MFpressure.isDefined())
+    {
+        p_needs_update = true;
+        MFpressure.define(stateout.boxArray(), stateout.DistributionMap(), 1, 2);
+    }
+#else
+    MultiFab MFpressure;
+    MFpressure.define(stateout.boxArray(), stateout.DistributionMap(), 1, 2);
+#endif
 
     MultiFab crse_pressure;
     if (level > 0)
@@ -67,6 +80,10 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
 
     BL_PROFILE_VAR_STOP(palloc);
     BL_PROFILE_VAR("advance_o1_pimex() explicit and enthalpy", pexp);
+
+    const Real                  epsilon = AmrLevelAdv::h_prob_parm->epsilon;
+    const Real                  adia    = AmrLevelAdv::h_prob_parm->adiabatic;
+    GpuArray<Real, BL_SPACEDIM> dx      = geom.CellSizeArray();
 
     // First advance with Rusanov flux and compute scaled enthalpy
     // We do this on a box grown by 1 (but without overlapping between tiles)
@@ -91,18 +108,33 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
             const Array4<Real> scaledenth_cc      = MFscaledenth_cc.array(mfi);
             const Array4<const Real> consv_ex_arr = consv_ex.array();
             const Array4<Real>       p            = MFpressure.array(mfi);
+            const auto              &in           = statein.array();
             ParallelFor(gbx,
                         [=] AMREX_GPU_DEVICE(int i, int j, int k)
                         {
+#if REUSE_PRESSURE
+                            if (p_needs_update) p(i, j, k) = pressure(i, j, k, consv_ex_arr);
+                            scaledenth_cc(i, j, k)
+                                = p(i,j,k) * adia
+                                  / ((adia - 1) *consv_ex_arr(i, j, k, 0));
+#else
+#   if USE_EXPLICIT_ENTH
                             scaledenth_cc(i, j, k)
                                 = specific_enthalpy(i, j, k, consv_ex_arr)
                                   / consv_ex_arr(i, j, k, 0);
+#   else
+                            scaledenth_cc(i, j, k)
+                                = specific_enthalpy(i, j, k, in)
+                                  / consv_ex_arr(i, j, k, 0);
+#   endif
 
+                            // initial guess
                             // explicitly updated values only exist on a box
                             // grown by 1, so we will need to use
                             // MultiFab::FillBoundary and FillDomainBoundary to
                             // fill the second layer of ghost cells
                             p(i, j, k) = pressure(i, j, k, consv_ex_arr);
+#endif
                         });
         });
 
@@ -115,10 +147,6 @@ void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
     BL_PROFILE_VAR("advance_o1_pimex() assembly", passembly);
 
     // Assembly of source vector and setting coefficients
-
-    const Real                  epsilon = AmrLevelAdv::h_prob_parm->epsilon;
-    const Real                  adia    = AmrLevelAdv::h_prob_parm->adiabatic;
-    GpuArray<Real, BL_SPACEDIM> dx      = geom.CellSizeArray();
 
     // Calculate source vector (cannot be done in MFIter loop above because it
     // requires offset values for the explicitly updated momentum densities)

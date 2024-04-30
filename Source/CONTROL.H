@@ -7,4 +7,12 @@
 // 3 : IMEX Boscheri and Pareshi
 #define SCHEME 3
 
+// used in IMEX Boscheri and Pareshi
+#define REUSE_PRESSURE true
+#define USE_EXPLICIT_ENTH false
+#define USE_ALT_LAPLACIAN false
+#if REUSE_PRESSURE && USE_EXPLICIT_ENTH
+#error "Cannot have both!"
+#endif
+
 #endif

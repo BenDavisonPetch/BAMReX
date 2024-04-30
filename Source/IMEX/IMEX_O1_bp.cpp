@@ -6,6 +6,7 @@
 #include "IMEX/IMEX_O1.H"
 #include "IMEX_K/euler_K.H"
 #include "LinearSolver/MLALaplacianGrad.H"
+#include "LinearSolver/MLALaplacianGradAlt.H"
 #include "MFIterLoop.H"
 
 #include <AMReX_BCUtil.H>
@@ -47,15 +48,27 @@ void advance_o1_pimex_bp(int level, amrex::IntVect &crse_ratio,
     // MFpressure has 2
 
     const int NSTATE = AmrLevelAdv::NUM_STATE;
-    MultiFab  MFex, MFpressure, MFb, MFscaledenth_cc, MFpgradcoef;
+    MultiFab  MFex, MFb, MFscaledenth_cc, MFpgradcoef;
     Array<MultiFab, AMREX_SPACEDIM> MFscaledenth_f;
     MFex.define(stateout.boxArray(), stateout.DistributionMap(), NSTATE, 1);
-    MFpressure.define(stateout.boxArray(), stateout.DistributionMap(), 1, 2);
     MFb.define(stateout.boxArray(), stateout.DistributionMap(), 1, 0);
     MFscaledenth_cc.define(stateout.boxArray(), stateout.DistributionMap(), 1,
                            1);
     MFpgradcoef.define(stateout.boxArray(), stateout.DistributionMap(),
                        AMREX_SPACEDIM, 0);
+
+#if REUSE_PRESSURE
+    MultiFab& MFpressure = AmrLevelAdv::MFpressure;
+    bool p_needs_update = false;
+    if (!MFpressure.isDefined())
+    {
+        p_needs_update = true;
+        MFpressure.define(stateout.boxArray(), stateout.DistributionMap(), 1, 2);
+    }
+#else
+    MultiFab MFpressure;
+    MFpressure.define(stateout.boxArray(), stateout.DistributionMap(), 1, 2);
+#endif
 
     for (int d = 0; d < AMREX_SPACEDIM; ++d)
     {
@@ -80,6 +93,10 @@ void advance_o1_pimex_bp(int level, amrex::IntVect &crse_ratio,
 
     BL_PROFILE_VAR_STOP(palloc);
     BL_PROFILE_VAR("advance_o1_pimex() explicit and enthalpy", pexp);
+
+    const Real                  epsilon = AmrLevelAdv::h_prob_parm->epsilon;
+    const Real                  adia    = AmrLevelAdv::h_prob_parm->adiabatic;
+    GpuArray<Real, BL_SPACEDIM> dx      = geom.CellSizeArray();
 
     // First advance with Rusanov flux and compute scaled enthalpy
     // We do this on a box grown by 1 (but without overlapping between tiles)
@@ -108,9 +125,21 @@ void advance_o1_pimex_bp(int level, amrex::IntVect &crse_ratio,
             ParallelFor(gbx,
                         [=] AMREX_GPU_DEVICE(int i, int j, int k)
                         {
+#if REUSE_PRESSURE
+                            if (p_needs_update) p(i, j, k) = pressure(i, j, k, consv_ex_arr);
+                            scaledenth_cc(i, j, k)
+                                = p(i,j,k) * adia
+                                  / ((adia - 1) *consv_ex_arr(i, j, k, 0));
+#else
+#   if USE_EXPLICIT_ENTH
+                            scaledenth_cc(i, j, k)
+                                = specific_enthalpy(i, j, k, consv_ex_arr)
+                                  / consv_ex_arr(i, j, k, 0);
+#   else
                             scaledenth_cc(i, j, k)
                                 = specific_enthalpy(i, j, k, in)
-                                  / in(i, j, k, 0);
+                                  / consv_ex_arr(i, j, k, 0);
+#   endif
 
                             // initial guess
                             // explicitly updated values only exist on a box
@@ -118,6 +147,7 @@ void advance_o1_pimex_bp(int level, amrex::IntVect &crse_ratio,
                             // MultiFab::FillBoundary and FillDomainBoundary to
                             // fill the second layer of ghost cells
                             p(i, j, k) = pressure(i, j, k, consv_ex_arr);
+#endif
                         });
 
             // compute coefficients of grad p term
@@ -146,10 +176,6 @@ void advance_o1_pimex_bp(int level, amrex::IntVect &crse_ratio,
 
     // Assembly of source vector and setting coefficients
 
-    const Real                  epsilon = AmrLevelAdv::h_prob_parm->epsilon;
-    const Real                  adia    = AmrLevelAdv::h_prob_parm->adiabatic;
-    GpuArray<Real, BL_SPACEDIM> dx      = geom.CellSizeArray();
-
     // Calculate source vector (cannot be done in MFIter loop above because it
     // requires offset values for the explicitly updated momentum densities)
     AMREX_D_TERM(const Real hedtdx = 0.5 * epsilon * dt / dx[0];
@@ -161,8 +187,15 @@ void advance_o1_pimex_bp(int level, amrex::IntVect &crse_ratio,
 
     // An operator representing an equation of the form
     // (A * alpha(x) - B div (beta(x) grad) + C c . grad) phi = f
+    // MLABecLaplacianGrad pressure_op({ geom }, { stateout.boxArray() },
+    //                                 { stateout.DistributionMap() });
+#if USE_ALT_LAPLACIAN
+    MLABecLaplacianGradAlt pressure_op({ geom }, { stateout.boxArray() },
+                                    { stateout.DistributionMap() }, LPInfo().setMaxCoarseningLevel(0));
+#else
     MLABecLaplacianGrad pressure_op({ geom }, { stateout.boxArray() },
-                                    { stateout.DistributionMap() });
+                                    { stateout.DistributionMap() }, LPInfo().setMaxCoarseningLevel(0));
+#endif
 
     // BCs
     details::set_pressure_domain_BC(pressure_op, geom, bcs);
@@ -177,9 +210,13 @@ void advance_o1_pimex_bp(int level, amrex::IntVect &crse_ratio,
 
     pressure_op.setScalars(1, dt * dt, -hedt);
     pressure_op.setACoeffs(0, epsilon / (adia - 1));
+#if USE_ALT_LAPLACIAN
+    pressure_op.setBCoeffs(0, MFscaledenth_cc);
+#else
     amrex::average_cellcenter_to_face(GetArrOfPtrs(MFscaledenth_f),
                                       MFscaledenth_cc, geom);
     pressure_op.setBCoeffs(0, amrex::GetArrOfConstPtrs(MFscaledenth_f));
+#endif
     pressure_op.setCCoeffs(0, MFpgradcoef);
 
     BL_PROFILE_VAR_STOP(passembly);
@@ -198,7 +235,7 @@ void advance_o1_pimex_bp(int level, amrex::IntVect &crse_ratio,
     AMREX_ASSERT(!MFex.contains_nan());
     AMREX_ASSERT(!statein.contains_nan());
     AMREX_ASSERT(!MFb.contains_nan());
-    AMREX_ASSERT(!MFscaledenth_f[0].contains_nan());
+    // AMREX_ASSERT(!MFscaledenth_f[0].contains_nan());
     AMREX_ASSERT(!MFpressure.contains_nan());
     AMREX_ASSERT(!MFpgradcoef.contains_nan());
 

@@ -6,6 +6,8 @@
 #include <AMReX_FluxRegister.H>
 #include <AMReX_PhysBCFunct.H>
 
+#include "CONTROL.H"
+
 #ifdef AMREX_PARTICLES
 #include <AMReX_AmrParticles.H>
 #endif
@@ -179,6 +181,10 @@ class AmrLevelAdv : public amrex::AmrLevel
     // ProbParm class instances
     static ProbParm *h_prob_parm;
     // static ProbParm *d_prob_parm;
+
+#if REUSE_PRESSURE
+    static amrex::MultiFab MFpressure;
+#endif
 
     // Variables for error tagging
     static int                        max_phierr_lev;
