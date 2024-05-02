@@ -133,11 +133,11 @@ void advance_o1_pimex_bp(int level, amrex::IntVect &crse_ratio,
 #else
 #   if USE_EXPLICIT_ENTH
                             scaledenth_cc(i, j, k)
-                                = specific_enthalpy(i, j, k, consv_ex_arr)
+                                = vol_enthalpy(i, j, k, consv_ex_arr)
                                   / consv_ex_arr(i, j, k, 0);
 #   else
                             scaledenth_cc(i, j, k)
-                                = specific_enthalpy(i, j, k, in)
+                                = vol_enthalpy(i, j, k, in)
                                   / consv_ex_arr(i, j, k, 0);
 #   endif
 

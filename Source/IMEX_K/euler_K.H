@@ -30,11 +30,11 @@ amrex::Real pressure(int i, int j, int k,
 }
 
 /**
- * \brief Computes specific enthalpy from \c consv_in
+ * \brief Computes volumetric enthalpy from \c consv_in
  */
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
-amrex::Real specific_enthalpy(int i, int j, int k,
+amrex::Real vol_enthalpy(int i, int j, int k,
                            const amrex::Array4<const amrex::Real> &consv_in)
 {
     using namespace amrex;

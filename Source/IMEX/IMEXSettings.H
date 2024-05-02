@@ -1,0 +1,59 @@
+#ifndef IMEXSettings_H_
+#define IMEXSettings_H_
+
+#include "ButcherTableau.H"
+
+struct IMEXSettings
+{
+    /**
+     * Whether or not the method should linearise the pressure equation or use
+     * Picard iteration between momentum and pressure
+     */
+    bool linearise;
+    int  picard_max_iter;
+    bool compute_residual;
+
+    /**
+     * The method for calculating enthalpy in the energy flux when using a
+     * linearised scheme.
+     * \c reuse_pressure uses the pressure from the previous
+     * timestep
+     * \c conservative uses the conservative variables from the
+     * previous timestep
+     * \c conservative_ex uses the explicitly updated
+     * conservative variables
+     */
+    enum EnthalpyMethod
+    {
+        reuse_pressure,
+        conservative,
+        conservative_ex
+    } enthalpy_method;
+
+    /**
+     * The method for calculating kinetic energy in the energy flux when using
+     * a linearised scheme.
+     * \c ex uses the explicitly updated conservative variables
+     * \c split uses (eps / 2) u^n . q^{n+1} which results in an
+     * additional term in the pressure equation of form u^n . grad p^{n+1}
+     */
+    enum KineticEnergyMethod
+    {
+        ex,
+        split
+    } ke_method;
+
+    /**
+     * The method for
+     */
+
+    /**
+     * Which Butcher Tableau to use
+     */
+    IMEXButcherTableau::TableauType butcher_tableau;
+
+    bool verbose;
+    bool bottom_solver_verbose;
+};
+
+#endif

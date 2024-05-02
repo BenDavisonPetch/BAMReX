@@ -37,7 +37,7 @@ TEST_F(BoxTest, PressureSourceVector)
                     [=] AMREX_GPU_DEVICE(int i, int j, int k)
                     {
                         scaledenth_cc(i, j, k)
-                            = specific_enthalpy(i, j, k, consv)
+                            = vol_enthalpy(i, j, k, consv)
                               / consv(i, j, k, 0);
                         if (i < 2 && j < 2 && k < 2)
                             EXPECT_NEAR(scaledenth_cc(i, j, k), 0.8, 1e-12);

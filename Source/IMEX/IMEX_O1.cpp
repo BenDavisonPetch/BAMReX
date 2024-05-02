@@ -1,370 +1,504 @@
-#include "IMEX/IMEX_O1.H"
+#include "IMEX_O1.H"
 #include "AmrLevelAdv.H"
-#include "IMEX_K/euler_K.H"
-#include "MFIterLoop.H"
 #include "CONTROL.H"
+#include "IMEX_Fluxes.H"
+#include "IMEX_K/euler_K.H"
+#include "LinearSolver/MLALaplacianGrad.H"
+#include "MFIterLoop.H"
 
 #include <AMReX_BCUtil.H>
 #include <AMReX_BC_TYPES.H>
 #include <AMReX_Box.H>
+#include <AMReX_MFIter.H>
 #include <AMReX_MLMG.H>
 
 using namespace amrex;
 
 AMREX_GPU_HOST
-void advance_o1_pimex(int level, amrex::IntVect &crse_ratio,
-                      const amrex::Real time, const amrex::Geometry &geom,
-                      const amrex::MultiFab                         &statein,
-                      amrex::MultiFab                               &stateout,
-                      amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
-                      const amrex::MultiFab *crse_soln, const amrex::Real dt,
-                      const amrex::Vector<amrex::BCRec> &bcs, int verbose,
-                      int bottom_verbose)
+void advance_imex_o1(const amrex::Real time, const amrex::Geometry &geom,
+                     const amrex::MultiFab &statein, amrex::MultiFab &stateout,
+                     amrex::MultiFab                               &pressure,
+                     amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
+                     const amrex::Real                              dt,
+                     const amrex::Vector<amrex::BCRec>             &domainbcs,
+                     const IMEXSettings                            &settings)
 {
-    /**
-     * This formulation follows Allegrini 2023 Order 1 AP L^2 scheme for
-     * pressure eqn and Rusanov flux for explicit update
-     */
     AMREX_ASSERT(statein.nGrow() >= 2);
-#ifdef AMREX_USE_GPU
-    // AMREX_ASSERT(fluxes[0].nGrow() >= 1);
-#endif
+    AMREX_ASSERT(pressure.nGrow() >= 2);
+    AMREX_ASSERT(pressure.isDefined());
 
     // Define temporary MultiFabs
-    BL_PROFILE_VAR("advance_o1_pimex() allocation", palloc);
 
-    // MFex, MFpressure, and MFscaledenth_cc have ghost cells
-    // MFex and MFscaledenth_cc have 1 set of ghost cells,
-    // MFpressure has 2
+    // explicitly updated values and enthalpy need 1 ghost cell
+    // rhs, velocity, KE do not need ghost cells
+    MultiFab stateex, enthalpy, rhs, velocity, ke;
+    stateex.define(stateout.boxArray(), stateout.DistributionMap(),
+                   EULER_NCOMP, 1);
+    enthalpy.define(stateout.boxArray(), stateout.DistributionMap(),
+                    EULER_NCOMP, 1);
+    rhs.define(stateout.boxArray(), stateout.DistributionMap(), EULER_NCOMP,
+               0);
+    ke.define(stateout.boxArray(), stateout.DistributionMap(), EULER_NCOMP, 0);
+    if (settings.linearise && settings.ke_method == IMEXSettings::split)
+        velocity.define(stateout.boxArray(), stateout.DistributionMap(),
+                        EULER_NCOMP, 0);
 
-    const int                       NSTATE = AmrLevelAdv::NUM_STATE;
-    MultiFab                        MFex, MFb, MFscaledenth_cc;
-    Array<MultiFab, AMREX_SPACEDIM> MFscaledenth_f;
-    MFex.define(stateout.boxArray(), stateout.DistributionMap(), NSTATE, 1);
-    MFb.define(stateout.boxArray(), stateout.DistributionMap(), 1, 0);
-    MFscaledenth_cc.define(stateout.boxArray(), stateout.DistributionMap(), 1,
-                           1);
-    for (int d = 0; d < AMREX_SPACEDIM; ++d)
-    {
-        BoxArray ba = stateout.boxArray();
-        ba.surroundingNodes(d);
-        MFscaledenth_f[d].define(ba, stateout.DistributionMap(), 1, 0);
-    }
+    const auto &dx  = geom.CellSizeArray();
+    const auto &idx = geom.InvCellSizeArray();
+    const Real  eps = AmrLevelAdv::h_prob_parm->epsilon;
+    AMREX_D_DECL(const amrex::Real hdtdx = 0.5 * dt * idx[0];
+                 , const amrex::Real hdtdy = 0.5 * dt * idx[1];
+                 , const amrex::Real hdtdz = 0.5 * dt * idx[2];)
+    AMREX_D_TERM(Real hdtdxe = hdtdx / eps;, Real hdtdye = hdtdy / eps;
+                 , Real                           hdtdze = hdtdz / eps;)
 
-#if REUSE_PRESSURE
-    MultiFab& MFpressure = AmrLevelAdv::MFpressure;
-    bool p_needs_update = false;
-    if (!MFpressure.isDefined())
-    {
-        p_needs_update = true;
-        MFpressure.define(stateout.boxArray(), stateout.DistributionMap(), 1, 2);
-    }
-#else
-    MultiFab MFpressure;
-    MFpressure.define(stateout.boxArray(), stateout.DistributionMap(), 1, 2);
+    // First advance with Rusanov flux and compute everything needed for
+    // pressure equation We do this on a box grown by 1
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
-
-    MultiFab crse_pressure;
-    if (level > 0)
     {
-        AMREX_ASSERT(crse_soln);
-        for (int d = 1; d < AMREX_SPACEDIM; ++d)
+        for (MFIter mfi(stateex, TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
-            AMREX_ASSERT(crse_ratio[d] == crse_ratio[0]);
-        }
-        crse_pressure.define(crse_soln->boxArray(),
-                             crse_soln->DistributionMap(), crse_soln->nComp(),
-                             0);
-        copy_pressure(*crse_soln, crse_pressure);
-    }
-
-    BL_PROFILE_VAR_STOP(palloc);
-    BL_PROFILE_VAR("advance_o1_pimex() explicit and enthalpy", pexp);
-
-    const Real                  epsilon = AmrLevelAdv::h_prob_parm->epsilon;
-    const Real                  adia    = AmrLevelAdv::h_prob_parm->adiabatic;
-    GpuArray<Real, BL_SPACEDIM> dx      = geom.CellSizeArray();
-
-    // First advance with Rusanov flux and compute scaled enthalpy
-    // We do this on a box grown by 1 (but without overlapping between tiles)
-    MFIter_loop(
-        time, geom, statein, MFex, fluxes, dt,
-        [&](const amrex::MFIter &mfi, const amrex::Real time,
-            const amrex::Box & /*bx*/,
-            amrex::GpuArray<amrex::Box, AMREX_SPACEDIM> nbx,
-            const amrex::FArrayBox &statein, amrex::FArrayBox &consv_ex,
-            AMREX_D_DECL(amrex::FArrayBox & fx, amrex::FArrayBox & fy,
-                         amrex::FArrayBox & fz),
-            amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx,
-            const amrex::Real                            dt)
-        {
+            const Box &bx = mfi.tilebox();
+            // boxes that well us where we're allowed to write fluxes
+            GpuArray<Box, BL_SPACEDIM> nbx;
+            AMREX_D_TERM(nbx[0] = mfi.nodaltilebox(0);
+                         , nbx[1] = mfi.nodaltilebox(1);
+                         , nbx[2] = mfi.nodaltilebox(2));
             const Box gbx = mfi.growntilebox(1);
-            advance_rusanov_adv(time, gbx, nbx, statein, consv_ex,
-                                AMREX_D_DECL(fx, fy, fz), dx, dt);
-            // consv_ex is now U^{n+1, ex}
 
-            // now construct cell centred scaled enthalpies
-            // they are h^{n+1, ex} / density^{n+1, ex}
-            const Array4<Real> scaledenth_cc      = MFscaledenth_cc.array(mfi);
-            const Array4<const Real> consv_ex_arr = consv_ex.array();
-            const Array4<Real>       p            = MFpressure.array(mfi);
-            const auto              &in           = statein.array();
-            ParallelFor(gbx,
-                        [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                        {
-#if REUSE_PRESSURE
-                            if (p_needs_update) p(i, j, k) = pressure(i, j, k, consv_ex_arr);
-                            scaledenth_cc(i, j, k)
-                                = p(i,j,k) * adia
-                                  / ((adia - 1) *consv_ex_arr(i, j, k, 0));
-#else
-#   if USE_EXPLICIT_ENTH
-                            scaledenth_cc(i, j, k)
-                                = specific_enthalpy(i, j, k, consv_ex_arr)
-                                  / consv_ex_arr(i, j, k, 0);
-#   else
-                            scaledenth_cc(i, j, k)
-                                = specific_enthalpy(i, j, k, in)
-                                  / consv_ex_arr(i, j, k, 0);
-#   endif
-
-                            // initial guess
-                            // explicitly updated values only exist on a box
-                            // grown by 1, so we will need to use
-                            // MultiFab::FillBoundary and FillDomainBoundary to
-                            // fill the second layer of ghost cells
-                            p(i, j, k) = pressure(i, j, k, consv_ex_arr);
-#endif
-                        });
-        });
+            advance_rusanov_adv(
+                time, gbx, nbx, statein[mfi], stateex[mfi],
+                AMREX_D_DECL(fluxes[0][mfi], fluxes[1][mfi], fluxes[2][mfi]),
+                dx, dt);
+            compute_enthalpy(gbx, statein[mfi], stateex[mfi], statein[mfi],
+                             pressure[mfi], enthalpy[mfi], settings);
+            compute_ke(bx, statein[mfi], stateex[mfi], statein[mfi], ke[mfi],
+                       settings);
+            if (settings.linearise
+                && settings.ke_method == IMEXSettings::split)
+                compute_velocity(bx, statein[mfi], velocity[mfi]);
+        } // sync
+        for (MFIter mfi(stateex, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
+            const Box &bx = mfi.tilebox();
+            pressure_source_vector(bx, stateex[mfi], enthalpy[mfi], ke[mfi],
+                                   rhs[mfi],
+                                   AMREX_D_DECL(hdtdx, hdtdy, hdtdz));
+        }
+    }
 
     // Fill boundary cells for pressure
     // TODO: check if this initialises pressure on course fine boundaries!
-    MFpressure.FillBoundary(geom.periodicity());
-    FillDomainBoundary(MFpressure, geom, { bcs[1 + AMREX_SPACEDIM] });
+    // FillDomainBoundary(MFpressure, geom, { bcs[1 + AMREX_SPACEDIM] });
+    // MFpressure.FillBoundary(geom.periodicity());
+    AMREX_ASSERT(!pressure.contains_nan());
 
-    BL_PROFILE_VAR_STOP(pexp);
-    BL_PROFILE_VAR("advance_o1_pimex() assembly", passembly);
+    if (settings.linearise)
+    {
+        solve_pressure_eqn(geom, enthalpy, velocity, rhs, pressure, dt, domainbcs,
+                       settings);
+        // copy density without ghost cells (we don't need them)
+        stateout.ParallelCopy(stateex, 0, 0, 1);
+    }
+    else {
+        // Picard iteration
+        AMREX_ASSERT(stateout.nGrow() >= 1);
+        // Copy explicitly updated density to out state
+        stateout.ParallelCopy(stateex, 0, 0, 1, 1, 1);
+        details::picard_iterate(
+            geom, statein, stateex, velocity, stateout, enthalpy, ke, rhs,
+            pressure, dt, AMREX_D_DECL(hdtdx, hdtdy, hdtdz),
+            AMREX_D_DECL(hdtdxe, hdtdye, hdtdze), domainbcs, settings);
+    }
 
-    // Assembly of source vector and setting coefficients
+    // Now pressure equation has been solved we can compute the fluxes
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    {
+        for (MFIter mfi(stateex, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
+            const Box &bx = mfi.tilebox();
+            // boxes that well us where we're allowed to write fluxes
+            GpuArray<Box, BL_SPACEDIM> nbx;
+            AMREX_D_TERM(nbx[0] = mfi.nodaltilebox(0);
+                         , nbx[1] = mfi.nodaltilebox(1);
+                         , nbx[2] = mfi.nodaltilebox(2));
+            update_momentum(
+                bx, nbx, stateex[mfi], pressure[mfi], stateout[mfi],
+                AMREX_D_DECL(fluxes[0][mfi], fluxes[1][mfi], fluxes[2][mfi]),
+                AMREX_D_DECL(hdtdxe, hdtdye, hdtdze));
+            update_energy_flux(
+                nbx, stateex[mfi], enthalpy[mfi], pressure[mfi],
+                AMREX_D_DECL(fluxes[0][mfi], fluxes[1][mfi], fluxes[2][mfi]),
+                AMREX_D_DECL(hdtdxe, hdtdye, hdtdze));
+        }
 
-    // Calculate source vector (cannot be done in MFIter loop above because it
-    // requires offset values for the explicitly updated momentum densities)
-    AMREX_D_TERM(const Real hedtdx = 0.5 * epsilon * dt / dx[0];
-                 , const Real hedtdy = 0.5 * epsilon * dt / dx[1];
-                 , const Real hedtdz = 0.5 * epsilon * dt / dx[2];)
-    pressure_source_vector(MFex, MFscaledenth_cc, MFb,
-                           AMREX_D_DECL(hedtdx, hedtdy, hedtdz));
+#ifdef DEBUG
+    // TODO: move into test suite
+        for (MFIter mfi(stateex, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
+            const Box& bx = mfi.tilebox();
+            const auto& in = statein.const_array(mfi);
+            const auto& out = stateout.const_array(mfi);
+            const auto& p = pressure.const_array(mfi);
+            const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
 
+            AMREX_D_TERM(const auto& fx = fluxes[0][mfi].const_array();,
+            const auto& fy = fluxes[1][mfi].const_array();,
+            const auto& fz = fluxes[2][mfi].const_array();)
+
+            ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) {
+                const Real expected = p(i, j, k) / (adia - 1)
+                          + 0.5 * eps / in(i, j, k, 0)
+                                * (AMREX_D_TERM(
+                                    in(i, j, k, 1) * out(i, j, k, 1),
+                                    +in(i, j, k, 2) * out(i, j, k, 2),
+                                    +in(i, j, k, 3) * out(i, j, k, 3)));
+                Real from_flux = in(i,j,k,1+AMREX_SPACEDIM) AMREX_D_TERM(- dt/dx[0] * (fx(i+1,j,k,1+AMREX_SPACEDIM) - fx(i,j,k,1+AMREX_SPACEDIM)),
+                - dt/dx[1] * (fy(i,j+1,k,1+AMREX_SPACEDIM) - fy(i,j,k,1+AMREX_SPACEDIM)),
+                - dt/dx[0] * (fz(i,j,k+1,1+AMREX_SPACEDIM) - fz(i,j,k,1+AMREX_SPACEDIM)));
+                AMREX_ASSERT(fabs(expected - from_flux) < 1e-12 * fabs(expected));
+            });
+        }
+#endif
+    }
+}
+
+AMREX_GPU_HOST
+void compute_enthalpy(const amrex::Box &bx, const amrex::FArrayBox &statein,
+                      const amrex::FArrayBox &stateexp,
+                      const amrex::FArrayBox &statenew,
+                      amrex::FArrayBox &a_pressure, amrex::FArrayBox &enthalpy,
+                      const IMEXSettings &settings)
+{
+    const Array4<const Real> in   = statein.const_array();
+    const Array4<const Real> exp  = stateexp.const_array();
+    const Array4<Real>       enth = enthalpy.array();
+
+    const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
+    if (!settings.linearise)
+    {
+        const Array4<const Real> newarr = statenew.const_array();
+        const Array4<const Real> p      = a_pressure.const_array();
+        ParallelFor(bx,
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k) {
+                        enth(i, j, k) = p(i, j, k) * adia
+                                        / ((adia - 1) * newarr(i, j, k, 0));
+                    });
+    }
+    else if (settings.enthalpy_method == IMEXSettings::reuse_pressure)
+    {
+        const Array4<const Real> p = a_pressure.const_array();
+        ParallelFor(bx,
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k) {
+                        enth(i, j, k) = p(i, j, k) * adia
+                                        / ((adia - 1) * exp(i, j, k, 0));
+                    });
+    }
+    else if (settings.enthalpy_method == IMEXSettings::conservative)
+    {
+        const Array4<Real> p = a_pressure.array();
+        ParallelFor(bx,
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k)
+                    {
+                        enth(i, j, k)
+                            = vol_enthalpy(i, j, k, in) / exp(i, j, k, 0);
+                        p(i, j, k) = pressure(i, j, k, exp);
+                    });
+    }
+    else if (settings.enthalpy_method == IMEXSettings::conservative_ex)
+    {
+        const Array4<Real> p = a_pressure.array();
+        ParallelFor(bx,
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k)
+                    {
+                        enth(i, j, k)
+                            = vol_enthalpy(i, j, k, exp) / exp(i, j, k, 0);
+                        p(i, j, k) = pressure(i, j, k, exp);
+                    });
+    }
+}
+
+AMREX_GPU_HOST void
+compute_ke(const amrex::Box &bx, const amrex::FArrayBox &statein,
+           const amrex::FArrayBox &stateexp, const amrex::FArrayBox &statenew,
+           amrex::FArrayBox &ke, const IMEXSettings &settings)
+{
+    const Array4<Real> kearr = ke.array();
+    if (!settings.linearise)
+    {
+        const Array4<const Real> newarr = statenew.const_array();
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
+                    { kearr(i, j, k) = kinetic_energy(i, j, k, newarr); });
+    }
+    else if (settings.ke_method == IMEXSettings::ex)
+    {
+        const Array4<const Real> consv_ex = stateexp.const_array();
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
+                    { kearr(i, j, k) = kinetic_energy(i, j, k, consv_ex); });
+    }
+    else if (settings.ke_method == IMEXSettings::split)
+    {
+        const Array4<const Real> consv_ex = stateexp.const_array();
+        const Array4<const Real> in       = statein.const_array();
+        const Real               eps      = AmrLevelAdv::h_prob_parm->epsilon;
+        ParallelFor(
+            bx,
+            [=] AMREX_GPU_DEVICE(int i, int j, int k)
+            {
+                // 0.5 eps u^n . q^{n+1}
+                kearr(i, j, k)
+                    = 0.5 * eps
+                      * (AMREX_D_TERM(in(i, j, k, 1) * consv_ex(i, j, k, 1),
+                                      +in(i, j, k, 2) * consv_ex(i, j, k, 2),
+                                      +in(i, j, k, 3) * consv_ex(i, j, k, 3)))
+                      / in(i, j, k, 0);
+            });
+    }
+}
+
+AMREX_GPU_HOST
+void compute_velocity(const amrex::Box &bx, const amrex::FArrayBox &state,
+                      amrex::FArrayBox &dst)
+{
+    AMREX_ASSERT(state.nComp() == EULER_NCOMP);
+    AMREX_ASSERT(dst.nComp() == AMREX_SPACEDIM);
+    const auto &in  = state.const_array();
+    const auto &out = dst.array();
+    ParallelFor(
+        bx, AMREX_GPU_DEVICE[=](int i, int j, int k) {
+            for (int d = 0; d < AMREX_SPACEDIM; ++d)
+                out(i, j, k, d) = in(i, j, k, 1 + d) / in(i, j, k, 0);
+        });
+}
+
+AMREX_GPU_HOST
+void solve_pressure_eqn(const amrex::Geometry &geom,
+                        const amrex::MultiFab &enthalpy,
+                        const amrex::MultiFab &velocity,
+                        const amrex::MultiFab &rhs, amrex::MultiFab &pressure,
+                        const amrex::Real                  dt,
+                        const amrex::Vector<amrex::BCRec> &domainbcs,
+                        const IMEXSettings                &settings)
+{
+    AMREX_ASSERT(enthalpy.nComp() == 1);
+    AMREX_ASSERT(velocity.nComp() == AMREX_SPACEDIM);
+    AMREX_ASSERT(rhs.nComp() == 1);
+    AMREX_ASSERT(pressure.nComp() == 1);
     // An operator representing an equation of the form
-    // (A * alpha(x) - B div (beta(x) grad)) * phi = f
-    MLABecLaplacian pressure_op({ geom }, { stateout.boxArray() },
-                                { stateout.DistributionMap() });
+    // (A * alpha(x) - B div (beta(x) grad) + C c . grad) phi = f
+    MLABecLaplacianGrad pressure_op({ geom }, { rhs.boxArray() },
+                                    { rhs.DistributionMap() },
+                                    LPInfo().setMaxCoarseningLevel(0));
 
     // BCs
-    details::set_pressure_domain_BC(pressure_op, geom, bcs);
+    details::set_pressure_domain_BC(pressure_op, geom, domainbcs);
 
-    if (level > 0)
-        pressure_op.setCoarseFineBC(&crse_pressure, crse_ratio[0]);
+    // if (level > 0)
+    //     pressure_op.setCoarseFineBC(&crse_pressure, crse_ratio[0]);
 
     // pure homogeneous Neumann BC so we pass nullptr
     pressure_op.setLevelBC(0, nullptr);
 
     // set coefficients
+    const amrex::Real eps  = AmrLevelAdv::h_prob_parm->epsilon;
+    const amrex::Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
+    const bool        use_grad_term
+        = (settings.linearise && settings.ke_method == IMEXSettings::split);
+    const amrex::Real gradscalar = use_grad_term ? -0.5 * eps * dt : 0;
+    pressure_op.setScalars(1, dt * dt, gradscalar);
+    pressure_op.setACoeffs(0, eps / (adia - 1));
 
-    pressure_op.setScalars(1, dt * dt);
-    pressure_op.setACoeffs(0, epsilon / (adia - 1));
-    amrex::average_cellcenter_to_face(GetArrOfPtrs(MFscaledenth_f),
-                                      MFscaledenth_cc, geom);
-    pressure_op.setBCoeffs(0, amrex::GetArrOfConstPtrs(MFscaledenth_f));
+    // Construct face-centred enthalpy
+    Array<MultiFab, AMREX_SPACEDIM> enthalpy_f;
+    for (int d = 0; d < AMREX_SPACEDIM; ++d)
+    {
+        BoxArray ba = rhs.boxArray();
+        ba.surroundingNodes(d);
+        enthalpy_f[d].define(ba, rhs.DistributionMap(), 1, 0);
+    }
+    amrex::average_cellcenter_to_face(GetArrOfPtrs(enthalpy_f), enthalpy,
+                                      geom);
 
-    BL_PROFILE_VAR_STOP(passembly);
-    BL_PROFILE_VAR("advance_o1_pimex() solving pressure", ppressure);
+    pressure_op.setBCoeffs(0, amrex::GetArrOfConstPtrs(enthalpy_f));
+    if (use_grad_term)
+    {
+        pressure_op.setCCoeffs(0, velocity);
+    }
 
+    // Intialise solver
     MLMG solver(pressure_op);
     solver.setMaxIter(100);
     solver.setMaxFmgIter(0);
-    solver.setVerbose(verbose);
-    solver.setBottomVerbose(bottom_verbose);
+    solver.setVerbose(settings.verbose);
+    solver.setBottomVerbose(settings.bottom_solver_verbose);
 
     const Real TOL_RES = 1e-12;
     const Real TOL_ABS = 0;
 
-    AMREX_ASSERT(!MFscaledenth_cc.contains_nan());
-    AMREX_ASSERT(!MFex.contains_nan());
-    AMREX_ASSERT(!statein.contains_nan());
-    AMREX_ASSERT(!MFb.contains_nan());
-    AMREX_ASSERT(!MFscaledenth_f[0].contains_nan());
-    AMREX_ASSERT(!MFpressure.contains_nan());
-
     // TODO: use hypre here
-    solver.solve({ &MFpressure }, { &MFb }, TOL_RES, TOL_ABS);
+    solver.solve({ &pressure }, { &rhs }, TOL_RES, TOL_ABS);
 
-    AMREX_ASSERT(!MFpressure.contains_nan());
+    AMREX_ASSERT(!pressure.contains_nan());
 
     // TODO: fill course fine boundary cells for pressure!
-    MFpressure.FillBoundary(geom.periodicity());
-    FillDomainBoundary(MFpressure, geom, { bcs[1 + AMREX_SPACEDIM] });
-
-    BL_PROFILE_VAR_STOP(ppressure);
-    BL_PROFILE_VAR("advance_o1_pimex() updating", pupdate);
-
-    update_ex_from_pressure(time, geom, MFpressure, MFex, MFscaledenth_cc,
-                            stateout, fluxes, dt);
-
-    BL_PROFILE_VAR_STOP(pupdate);
+    pressure.FillBoundary(geom.periodicity());
+    FillDomainBoundary(pressure, geom, { domainbcs[1 + AMREX_SPACEDIM] });
 }
 
 AMREX_GPU_HOST
-void advance_rusanov_adv(const amrex::Real /*time*/, const amrex::Box &bx,
-                         amrex::GpuArray<amrex::Box, AMREX_SPACEDIM> nbx,
-                         const amrex::FArrayBox                     &statein,
-                         amrex::FArrayBox                           &stateout,
-                         AMREX_D_DECL(amrex::FArrayBox &fx,
-                                      amrex::FArrayBox &fy,
-                                      amrex::FArrayBox &fz),
-                         amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx,
-                         const amrex::Real                            dt)
+void pressure_source_vector(const amrex::Box       &bx,
+                            const amrex::FArrayBox &stateexp,
+                            const amrex::FArrayBox &enthalpy,
+                            const amrex::FArrayBox &ke, amrex::FArrayBox &dst,
+                            AMREX_D_DECL(amrex::Real hdtdx, amrex::Real hdtdy,
+                                         amrex::Real hdtdz))
 {
-    const int     NSTATE  = AmrLevelAdv::NUM_STATE;
-    constexpr int STENSIL = 1;
-    const Box     gbx     = amrex::grow(bx, STENSIL);
-    // Temporary fab
-    FArrayBox tmpfab;
-    const int ntmpcomps = 2 * NSTATE * AMREX_SPACEDIM;
-    // Using the Async Arena stops temporary fab from having its destructor
-    // called too early. It is equivalent on old versions of CUDA to using
-    // Elixir
-    tmpfab.resize(gbx, ntmpcomps, The_Async_Arena());
+    const Real               epsilon  = AmrLevelAdv::h_prob_parm->epsilon;
+    const Array4<const Real> consv_ex = stateexp.const_array();
+    const Array4<const Real> enth     = enthalpy.const_array();
+    const Array4<const Real> ke_arr   = ke.const_array();
+    const Array4<Real>       b        = dst.array();
 
-    GpuArray<Array4<Real>, AMREX_SPACEDIM> adv_fluxes{ AMREX_D_DECL(
-        tmpfab.array(0, NSTATE), tmpfab.array(NSTATE, NSTATE),
-        tmpfab.array(NSTATE * 2, NSTATE)) };
-
-    // Temporary fluxes. Need to be declared here instead of using passed
-    // fluxes as otherwise we will get a race condition
-    GpuArray<Array4<Real>, AMREX_SPACEDIM> tfluxes{ AMREX_D_DECL(
-        tmpfab.array(NSTATE * AMREX_SPACEDIM, NSTATE),
-        tmpfab.array(NSTATE * (AMREX_SPACEDIM + 1), NSTATE),
-        tmpfab.array(NSTATE * (AMREX_SPACEDIM + 2), NSTATE)) };
-
-    // Const version of above temporary fluxes
-    GpuArray<Array4<const Real>, AMREX_SPACEDIM> tfluxes_c{ AMREX_D_DECL(
-        tfluxes[0], tfluxes[1], tfluxes[2]) };
-
-    Array4<const Real> consv_in  = statein.array();
-    Array4<Real>       consv_out = stateout.array();
-
-    GpuArray<Array4<Real>, AMREX_SPACEDIM> fluxes{ AMREX_D_DECL(
-        fx.array(), fy.array(), fz.array()) };
-
-    // Compute physical fluxes
-    ParallelFor(gbx,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                {
-                    AMREX_D_TERM(
-                        adv_flux<0>(i, j, k, consv_in, adv_fluxes[0]);
-                        , adv_flux<1>(i, j, k, consv_in, adv_fluxes[1]);
-                        , adv_flux<2>(i, j, k, consv_in, adv_fluxes[2]);)
-                });
-
-    // Compute Rusanov fluxes
-    for (int d = 0; d < AMREX_SPACEDIM; d++)
-    {
-        const int i_off = (d == 0) ? 1 : 0;
-        const int j_off = (d == 1) ? 1 : 0;
-        const int k_off = (d == 2) ? 1 : 0;
-        ParallelFor(
-            amrex::surroundingNodes(bx, d), NSTATE,
-            [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-            {
-                const Real u_max = amrex::max(
-                    fabs(consv_in(i, j, k, 1 + d) / consv_in(i, j, k, 0)),
-                    fabs(consv_in(i - i_off, j - j_off, k - k_off, 1 + d)
-                         / consv_in(i - i_off, j - j_off, k - k_off, 0)));
-                tfluxes[d](i, j, k, n)
-                    = 0.5
-                      * ((adv_fluxes[d](i, j, k, n)
-                          + adv_fluxes[d](i - i_off, j - j_off, k - k_off, n))
-                         - u_max
-                               * (consv_in(i, j, k, n)
-                                  - consv_in(i - i_off, j - j_off, k - k_off,
-                                             n)));
-            });
-    }
-
-    // Conservative update
-    AMREX_D_TERM(const Real dtdx = dt / dx[0];, const Real dtdy = dt / dx[1];
-                 , const Real                              dtdz = dt / dx[2];)
-    ParallelFor(bx, NSTATE,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-                {
-                    consv_out(i, j, k, n)
-                        = consv_in(i, j, k, n)
-                          - (AMREX_D_TERM(dtdx
-                                              * (tfluxes_c[0](i + 1, j, k, n)
-                                                 - tfluxes_c[0](i, j, k, n)),
-                                          +dtdy
-                                              * (tfluxes_c[1](i, j + 1, k, n)
-                                                 - tfluxes_c[1](i, j, k, n)),
-                                          +dtdz
-                                              * (tfluxes_c[2](i, j, k + 1, n)
-                                                 - tfluxes_c[2](i, j, k, n))));
-                });
-
-    // Copy temporary fluxes onto potentially smaller nodal tile
-    for (int d = 0; d < AMREX_SPACEDIM; d++)
-        ParallelFor(nbx[d], NSTATE,
-                    [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-                    { fluxes[d](i, j, k, n) = tfluxes_c[d](i, j, k, n); });
-}
-
-AMREX_GPU_HOST
-void pressure_source_vector(
-    const amrex::MultiFab &MFex, const amrex::MultiFab &MFscaledenth_cc,
-    amrex::MultiFab &dst,
-    AMREX_D_DECL(amrex::Real hedtdx, amrex::Real hedtdy, amrex::Real hedtdz))
-{
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-    {
-        const Real epsilon = AmrLevelAdv::h_prob_parm->epsilon;
-
-        for (MFIter mfi(dst, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+    ParallelFor(
+        bx,
+        [=] AMREX_GPU_DEVICE(int i, int j, int k)
         {
-            const Box               &bx       = mfi.tilebox();
-            const Array4<Real>       b        = dst.array(mfi);
-            const Array4<const Real> consv_ex = MFex.array(mfi);
-            const Array4<const Real> sh_cc    = MFscaledenth_cc.array(mfi);
+            b(i, j, k)
+                = epsilon
+                  * (consv_ex(i, j, k, 1 + AMREX_SPACEDIM) - ke_arr(i, j, k)
+                     - (AMREX_D_TERM(
+                         hdtdx
+                             * (enth(i + 1, j, k) * consv_ex(i + 1, j, k, 1)
+                                - enth(i - 1, j, k)
+                                      * consv_ex(i - 1, j, k, 1)),
+                         +hdtdy
+                             * (enth(i, j + 1, k) * consv_ex(i, j + 1, k, 2)
+                                - enth(i, j - 1, k)
+                                      * consv_ex(i, j - 1, k, 2)),
+                         +hdtdz
+                             * (enth(i, j, k + 1) * consv_ex(i, j, k + 1, 3)
+                                - enth(i, j, k - 1)
+                                      * consv_ex(i, j, k - 1, 3)))));
+        });
+}
 
-            ParallelFor(
-                bx,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                {
-                    b(i, j, k)
-                        = epsilon
-                          * (consv_ex(i, j, k, 1 + AMREX_SPACEDIM)
-                             - kinetic_energy(i, j, k, consv_ex))
-                             - (AMREX_D_TERM(
-                                 hedtdx
-                                     * (sh_cc(i + 1, j, k)
-                                            * consv_ex(i + 1, j, k, 1)
-                                        - sh_cc(i - 1, j, k)
-                                              * consv_ex(i - 1, j, k, 1)),
-                                 +hedtdy
-                                     * (sh_cc(i, j + 1, k)
-                                            * consv_ex(i, j + 1, k, 2)
-                                        - sh_cc(i, j - 1, k)
-                                              * consv_ex(i, j - 1, k, 2)),
-                                 +hedtdz
-                                     * (sh_cc(i, j, k + 1)
-                                            * consv_ex(i, j, k + 1, 3)
-                                        - sh_cc(i, j, k - 1)
-                                              * consv_ex(i, j, k - 1, 3))));
-                });
-        }
-    }
+AMREX_GPU_HOST
+void update_momentum(const amrex::Box &bx, const amrex::FArrayBox &stateex,
+                     const amrex::FArrayBox &pressure, amrex::FArrayBox &dst,
+                     AMREX_D_DECL(amrex::Real hdtdxe, amrex::Real hdtdye,
+                                  amrex::Real hdtdze))
+{
+    const auto &out = dst.array();
+    const auto &p   = pressure.const_array();
+    const auto &ex  = stateex.const_array();
+    ParallelFor(
+        bx,
+        [=] AMREX_GPU_DEVICE(int i, int j, int k)
+        {
+            AMREX_D_TERM(
+                out(i, j, k, 1)
+                = ex(i, j, k, 1) - hdtdxe * (p(i + 1, j, k) - p(i - 1, j, k));
+                ,
+                out(i, j, k, 2)
+                = ex(i, j, k, 2) - hdtdye * (p(i, j + 1, k) - p(i, j - 1, k));
+                ,
+                out(i, j, k, 3)
+                = ex(i, j, k, 3) - hdtdze * (p(i, j, k + 1) - p(i, j, k - 1));)
+        });
+}
+
+/**
+ * Same as above but also computes flux
+ */
+AMREX_GPU_HOST
+void update_momentum(const amrex::Box                           &bx,
+                     amrex::GpuArray<amrex::Box, AMREX_SPACEDIM> nbx,
+                     const amrex::FArrayBox                     &stateex,
+                     const amrex::FArrayBox &pressure, amrex::FArrayBox &dst,
+                     AMREX_D_DECL(amrex::FArrayBox &fx, amrex::FArrayBox &fy,
+                                  amrex::FArrayBox &fz),
+                     AMREX_D_DECL(amrex::Real hdtdx, amrex::Real hdtdy,
+                                  amrex::Real hdtdz))
+{
+    update_momentum(bx, stateex, pressure, dst,
+                    AMREX_D_DECL(hdtdx, hdtdy, hdtdz));
+    // Now calc flux
+    AMREX_D_TERM(const auto &fluxx = fx.array();
+                 , const auto &fluxy = fy.array();
+                 , const auto &fluxz = fz.array();)
+    const auto &p    = pressure.const_array();
+    const Real  heps = 0.5 * AmrLevelAdv::h_prob_parm->epsilon;
+    ParallelFor(
+        AMREX_D_DECL(nbx[0], nbx[1], nbx[2]),
+        AMREX_D_DECL(
+            [=] AMREX_GPU_DEVICE(int i, int j, int k)
+            { fluxx(i, j, k, 1) += heps * (p(i, j, k) + p(i - 1, j, k)); },
+            [=] AMREX_GPU_DEVICE(int i, int j, int k)
+            { fluxy(i, j, k, 2) += heps * (p(i, j, k) + p(i, j - 1, k)); },
+            [=] AMREX_GPU_DEVICE(int i, int j, int k)
+            { fluxz(i, j, k, 3) += heps * (p(i, j, k) + p(i, j, k - 1)); }));
+}
+
+/**
+ * Updates energy and computes flux. Assumes momentum and density are already
+ * updated in \c dst
+ */
+AMREX_GPU_HOST
+void update_energy_flux(
+    amrex::GpuArray<amrex::Box, AMREX_SPACEDIM> nbx,
+    const amrex::FArrayBox &stateex, const amrex::FArrayBox &enthalpy,
+    const amrex::FArrayBox &pressure,
+    AMREX_D_DECL(amrex::FArrayBox &fx, amrex::FArrayBox &fy,
+                 amrex::FArrayBox &fz),
+    AMREX_D_DECL(amrex::Real hdtdxe, amrex::Real hdtdye, amrex::Real hdtdze))
+{
+    const auto &p    = pressure.const_array();
+    const auto &ex   = stateex.const_array();
+    const auto &enth = enthalpy.const_array();
+
+    // Conservative flux is calculated in the same way for all methods, the
+    // difference being that we will have updated enthalpy and KE before
+    // calling this whereas if linearised they should be the same as when used
+    // in the pressure equation
+    AMREX_D_TERM(const auto &fluxx = fx.array();
+                 , const auto &fluxy = fy.array();
+                 , const auto &fluxz = fz.array();)
+    ParallelFor(AMREX_D_DECL(nbx[0], nbx[1], nbx[2]),
+                AMREX_D_DECL(
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k)
+                    {
+                        fluxx(i, j, k, 1 + AMREX_SPACEDIM)
+                            += -0.5
+                                   * (enth(i, j, k) * ex(i, j, k, 1)
+                                      + enth(i - 1, j, k) * ex(i - 1, j, k, 1))
+                               + hdtdxe
+                                     * ((enth(i, j, k) + enth(i - 1, j, k))
+                                        * (p(i, j, k) - p(i - 1, j, k)));
+                    },
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k)
+                    {
+                        fluxy(i, j, k, 2)
+                            += -0.5
+                                   * (enth(i, j, k) * ex(i, j, k, 2)
+                                      + enth(i, j - 1, k) * ex(i, j - 1, k, 2))
+                               + hdtdye
+                                     * ((enth(i, j, k) + enth(i, j - 1, k))
+                                        * (p(i, j, k) - p(i, j - 1, k)));
+                    },
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k)
+                    {
+                        fluxz(i, j, k, 3)
+                            += -0.5
+                                   * (enth(i, j, k) * ex(i, j, k, 3)
+                                      + enth(i, j, k - 1) * ex(i, j, k - 1, 3))
+                               + hdtdze
+                                     * ((enth(i, j, k) + enth(i, j, k - 1))
+                                        * (p(i, j, k) - p(i, j, k - 1)));
+                    }));
 }
 
 AMREX_GPU_HOST
@@ -503,6 +637,9 @@ void update_ex_from_pressure(
         });
 }
 
+namespace details
+{
+
 AMREX_GPU_HOST
 void copy_pressure(const amrex::MultiFab &statesrc, amrex::MultiFab &dst)
 {
@@ -520,9 +657,6 @@ void copy_pressure(const amrex::MultiFab &statesrc, amrex::MultiFab &dst)
         }
     }
 }
-
-namespace details
-{
 
 LinOpBCType linop_from_BCType(int bc)
 {
@@ -542,7 +676,7 @@ LinOpBCType linop_from_BCType(int bc)
 }
 
 AMREX_GPU_HOST
-void set_pressure_domain_BC(amrex::MLLinOp            &pressure_op,
+void set_pressure_domain_BC(amrex::MLLinOp                    &pressure_op,
                             const amrex::Geometry             &geom,
                             const amrex::Vector<amrex::BCRec> &bcs)
 {
@@ -564,6 +698,69 @@ void set_pressure_domain_BC(amrex::MLLinOp            &pressure_op,
     }
 
     pressure_op.setDomainBC(lobc, hibc);
+}
+
+AMREX_GPU_HOST
+void picard_iterate(
+    const amrex::Geometry &geom, const amrex::MultiFab &statein,
+    const amrex::MultiFab &stateex, const amrex::MultiFab &velocity,
+    amrex::MultiFab &stateout, amrex::MultiFab &enthalpy, amrex::MultiFab &ke,
+    amrex::MultiFab &rhs, amrex::MultiFab &pressure, amrex::Real dt,
+    AMREX_D_DECL(amrex::Real hdtdx, amrex::Real hdtdy, amrex::Real hdtdz),
+    AMREX_D_DECL(amrex::Real hdtdxe, amrex::Real hdtdye, amrex::Real hdtdze),
+    const amrex::Vector<amrex::BCRec> &domainbcs, const IMEXSettings &settings)
+{
+    MultiFab residual;
+    if (settings.compute_residual)
+        residual.define(pressure.boxArray(), pressure.DistributionMap(), 1, 0);
+
+    // already done one pressure solve
+    for (int iter = 0; iter < settings.picard_max_iter - 1; ++iter)
+    {
+        if (settings.verbose)
+            Print() << "[IMEX] Beginning Picard iteration " << iter << "..."
+                    << std::endl;
+
+        // here we can compute the residual if we wanted
+        solve_pressure_eqn(geom, enthalpy, velocity, rhs, pressure, dt,
+                           domainbcs, settings);
+        
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+        {
+            for (MFIter mfi(stateout, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+            {
+                const Box &bx  = mfi.tilebox();
+                const Box  gbx = mfi.growntilebox(1);
+                update_momentum(gbx, stateex[mfi], pressure[mfi],
+                                stateout[mfi],
+                                AMREX_D_DECL(hdtdxe, hdtdye, hdtdze));
+                compute_enthalpy(gbx, statein[mfi], stateex[mfi],
+                                 stateout[mfi], pressure[mfi], enthalpy[mfi],
+                                 settings);
+                compute_ke(bx, statein[mfi], stateex[mfi], stateout[mfi],
+                           ke[mfi], settings);
+            } // sync
+            for (MFIter mfi(stateex, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+            {
+                const Box &bx = mfi.tilebox();
+                pressure_source_vector(bx, stateex[mfi], enthalpy[mfi],
+                                       ke[mfi], rhs[mfi],
+                                       AMREX_D_DECL(hdtdx, hdtdy, hdtdz));
+            }
+        }
+
+        if (settings.compute_residual)
+        {
+            amrex::Abort("Not implemented");
+        }
+    }
+
+    if (settings.verbose)
+        Print()
+            << "[IMEX] Reached maximum number of Picard iterations. Finishing."
+            << std::endl;
 }
 
 } // namespace details
