@@ -15,6 +15,7 @@ set (SRC_NO_MAIN ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv.cpp
                 #  ${CMAKE_CURRENT_SOURCE_DIR}/IMEX/IMEX_O1_bp.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/IMEX/IMEX_Fluxes.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/IMEX/IMEX_RK.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/IMEX/ButcherTableau.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Euler/Euler.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Euler/RiemannSolver.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/LinearSolver/MLALaplacianGrad.cpp

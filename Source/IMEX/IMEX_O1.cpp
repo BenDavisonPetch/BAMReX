@@ -17,12 +17,14 @@ using namespace amrex;
 AMREX_GPU_HOST
 void compute_flux_imex_o1(
     const amrex::Real time, const amrex::Geometry &geom,
-    const amrex::MultiFab &statein, amrex::MultiFab &pressure,
+    const amrex::MultiFab &statein_imp, const amrex::MultiFab &statein_exp,
+    amrex::MultiFab                               &pressure,
     amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
     const amrex::Real dt, const amrex::Vector<amrex::BCRec> &domainbcs,
     const IMEXSettings &settings)
 {
-    AMREX_ASSERT(statein.nGrow() >= 2);
+    AMREX_ASSERT(statein_imp.nGrow() >= 2);
+    AMREX_ASSERT(statein_exp.nGrow() >= 2);
     AMREX_ASSERT(pressure.nGrow() >= 2);
     AMREX_ASSERT(pressure.isDefined());
 
@@ -33,13 +35,14 @@ void compute_flux_imex_o1(
     // note stateout is just temporary. It is not fully updated at the end of
     // the routine
     MultiFab stateex, enthalpy, rhs, velocity, ke;
-    stateex.define(statein.boxArray(), statein.DistributionMap(), EULER_NCOMP,
-                   1);
-    enthalpy.define(statein.boxArray(), statein.DistributionMap(), 1, 1);
-    rhs.define(statein.boxArray(), statein.DistributionMap(), 1, 0);
-    ke.define(statein.boxArray(), statein.DistributionMap(), 1, 0);
+    stateex.define(statein_imp.boxArray(), statein_imp.DistributionMap(),
+                   EULER_NCOMP, 1);
+    enthalpy.define(statein_imp.boxArray(), statein_imp.DistributionMap(), 1,
+                    1);
+    rhs.define(statein_imp.boxArray(), statein_imp.DistributionMap(), 1, 0);
+    ke.define(statein_imp.boxArray(), statein_imp.DistributionMap(), 1, 0);
     if (settings.linearise && settings.ke_method == IMEXSettings::split)
-        velocity.define(statein.boxArray(), statein.DistributionMap(),
+        velocity.define(statein_imp.boxArray(), statein_imp.DistributionMap(),
                         AMREX_SPACEDIM, 0);
 
     const auto &dx  = geom.CellSizeArray();
@@ -68,16 +71,18 @@ void compute_flux_imex_o1(
             const Box gbx = mfi.growntilebox(1);
 
             advance_rusanov_adv(
-                time, gbx, nbx, statein[mfi], stateex[mfi],
+                time, gbx, nbx, statein_exp[mfi], statein_imp[mfi],
+                stateex[mfi],
                 AMREX_D_DECL(fluxes[0][mfi], fluxes[1][mfi], fluxes[2][mfi]),
                 dx, dt);
-            compute_enthalpy(gbx, statein[mfi], stateex[mfi], statein[mfi],
-                             pressure[mfi], enthalpy[mfi], settings);
-            compute_ke(bx, statein[mfi], stateex[mfi], statein[mfi], ke[mfi],
-                       settings);
+            compute_enthalpy(gbx, statein_exp[mfi], stateex[mfi],
+                             statein_imp[mfi], pressure[mfi], enthalpy[mfi],
+                             settings);
+            compute_ke(bx, statein_exp[mfi], stateex[mfi], statein_imp[mfi],
+                       ke[mfi], settings);
             if (settings.linearise
                 && settings.ke_method == IMEXSettings::split)
-                compute_velocity(bx, statein[mfi], velocity[mfi]);
+                compute_velocity(bx, statein_exp[mfi], velocity[mfi]);
         } // sync
         for (MFIter mfi(stateex, TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
@@ -105,13 +110,13 @@ void compute_flux_imex_o1(
         // Stores result of picard iteration for momentum and density (doesn't
         // store energy) We only need enthalpy and pressure for calculating
         // fluxes so it's only defined at this scope
-        MultiFab stateout(statein.boxArray(), statein.DistributionMap(),
-                          EULER_NCOMP - 1, 1);
+        MultiFab stateout(statein_imp.boxArray(),
+                          statein_imp.DistributionMap(), EULER_NCOMP - 1, 1);
         // Copy explicitly updated density to out state
         stateout.ParallelCopy(stateex, 0, 0, 1, 1, 1);
 
         details::picard_iterate(
-            geom, statein, stateex, velocity, stateout, enthalpy, ke, rhs,
+            geom, statein_exp, stateex, velocity, stateout, enthalpy, ke, rhs,
             pressure, dt, AMREX_D_DECL(hdtdx, hdtdy, hdtdz),
             AMREX_D_DECL(hdtdxe, hdtdye, hdtdze), domainbcs, settings);
     }
@@ -245,6 +250,51 @@ void compute_velocity(const amrex::Box &bx, const amrex::FArrayBox &state,
             for (int d = 0; d < AMREX_SPACEDIM; ++d)
                 out(i, j, k, d) = in(i, j, k, 1 + d) / in(i, j, k, 0);
         });
+}
+
+AMREX_GPU_HOST
+void compute_pressure(
+                      const amrex::MultiFab &statein_exp_new,
+                      const amrex::MultiFab &statein_exp_old,
+                      amrex::MultiFab &a_pressure, const IMEXSettings &settings)
+{
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    {
+        const Real eps = AmrLevelAdv::h_prob_parm->epsilon;
+        const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
+        for (MFIter mfi(a_pressure, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
+            const auto &bx   = mfi.growntilebox();
+            const auto &p    = a_pressure.array(mfi);
+            const auto &sold = statein_exp_old.const_array(mfi);
+            const auto &snew = statein_exp_new.const_array(mfi);
+            if (settings.linearise && settings.ke_method == IMEXSettings::split)
+                ParallelFor(
+                    bx,
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k)
+                    {
+                        p(i, j, k)
+                            = (adia - 1)
+                            * (snew(i, j, k, 1 + AMREX_SPACEDIM)
+                                - 0.5 * eps
+                                    * (AMREX_D_TERM(
+                                        sold(i, j, k, 1) * snew(i, j, k, 1),
+                                        +sold(i, j, k, 2) * snew(i, j, k, 2),
+                                        +sold(i, j, k, 3) * snew(i, j, k, 3)))
+                                    / sold(i, j, k, 0));
+                    });
+            else
+               ParallelFor(
+                    bx,
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k)
+                    {
+                        p(i, j, k)
+                            = pressure(i,j,k,snew);
+                    }); 
+        }
+    }
 }
 
 AMREX_GPU_HOST

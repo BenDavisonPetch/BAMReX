@@ -24,7 +24,8 @@
 
 enum StateType
 {
-    Phi_Type = 0,
+    Consv_Type = 0,
+    Pressure_Type = 1,
     NUM_STATE_TYPE
 };
 

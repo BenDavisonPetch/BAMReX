@@ -12,11 +12,8 @@
 #include "CONTROL.H"
 #include "Euler/Euler.H"
 #include "Fluxes/Fluxes.H"
-#if SCHEME == 1
-#include "IMEX/IMEX_O1.H"
-#elif SCHEME == 3
-#include "IMEX/IMEX_O1_bp.H"
-#endif
+#include "IMEX/IMEXSettings.H"
+#include "IMEX/IMEX_RK.H"
 #include "MFIterLoop.H"
 #include "Prob.H"
 #include "tagging_K.H"
@@ -136,7 +133,7 @@ void AmrLevelAdv::variableSetUp()
     const int storedGhostZones = 0;
 
     // Setting up a container for a variable, or vector of variables:
-    // Phi_Type: Enumerator for this variable type
+    // Consv_Type: Enumerator for this variable type
     // IndexType::TheCellType(): AMReX can support cell-centred and
     // vertex-centred variables (cell centred here) StateDescriptor::Point:
     // Data can be a point in time, or an interval over time (point here)
@@ -144,8 +141,11 @@ void AmrLevelAdv::variableSetUp()
     // set to zero. NUM_STATE: Number of variables in the variable vector (1 in
     // the case of advection equation) cell_cons_interp: Controls interpolation
     // between levels - cons_interp is good for finite volume
-    desc_lst.addDescriptor(Phi_Type, IndexType::TheCellType(),
+    desc_lst.addDescriptor(Consv_Type, IndexType::TheCellType(),
                            StateDescriptor::Point, storedGhostZones, NUM_STATE,
+                           &cell_cons_interp);
+    desc_lst.addDescriptor(Pressure_Type, IndexType::TheCellType(),
+                           StateDescriptor::Point, 2, 1,
                            &cell_cons_interp);
 
     Geometry const *gg = AMReX::top()->getDefaultGeometry();
@@ -178,17 +178,19 @@ void AmrLevelAdv::variableSetUp()
         true); // I promise the bc function will launch gpu kernels.
 
     // Set up variable-specific information; needs to be done for each variable
-    // in NUM_STATE Phi_Type: Enumerator for the variable type being set 0:
+    // in NUM_STATE Consv_Type: Enumerator for the variable type being set 0:
     // Position of the variable in the variable vector.  Single variable for
     // advection. phi: Name of the variable - appears in output to identify
     // what is being plotted bc: Boundary condition object for this variable
     // (defined above) bndryfunc: The boundary condition function set above
-    desc_lst.setComponent(Phi_Type, 0, "density", bc, bndryfunc);
-    AMREX_D_TERM(desc_lst.setComponent(Phi_Type, 1, "mom_x", bc, bndryfunc);
-                 , desc_lst.setComponent(Phi_Type, 2, "mom_y", bc, bndryfunc);
-                 , desc_lst.setComponent(Phi_Type, 3, "mom_z", bc, bndryfunc);)
-    desc_lst.setComponent(Phi_Type, 1 + AMREX_SPACEDIM, "energy", bc,
+    desc_lst.setComponent(Consv_Type, 0, "density", bc, bndryfunc);
+    AMREX_D_TERM(
+        desc_lst.setComponent(Consv_Type, 1, "mom_x", bc, bndryfunc);
+        , desc_lst.setComponent(Consv_Type, 2, "mom_y", bc, bndryfunc);
+        , desc_lst.setComponent(Consv_Type, 3, "mom_z", bc, bndryfunc);)
+    desc_lst.setComponent(Consv_Type, 1 + AMREX_SPACEDIM, "energy", bc,
                           bndryfunc);
+    desc_lst.setComponent(Pressure_Type, 0, "IMEX_pressure", bc, bndryfunc);
 }
 
 /**
@@ -210,9 +212,21 @@ void AmrLevelAdv::variableCleanUp()
 void AmrLevelAdv::initData()
 {
     if (verbose)
-        Print() << "Initialising data at level " << level;
-    MultiFab &S_new = get_new_data(Phi_Type);
+        Print() << "Initialising data at level " << level << std::endl;
+    MultiFab &S_new = get_new_data(Consv_Type);
+    MultiFab &P_new = get_new_data(Pressure_Type);
+
     initdata(S_new, geom);
+    AMREX_ASSERT(!S_new.contains_nan());
+
+    // Compute initial pressure from initial conditions. Need to grow the input
+    // by 2
+    MultiFab Sborder(grids, dmap, NUM_STATE, NUM_GROW);
+    FillPatcherFill(Sborder, 0, NUM_STATE, NUM_GROW, 0, Consv_Type, 0);
+    IMEXSettings settings; // can just pass default settings to
+                           // compute_pressure, doesn't make a difference
+    compute_pressure(Sborder, Sborder, P_new, settings);
+    AMREX_ASSERT(!P_new.contains_nan());
 
     if (verbose)
         Print() << "Done initializing the level " << level << " data "
@@ -231,12 +245,13 @@ void AmrLevelAdv::init(AmrLevel &old)
     // Create new grid data by fillpatching from old.
     //
     Real dt_new    = parent->dtLevel(level);
-    Real cur_time  = oldlev->state[Phi_Type].curTime();
-    Real prev_time = oldlev->state[Phi_Type].prevTime();
+    Real cur_time  = oldlev->state[Consv_Type].curTime();
+    Real prev_time = oldlev->state[Consv_Type].prevTime();
     Real dt_old    = cur_time - prev_time;
     setTimeLevel(cur_time, dt_old, dt_new);
 
-    MultiFab &S_new = get_new_data(Phi_Type);
+    MultiFab &S_new = get_new_data(Consv_Type);
+    MultiFab &P_new = get_new_data(Pressure_Type);
 
     const int zeroGhosts = 0;
     // FillPatch takes the data from the first argument (which contains
@@ -247,12 +262,13 @@ void AmrLevelAdv::init(AmrLevel &old)
     // zeroGhosts: If this is non-zero, ghost zones could be filled too - not
     // needed for init routines cur_time: AMReX can attempt interpolation if a
     // different time is specified - not recommended for advection eq.
-    // Phi_Type: Specify the type of data being set
+    // Consv_Type: Specify the type of data being set
     // 0: This is the first data index that is to be copied
     // NUM_STATE: This is the number of states to be copied
-    FillPatch(old, S_new, zeroGhosts, cur_time, Phi_Type, 0, NUM_STATE);
+    FillPatch(old, S_new, zeroGhosts, cur_time, Consv_Type, 0, NUM_STATE);
+    FillPatch(old, P_new, 2, cur_time, Pressure_Type, 0, 1);
 
-    // Note: In this example above, the all states in Phi_Type (which is
+    // Note: In this example above, the all states in Consv_Type (which is
     // only 1 to start with) are being copied.  However, the FillPatch
     // command could be used to create a velocity vector from a
     // primitive variable vector.  In this case, the `0' argument is
@@ -272,21 +288,22 @@ void AmrLevelAdv::init(AmrLevel &old)
 void AmrLevelAdv::init()
 {
     Real dt        = parent->dtLevel(level);
-    Real cur_time  = getLevel(level - 1).state[Phi_Type].curTime();
-    Real prev_time = getLevel(level - 1).state[Phi_Type].prevTime();
+    Real cur_time  = getLevel(level - 1).state[Consv_Type].curTime();
+    Real prev_time = getLevel(level - 1).state[Consv_Type].prevTime();
 
     Real dt_old
         = (cur_time - prev_time) / (Real)parent->MaxRefRatio(level - 1);
 
     setTimeLevel(cur_time, dt_old, dt);
-    MultiFab &S_new = get_new_data(Phi_Type);
+    MultiFab &S_new = get_new_data(Consv_Type);
+    MultiFab &P_new = get_new_data(Pressure_Type);
 
-    const int zeroGhosts = 0;
     // See first init function for documentation
     // Only difference is that because the patch didn't previously exist, there
     // is no 'old' entry (instead the function will interpolate from the coarse
     // level)
-    FillCoarsePatch(S_new, zeroGhosts, cur_time, Phi_Type, 0, NUM_STATE);
+    FillCoarsePatch(S_new, 0, cur_time, Consv_Type, 0, NUM_STATE);
+    FillCoarsePatch(P_new, 0, cur_time, Pressure_Type, 0, 1, 2);
 }
 
 /**
@@ -298,7 +315,8 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
 {
     if (verbose)
         Print() << "Starting advance:" << std::endl;
-    MultiFab &S_mm = get_new_data(Phi_Type);
+    MultiFab &S_mm = get_new_data(Consv_Type);
+    MultiFab &P_mm = get_new_data(Pressure_Type);
 
     // Note that some useful commands exist - the maximum and minumum
     // values on the current level can be computed directly - here the
@@ -318,10 +336,11 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
         state[k].swapTimeLevels(dt);
     }
 
-    MultiFab &S_new = get_new_data(Phi_Type);
+    MultiFab &S_new = get_new_data(Consv_Type);
+    MultiFab &P_new = get_new_data(Pressure_Type);
 
-    // const Real prev_time = state[Phi_Type].prevTime();
-    // const Real cur_time  = state[Phi_Type].curTime();
+    // const Real prev_time = state[Consv_Type].prevTime();
+    // const Real cur_time  = state[Consv_Type].curTime();
     // const Real ctr_time  = 0.5 * (prev_time + cur_time);
 
     GpuArray<Real, BL_SPACEDIM> dx = geom.CellSizeArray();
@@ -375,7 +394,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     // We use FillPatcher to do fillpatch here if we can
     // This is similar to the FillPatch function documented in init(), but
     // takes care of boundary conditions too
-    FillPatcherFill(Sborder, 0, NUM_STATE, NUM_GROW, time, Phi_Type, 0);
+    FillPatcherFill(Sborder, 0, NUM_STATE, NUM_GROW, time, Consv_Type, 0);
 
     if (verbose)
         Print() << "\tFilled ghost states" << std::endl;
@@ -497,13 +516,19 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, 0);
 
 #elif SCHEME == 1
-    advance_o1_pimex(
-        level, crse_ratio, time, geom, Sborder, S_new, fluxes, nullptr, dt,
-        get_state_data(Phi_Type).descriptor()->getBCs(), verbose, verbose);
-#elif SCHEME == 3
-    // advance_o1_pimex_bp(
-    //     level, crse_ratio, time, geom, Sborder, S_new, fluxes, nullptr, dt,
-    //     get_state_data(Phi_Type).descriptor()->getBCs(), verbose, verbose);
+    IMEXSettings settings;
+    settings.linearise             = true;
+    settings.ke_method             = IMEXSettings::split;
+    settings.enthalpy_method       = IMEXSettings::reuse_pressure;
+    settings.butcher_tableau       = IMEXButcherTableau::SA111;
+    settings.verbose               = verbose;
+    settings.bottom_solver_verbose = verbose;
+
+    MultiFab::Copy(P_new, P_mm, 0, 0, 1, 2);
+    // TODO: check if ghost cells are actually filled in P_new and P_mm
+    advance_imex_rk(time, geom, Sborder, S_new, P_new, fluxes, dt,
+                    get_state_data(Consv_Type).descriptor()->getBCs(),
+                    settings);
 #else
 #error "Invalid scheme!"
 #endif
@@ -589,7 +614,7 @@ void AmrLevelAdv::fill_boundary(amrex::MultiFab &fab)
     fab.FillBoundary(geom.periodicity());
     // This one does non-periodic conditions
     FillDomainBoundary(fab, geom,
-                       get_state_data(Phi_Type).descriptor()->getBCs());
+                       get_state_data(Consv_Type).descriptor()->getBCs());
 }
 
 /**
@@ -602,8 +627,8 @@ Real AmrLevelAdv::estTimeStep(Real)
 {
     GpuArray<Real, BL_SPACEDIM> dx = geom.CellSizeArray();
     // GpuArray<Real, BL_SPACEDIM> prob_lo  = geom.ProbLoArray();
-    const Real      cur_time = state[Phi_Type].curTime();
-    const MultiFab &S_new    = get_new_data(Phi_Type);
+    const Real      cur_time = state[Consv_Type].curTime();
+    const MultiFab &S_new    = get_new_data(Consv_Type);
 
     // This is just a dummy value to start with
     Real dt_est = 1.0e+20;
@@ -622,7 +647,8 @@ Real AmrLevelAdv::estTimeStep(Real)
     Real wave_speed;
     if (cur_time < acoustic_timestep_end_time)
     {
-        if (verbose) Print() << "\tUsing acoustic time step" << std::endl;
+        if (verbose)
+            Print() << "\tUsing acoustic time step" << std::endl;
         wave_speed = max_wave_speed(cur_time, S_new);
         for (unsigned int d = 0; d < amrex::SpaceDim; ++d)
         {
@@ -631,7 +657,8 @@ Real AmrLevelAdv::estTimeStep(Real)
     }
     else
     {
-        if (verbose) Print() << "\tUsing advective time step" << std::endl;
+        if (verbose)
+            Print() << "\tUsing advective time step" << std::endl;
         dt_est = 1 / max_dx_scaled_speed(S_new, dx);
     }
 #else
@@ -686,7 +713,7 @@ void AmrLevelAdv::computeInitialDt(int finest_level, int /*sub_cycle*/,
     // Limit dt's by the value of stop_time.
     //
     const Real eps      = 0.001 * dt_0;
-    Real       cur_time = state[Phi_Type].curTime();
+    Real       cur_time = state[Consv_Type].curTime();
     if (stop_time >= 0.0)
     {
         if ((cur_time + dt_0) > (stop_time - eps))
@@ -772,7 +799,7 @@ void AmrLevelAdv::computeNewDt(int          finest_level, int /*sub_cycle*/,
     // Limit dt's by the value of stop_time.
     //
     const Real eps      = 0.001 * dt_0;
-    Real       cur_time = state[Phi_Type].curTime();
+    Real       cur_time = state[Consv_Type].curTime();
     if (stop_time >= 0.0)
     {
         if ((cur_time + dt_0) > (stop_time - eps))
@@ -869,7 +896,7 @@ void AmrLevelAdv::post_init(Real /*stop_time*/)
 void AmrLevelAdv::errorEst(TagBoxArray &tags, int /*clearval*/, int /*tagval*/,
                            Real /*time*/, int /*n_error_buf*/, int /*ngrow*/)
 {
-    MultiFab &S_new = get_new_data(Phi_Type);
+    MultiFab &S_new = get_new_data(Consv_Type);
 
     // Properly fill patches and ghost cells for phi gradient check
     // (i.e. make sure there is at least one ghost cell defined)
@@ -879,9 +906,9 @@ void AmrLevelAdv::errorEst(TagBoxArray &tags, int /*clearval*/, int /*tagval*/,
     {
         // Only do this if we actually compute errors based on gradient at this
         // level
-        const Real cur_time = state[Phi_Type].curTime();
+        const Real cur_time = state[Consv_Type].curTime();
         phitmp.define(S_new.boxArray(), S_new.DistributionMap(), NUM_STATE, 1);
-        FillPatch(*this, phitmp, oneGhost, cur_time, Phi_Type, 0, NUM_STATE);
+        FillPatch(*this, phitmp, oneGhost, cur_time, Consv_Type, 0, NUM_STATE);
     }
     MultiFab const &phi = (level < max_phigrad_lev) ? phitmp : S_new;
 
@@ -1009,8 +1036,8 @@ void AmrLevelAdv::reflux()
     // are no flux registers on the coarse level, they start from the
     // first level.  But the coarse level to the (n-1)^th are the ones
     // that need refluxing, hence the `level+1'.
-    getFluxReg(level + 1).Reflux(get_new_data(Phi_Type), 1.0, 0, 0, NUM_STATE,
-                                 geom);
+    getFluxReg(level + 1).Reflux(get_new_data(Consv_Type), 1.0, 0, 0,
+                                 NUM_STATE, geom);
 
     if (verbose)
     {
@@ -1036,7 +1063,7 @@ void AmrLevelAdv::avgDown()
     }
     // Can select which variables averaging down will happen on - only one to
     // choose from in this case!
-    avgDown(Phi_Type);
+    avgDown(Consv_Type);
 }
 
 //

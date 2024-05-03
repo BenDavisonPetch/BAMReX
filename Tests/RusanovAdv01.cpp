@@ -66,7 +66,7 @@ TEST_F(ToroTest1, RusanovAdv)
             AMREX_D_DECL(FArrayBox & fx, FArrayBox & fy, FArrayBox & fz),
             GpuArray<Real, AMREX_SPACEDIM> dx, const Real dt)
         {
-            advance_rusanov_adv(time, bx, nbx, infab, outfab,
+            advance_rusanov_adv(time, bx, nbx, infab, infab, outfab,
                                 AMREX_D_DECL(fx, fy, fz), dx, dt);
         });
 
@@ -171,7 +171,7 @@ TEST_F(ToroTest2, RusanovAdv)
             AMREX_D_DECL(FArrayBox & fx, FArrayBox & fy, FArrayBox & fz),
             GpuArray<Real, AMREX_SPACEDIM> dx, const Real dt)
         {
-            advance_rusanov_adv(time, bx, nbx, infab, outfab,
+            advance_rusanov_adv(time, bx, nbx, infab, infab, outfab,
                                 AMREX_D_DECL(fx, fy, fz), dx, dt);
         });
 
@@ -277,7 +277,7 @@ TEST_F(BoxTest, RusanovAdv)
             AMREX_D_DECL(FArrayBox & fx, FArrayBox & fy, FArrayBox & fz),
             GpuArray<Real, AMREX_SPACEDIM> dx, const Real dt)
         {
-            advance_rusanov_adv(time, bx, nbx, infab, outfab,
+            advance_rusanov_adv(time, bx, nbx, infab, infab, outfab,
                                 AMREX_D_DECL(fx, fy, fz), dx, dt);
         });
 

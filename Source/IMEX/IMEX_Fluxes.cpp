@@ -8,7 +8,8 @@ AMREX_GPU_HOST
 void advance_rusanov_adv(const amrex::Real /*time*/, const amrex::Box &bx,
                          amrex::GpuArray<amrex::Box, AMREX_SPACEDIM> nbx,
                          const amrex::FArrayBox                     &statein,
-                         amrex::FArrayBox                           &stateout,
+                         const amrex::FArrayBox &state_toupdate,
+                         amrex::FArrayBox       &stateout,
                          AMREX_D_DECL(amrex::FArrayBox &fx,
                                       amrex::FArrayBox &fy,
                                       amrex::FArrayBox &fz),
@@ -43,6 +44,7 @@ void advance_rusanov_adv(const amrex::Real /*time*/, const amrex::Box &bx,
 
     Array4<const Real> consv_in  = statein.array();
     Array4<Real>       consv_out = stateout.array();
+    Array4<const Real> toupdate  = state_toupdate.const_array();
 
     GpuArray<Array4<Real>, AMREX_SPACEDIM> fluxes{ AMREX_D_DECL(
         fx.array(), fy.array(), fz.array()) };
@@ -57,7 +59,7 @@ void advance_rusanov_adv(const amrex::Real /*time*/, const amrex::Box &bx,
                         , adv_flux<2>(i, j, k, consv_in, adv_fluxes[2]);)
                 });
 
-    // Compute Rusanov fluxes
+    // Compute Rusanov fluxes using statein
     for (int d = 0; d < AMREX_SPACEDIM; d++)
     {
         const int i_off = (d == 0) ? 1 : 0;
@@ -82,14 +84,14 @@ void advance_rusanov_adv(const amrex::Real /*time*/, const amrex::Box &bx,
             });
     }
 
-    // Conservative update
+    // Apply fluxes to state_toupdate
     AMREX_D_TERM(const Real dtdx = dt / dx[0];, const Real dtdy = dt / dx[1];
                  , const Real                              dtdz = dt / dx[2];)
     ParallelFor(bx, NSTATE,
                 [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
                 {
                     consv_out(i, j, k, n)
-                        = consv_in(i, j, k, n)
+                        = toupdate(i, j, k, n)
                           - (AMREX_D_TERM(dtdx
                                               * (tfluxes_c[0](i + 1, j, k, n)
                                                  - tfluxes_c[0](i, j, k, n)),

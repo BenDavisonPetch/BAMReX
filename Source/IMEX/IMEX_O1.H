@@ -10,17 +10,18 @@
 #include "IMEXSettings.H"
 
 /**
- * \brief Computes the new state and writes it to \c stateout and writes
- * conservative fluxes to \c fluxes
+ * \brief First order routine that calculates the fluxes to go from
+ * \c statein_imp to a state stepped by \c dt, using \c statein_exp as the
+ * initial values for all explicitly treated variables
  */
 AMREX_GPU_HOST
-void compute_flux_imex_o1(const amrex::Real time, const amrex::Geometry &geom,
-                     const amrex::MultiFab &statein,
-                     amrex::MultiFab                               &pressure,
-                     amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
-                     const amrex::Real                              dt,
-                     const amrex::Vector<amrex::BCRec>             &domainbcs,
-                     const IMEXSettings                            &settings);
+void compute_flux_imex_o1(
+    const amrex::Real time, const amrex::Geometry &geom,
+    const amrex::MultiFab &statein_imp, const amrex::MultiFab &statein_exp,
+    amrex::MultiFab                               &pressure,
+    amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
+    const amrex::Real dt, const amrex::Vector<amrex::BCRec> &domainbcs,
+    const IMEXSettings &settings);
 
 /**
  * \brief Writes the solution to the pressure equation to \c pressure
@@ -76,6 +77,15 @@ void compute_ke(const amrex::Box &bx, const amrex::FArrayBox &statein,
 AMREX_GPU_HOST
 void compute_velocity(const amrex::Box &bx, const amrex::FArrayBox &state,
                       amrex::FArrayBox &dst);
+
+/**
+ * Used by the RK method to retrieve the pressure for given initial conditions.
+ */
+AMREX_GPU_HOST
+void compute_pressure(
+                      const amrex::MultiFab &statein_exp_new,
+                      const amrex::MultiFab &statein_exp_old,
+                      amrex::MultiFab &a_pressure, const IMEXSettings &settings);
 
 AMREX_GPU_HOST
 void pressure_source_vector(const amrex::Box       &bx,
