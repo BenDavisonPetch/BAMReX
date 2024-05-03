@@ -501,9 +501,9 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
         level, crse_ratio, time, geom, Sborder, S_new, fluxes, nullptr, dt,
         get_state_data(Phi_Type).descriptor()->getBCs(), verbose, verbose);
 #elif SCHEME == 3
-    advance_o1_pimex_bp(
-        level, crse_ratio, time, geom, Sborder, S_new, fluxes, nullptr, dt,
-        get_state_data(Phi_Type).descriptor()->getBCs(), verbose, verbose);
+    // advance_o1_pimex_bp(
+    //     level, crse_ratio, time, geom, Sborder, S_new, fluxes, nullptr, dt,
+    //     get_state_data(Phi_Type).descriptor()->getBCs(), verbose, verbose);
 #else
 #error "Invalid scheme!"
 #endif

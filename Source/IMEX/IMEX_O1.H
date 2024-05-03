@@ -14,8 +14,8 @@
  * conservative fluxes to \c fluxes
  */
 AMREX_GPU_HOST
-void advance_imex_o1(const amrex::Real time, const amrex::Geometry &geom,
-                     const amrex::MultiFab &statein, amrex::MultiFab &stateout,
+void compute_flux_imex_o1(const amrex::Real time, const amrex::Geometry &geom,
+                     const amrex::MultiFab &statein,
                      amrex::MultiFab                               &pressure,
                      amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
                      const amrex::Real                              dt,
@@ -96,17 +96,15 @@ void update_momentum(const amrex::Box &bx, const amrex::FArrayBox &stateex,
                                   amrex::Real hdtdze));
 
 /**
- * Same as above but also computes flux
+ * \brief Updates momentum flux, given fluxes from explicit update and solution
+ * to pressure equation
  */
 AMREX_GPU_HOST
-void update_momentum(const amrex::Box                           &bx,
-                     amrex::GpuArray<amrex::Box, AMREX_SPACEDIM> nbx,
-                     const amrex::FArrayBox                     &stateex,
-                     const amrex::FArrayBox &pressure, amrex::FArrayBox &dst,
-                     AMREX_D_DECL(amrex::FArrayBox &fx, amrex::FArrayBox &fy,
-                                  amrex::FArrayBox &fz),
-                     AMREX_D_DECL(amrex::Real hdtdxe, amrex::Real hdtdye,
-                                  amrex::Real hdtdze));
+void update_momentum_flux(
+    const amrex::GpuArray<amrex::Box, AMREX_SPACEDIM> &nbx,
+    const amrex::FArrayBox                            &pressure,
+    AMREX_D_DECL(amrex::FArrayBox &fx, amrex::FArrayBox &fy,
+                 amrex::FArrayBox &fz));
 
 /**
  * Computes energy flux

@@ -1,10 +1,10 @@
 #include "MLALaplacianGrad.H"
-#include "MLALaplacianGradAlt.H"
+// #include "MLALaplacianGradAlt.H"
 
 namespace amrex
 {
 
 template class MLABecLaplacianGradT<MultiFab>;
-template class MLABecLaplacianGradAltT<MultiFab>;
+// template class MLABecLaplacianGradAltT<MultiFab>;
 
 }

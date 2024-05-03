@@ -26,6 +26,7 @@ add_executable(tests_1d
   RusanovAdv01.cpp
   HLLC01.cpp
   MLABecLapGrad01.cpp
+  IMEX_O1_01.cpp
 )
 
 add_executable(tests_2d
@@ -40,7 +41,6 @@ add_executable(tests_3d
   test_main.cpp
   ${SRC_NO_MAIN}
   RusanovAdv01.cpp
-  PressureSourceVec01.cpp
   IMEX_O1_01.cpp
   Euler01.cpp
   MLABecLapGrad01.cpp

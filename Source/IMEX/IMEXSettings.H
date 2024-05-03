@@ -52,8 +52,8 @@ struct IMEXSettings
      */
     IMEXButcherTableau::TableauType butcher_tableau;
 
-    bool verbose;
-    bool bottom_solver_verbose;
+    bool verbose = false;
+    bool bottom_solver_verbose = false;
 };
 
 #endif

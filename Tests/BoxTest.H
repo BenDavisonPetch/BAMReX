@@ -4,7 +4,6 @@
 #include "UnitDomainTest.H"
 #include <AMReX_BC_TYPES.H>
 
-#if AMREX_SPACEDIM >= 2
 class BoxTest : public UnitDomainTest
 {
   protected:
@@ -23,6 +22,12 @@ class BoxTest : public UnitDomainTest
 
     const amrex::GpuArray<amrex::Real, EULER_NCOMP> consv_L{ 2, 2, -4, 8 };
     const amrex::GpuArray<amrex::Real, EULER_NCOMP> consv_R{ 1, -2, -1, 7.25 };
+#elif AMREX_SPACEDIM == 1
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> primv_L{ 2, 1, 4.5 };
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> primv_R{ 1, -2, 3.75 };
+
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> consv_L{ 2, 2, 8 };
+    const amrex::GpuArray<amrex::Real, EULER_NCOMP> consv_R{ 1, -2, 7.25 };
 #endif
 
     const amrex::BCRec tbc = amrex::BCRec(
@@ -84,12 +89,16 @@ class BoxTest : public UnitDomainTest
                                     in(i, j, k, n) = consv_L[n];
                                 else
                                     in(i, j, k, n) = consv_R[n];
+#elif AMREX_SPACEDIM == 1
+                                if (i < 2)
+                                    in(i, j, k, n) = consv_L[n];
+                                else
+                                    in(i, j, k, n) = consv_R[n];
 #endif
                             });
             }
         }
     }
 };
-#endif
 
 #endif

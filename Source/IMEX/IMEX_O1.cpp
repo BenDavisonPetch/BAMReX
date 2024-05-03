@@ -15,13 +15,12 @@
 using namespace amrex;
 
 AMREX_GPU_HOST
-void advance_imex_o1(const amrex::Real time, const amrex::Geometry &geom,
-                     const amrex::MultiFab &statein, amrex::MultiFab &stateout,
-                     amrex::MultiFab                               &pressure,
-                     amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
-                     const amrex::Real                              dt,
-                     const amrex::Vector<amrex::BCRec>             &domainbcs,
-                     const IMEXSettings                            &settings)
+void compute_flux_imex_o1(
+    const amrex::Real time, const amrex::Geometry &geom,
+    const amrex::MultiFab &statein, amrex::MultiFab &pressure,
+    amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
+    const amrex::Real dt, const amrex::Vector<amrex::BCRec> &domainbcs,
+    const IMEXSettings &settings)
 {
     AMREX_ASSERT(statein.nGrow() >= 2);
     AMREX_ASSERT(pressure.nGrow() >= 2);
@@ -30,23 +29,23 @@ void advance_imex_o1(const amrex::Real time, const amrex::Geometry &geom,
     // Define temporary MultiFabs
 
     // explicitly updated values and enthalpy need 1 ghost cell
-    // rhs, velocity, KE do not need ghost cells
+    // rhs, velocity, KE, stateout do not need ghost cells
+    // note stateout is just temporary. It is not fully updated at the end of
+    // the routine
     MultiFab stateex, enthalpy, rhs, velocity, ke;
-    stateex.define(stateout.boxArray(), stateout.DistributionMap(),
-                   EULER_NCOMP, 1);
-    enthalpy.define(stateout.boxArray(), stateout.DistributionMap(),
-                    EULER_NCOMP, 1);
-    rhs.define(stateout.boxArray(), stateout.DistributionMap(), EULER_NCOMP,
-               0);
-    ke.define(stateout.boxArray(), stateout.DistributionMap(), EULER_NCOMP, 0);
+    stateex.define(statein.boxArray(), statein.DistributionMap(), EULER_NCOMP,
+                   1);
+    enthalpy.define(statein.boxArray(), statein.DistributionMap(), 1, 1);
+    rhs.define(statein.boxArray(), statein.DistributionMap(), 1, 0);
+    ke.define(statein.boxArray(), statein.DistributionMap(), 1, 0);
     if (settings.linearise && settings.ke_method == IMEXSettings::split)
-        velocity.define(stateout.boxArray(), stateout.DistributionMap(),
-                        EULER_NCOMP, 0);
+        velocity.define(statein.boxArray(), statein.DistributionMap(),
+                        AMREX_SPACEDIM, 0);
 
     const auto &dx  = geom.CellSizeArray();
     const auto &idx = geom.InvCellSizeArray();
     const Real  eps = AmrLevelAdv::h_prob_parm->epsilon;
-    AMREX_D_DECL(const amrex::Real hdtdx = 0.5 * dt * idx[0];
+    AMREX_D_TERM(const amrex::Real hdtdx = 0.5 * dt * idx[0];
                  , const amrex::Real hdtdy = 0.5 * dt * idx[1];
                  , const amrex::Real hdtdz = 0.5 * dt * idx[2];)
     AMREX_D_TERM(Real hdtdxe = hdtdx / eps;, Real hdtdye = hdtdy / eps;
@@ -97,16 +96,20 @@ void advance_imex_o1(const amrex::Real time, const amrex::Geometry &geom,
 
     if (settings.linearise)
     {
-        solve_pressure_eqn(geom, enthalpy, velocity, rhs, pressure, dt, domainbcs,
-                       settings);
-        // copy density without ghost cells (we don't need them)
-        stateout.ParallelCopy(stateex, 0, 0, 1);
+        solve_pressure_eqn(geom, enthalpy, velocity, rhs, pressure, dt,
+                           domainbcs, settings);
     }
-    else {
+    else
+    {
         // Picard iteration
-        AMREX_ASSERT(stateout.nGrow() >= 1);
+        // Stores result of picard iteration for momentum and density (doesn't
+        // store energy) We only need enthalpy and pressure for calculating
+        // fluxes so it's only defined at this scope
+        MultiFab stateout(statein.boxArray(), statein.DistributionMap(),
+                          EULER_NCOMP - 1, 1);
         // Copy explicitly updated density to out state
         stateout.ParallelCopy(stateex, 0, 0, 1, 1, 1);
+
         details::picard_iterate(
             geom, statein, stateex, velocity, stateout, enthalpy, ke, rhs,
             pressure, dt, AMREX_D_DECL(hdtdx, hdtdy, hdtdz),
@@ -120,50 +123,19 @@ void advance_imex_o1(const amrex::Real time, const amrex::Geometry &geom,
     {
         for (MFIter mfi(stateex, TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
-            const Box &bx = mfi.tilebox();
             // boxes that well us where we're allowed to write fluxes
             GpuArray<Box, BL_SPACEDIM> nbx;
             AMREX_D_TERM(nbx[0] = mfi.nodaltilebox(0);
                          , nbx[1] = mfi.nodaltilebox(1);
                          , nbx[2] = mfi.nodaltilebox(2));
-            update_momentum(
-                bx, nbx, stateex[mfi], pressure[mfi], stateout[mfi],
-                AMREX_D_DECL(fluxes[0][mfi], fluxes[1][mfi], fluxes[2][mfi]),
-                AMREX_D_DECL(hdtdxe, hdtdye, hdtdze));
+            update_momentum_flux(
+                nbx, pressure[mfi],
+                AMREX_D_DECL(fluxes[0][mfi], fluxes[1][mfi], fluxes[2][mfi]));
             update_energy_flux(
                 nbx, stateex[mfi], enthalpy[mfi], pressure[mfi],
                 AMREX_D_DECL(fluxes[0][mfi], fluxes[1][mfi], fluxes[2][mfi]),
                 AMREX_D_DECL(hdtdxe, hdtdye, hdtdze));
         }
-
-#ifdef DEBUG
-    // TODO: move into test suite
-        for (MFIter mfi(stateex, TilingIfNotGPU()); mfi.isValid(); ++mfi)
-        {
-            const Box& bx = mfi.tilebox();
-            const auto& in = statein.const_array(mfi);
-            const auto& out = stateout.const_array(mfi);
-            const auto& p = pressure.const_array(mfi);
-            const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
-
-            AMREX_D_TERM(const auto& fx = fluxes[0][mfi].const_array();,
-            const auto& fy = fluxes[1][mfi].const_array();,
-            const auto& fz = fluxes[2][mfi].const_array();)
-
-            ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k) {
-                const Real expected = p(i, j, k) / (adia - 1)
-                          + 0.5 * eps / in(i, j, k, 0)
-                                * (AMREX_D_TERM(
-                                    in(i, j, k, 1) * out(i, j, k, 1),
-                                    +in(i, j, k, 2) * out(i, j, k, 2),
-                                    +in(i, j, k, 3) * out(i, j, k, 3)));
-                Real from_flux = in(i,j,k,1+AMREX_SPACEDIM) AMREX_D_TERM(- dt/dx[0] * (fx(i+1,j,k,1+AMREX_SPACEDIM) - fx(i,j,k,1+AMREX_SPACEDIM)),
-                - dt/dx[1] * (fy(i,j+1,k,1+AMREX_SPACEDIM) - fy(i,j,k,1+AMREX_SPACEDIM)),
-                - dt/dx[0] * (fz(i,j,k+1,1+AMREX_SPACEDIM) - fz(i,j,k,1+AMREX_SPACEDIM)));
-                AMREX_ASSERT(fabs(expected - from_flux) < 1e-12 * fabs(expected));
-            });
-        }
-#endif
     }
 }
 
@@ -284,8 +256,10 @@ void solve_pressure_eqn(const amrex::Geometry &geom,
                         const amrex::Vector<amrex::BCRec> &domainbcs,
                         const IMEXSettings                &settings)
 {
+    const bool use_grad_term
+        = (settings.linearise && settings.ke_method == IMEXSettings::split);
     AMREX_ASSERT(enthalpy.nComp() == 1);
-    AMREX_ASSERT(velocity.nComp() == AMREX_SPACEDIM);
+    AMREX_ASSERT(velocity.nComp() == AMREX_SPACEDIM || !use_grad_term);
     AMREX_ASSERT(rhs.nComp() == 1);
     AMREX_ASSERT(pressure.nComp() == 1);
     // An operator representing an equation of the form
@@ -304,10 +278,8 @@ void solve_pressure_eqn(const amrex::Geometry &geom,
     pressure_op.setLevelBC(0, nullptr);
 
     // set coefficients
-    const amrex::Real eps  = AmrLevelAdv::h_prob_parm->epsilon;
-    const amrex::Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
-    const bool        use_grad_term
-        = (settings.linearise && settings.ke_method == IMEXSettings::split);
+    const amrex::Real eps        = AmrLevelAdv::h_prob_parm->epsilon;
+    const amrex::Real adia       = AmrLevelAdv::h_prob_parm->adiabatic;
     const amrex::Real gradscalar = use_grad_term ? -0.5 * eps * dt : 0;
     pressure_op.setScalars(1, dt * dt, gradscalar);
     pressure_op.setACoeffs(0, eps / (adia - 1));
@@ -412,26 +384,21 @@ void update_momentum(const amrex::Box &bx, const amrex::FArrayBox &stateex,
 }
 
 /**
- * Same as above but also computes flux
+ * \brief Updates momentum flux, given fluxes from explicit update and solution
+ * to pressure equation
  */
 AMREX_GPU_HOST
-void update_momentum(const amrex::Box                           &bx,
-                     amrex::GpuArray<amrex::Box, AMREX_SPACEDIM> nbx,
-                     const amrex::FArrayBox                     &stateex,
-                     const amrex::FArrayBox &pressure, amrex::FArrayBox &dst,
-                     AMREX_D_DECL(amrex::FArrayBox &fx, amrex::FArrayBox &fy,
-                                  amrex::FArrayBox &fz),
-                     AMREX_D_DECL(amrex::Real hdtdx, amrex::Real hdtdy,
-                                  amrex::Real hdtdz))
+void update_momentum_flux(
+    const amrex::GpuArray<amrex::Box, AMREX_SPACEDIM> &nbx,
+    const amrex::FArrayBox                            &pressure,
+    AMREX_D_DECL(amrex::FArrayBox &fx, amrex::FArrayBox &fy,
+                 amrex::FArrayBox &fz))
 {
-    update_momentum(bx, stateex, pressure, dst,
-                    AMREX_D_DECL(hdtdx, hdtdy, hdtdz));
-    // Now calc flux
     AMREX_D_TERM(const auto &fluxx = fx.array();
                  , const auto &fluxy = fy.array();
                  , const auto &fluxz = fz.array();)
     const auto &p    = pressure.const_array();
-    const Real  heps = 0.5 * AmrLevelAdv::h_prob_parm->epsilon;
+    const Real  heps = 0.5 / AmrLevelAdv::h_prob_parm->epsilon;
     ParallelFor(
         AMREX_D_DECL(nbx[0], nbx[1], nbx[2]),
         AMREX_D_DECL(
@@ -472,169 +439,33 @@ void update_energy_flux(
                     [=] AMREX_GPU_DEVICE(int i, int j, int k)
                     {
                         fluxx(i, j, k, 1 + AMREX_SPACEDIM)
-                            += -0.5
+                            += 0.5
                                    * (enth(i, j, k) * ex(i, j, k, 1)
                                       + enth(i - 1, j, k) * ex(i - 1, j, k, 1))
-                               + hdtdxe
+                               - hdtdxe
                                      * ((enth(i, j, k) + enth(i - 1, j, k))
                                         * (p(i, j, k) - p(i - 1, j, k)));
                     },
                     [=] AMREX_GPU_DEVICE(int i, int j, int k)
                     {
-                        fluxy(i, j, k, 2)
-                            += -0.5
+                        fluxy(i, j, k, 1 + AMREX_SPACEDIM)
+                            += 0.5
                                    * (enth(i, j, k) * ex(i, j, k, 2)
                                       + enth(i, j - 1, k) * ex(i, j - 1, k, 2))
-                               + hdtdye
+                               - hdtdye
                                      * ((enth(i, j, k) + enth(i, j - 1, k))
                                         * (p(i, j, k) - p(i, j - 1, k)));
                     },
                     [=] AMREX_GPU_DEVICE(int i, int j, int k)
                     {
-                        fluxz(i, j, k, 3)
-                            += -0.5
+                        fluxz(i, j, k, 1 + AMREX_SPACEDIM)
+                            += 0.5
                                    * (enth(i, j, k) * ex(i, j, k, 3)
                                       + enth(i, j, k - 1) * ex(i, j, k - 1, 3))
-                               + hdtdze
+                               - hdtdze
                                      * ((enth(i, j, k) + enth(i, j, k - 1))
                                         * (p(i, j, k) - p(i, j, k - 1)));
                     }));
-}
-
-AMREX_GPU_HOST
-void update_ex_from_pressure(
-    amrex::Real time, const amrex::Geometry &geom,
-    const amrex::MultiFab &MFpressure, amrex::MultiFab &MFex,
-    amrex::MultiFab &MFscaledenth_cc, amrex::MultiFab &stateout,
-    amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes, amrex::Real dt)
-{
-    // 1: Update the momentum densities in MFex to be the final momentum
-    // densities, and update the scaled enthalpies
-    // 2: Use the density and momentum densities in MFex to calculate the
-    // final fluxes and final state
-
-    const Real  adia    = AmrLevelAdv::h_prob_parm->adiabatic;
-    const Real  epsilon = AmrLevelAdv::h_prob_parm->epsilon;
-    const auto &dx      = geom.CellSizeArray();
-
-    // 1
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-    {
-        AMREX_D_TERM(const Real hdtdxe = dt / (2 * dx[0] * epsilon);
-                     , const Real hdtdye = dt / (2 * dx[1] * epsilon);
-                     , const Real hdtdze = dt / (2 * dx[2] * epsilon);)
-
-        for (MFIter mfi(MFex, TilingIfNotGPU()); mfi.isValid(); ++mfi)
-        {
-            const Box  &bx    = mfi.growntilebox();
-            const auto &ex    = MFex.array(mfi);
-            const auto &p     = MFpressure.const_array(mfi);
-            const auto &sh_cc = MFscaledenth_cc.array(mfi);
-
-            ParallelFor(
-                bx,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                {
-                    AMREX_D_TERM(
-                        ex(i, j, k, 1)
-                        -= hdtdxe * (p(i + 1, j, k) - p(i - 1, j, k));
-                        , ex(i, j, k, 2)
-                          -= hdtdye * (p(i, j + 1, k) - p(i, j - 1, k));
-                        , ex(i, j, k, 3)
-                          -= hdtdze * (p(i, j, k + 1) - p(i, j, k - 1));)
-
-                    sh_cc(i, j, k)
-                        = (adia / (adia - 1)) * p(i, j, k) / ex(i, j, k, 0);
-                });
-        }
-    }
-
-    // 2
-    MFIter_loop(
-        time, geom, MFex, stateout, fluxes, dt,
-        [&](const amrex::MFIter &mfi, const amrex::Real /*time*/,
-            const amrex::Box    &bx,
-            amrex::GpuArray<amrex::Box, AMREX_SPACEDIM> nbx,
-            const amrex::FArrayBox &consv_ex, amrex::FArrayBox &stateout,
-            AMREX_D_DECL(amrex::FArrayBox & fx, amrex::FArrayBox & fy,
-                         amrex::FArrayBox & fz),
-            amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx,
-            const amrex::Real                            dt)
-        {
-            const Array4<const Real> ex    = consv_ex.const_array();
-            const Array4<Real>       out   = stateout.array();
-            const Array4<const Real> p     = MFpressure.const_array(mfi);
-            const Array4<const Real> sh_cc = MFscaledenth_cc.const_array(mfi);
-
-            const Real heps = 1 / (2 * epsilon);
-            AMREX_D_TERM(const Real hdtdx = 0.5 * dt / dx[0];
-                         , const Real hdtdy = 0.5 * dt / dx[1];
-                         , const Real hdtdz = 0.5 * dt / dx[2];)
-
-            // Update
-            ParallelFor(
-                bx,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                {
-                    out(i, j, k, 0) = ex(i, j, k, 0);
-                    AMREX_D_TERM(out(i, j, k, 1) = ex(i, j, k, 1);
-                                 , out(i, j, k, 2) = ex(i, j, k, 2);
-                                 , out(i, j, k, 3) = ex(i, j, k, 3);)
-                    out(i, j, k, 1 + AMREX_SPACEDIM)
-                        = ex(i, j, k, 1 + AMREX_SPACEDIM)
-                          - (AMREX_D_TERM(
-                              hdtdx
-                                  * (sh_cc(i + 1, j, k) * ex(i + 1, j, k, 1)
-                                     - sh_cc(i - 1, j, k)
-                                           * ex(i - 1, j, k, 1)),
-                              +hdtdy
-                                  * (sh_cc(i, j + 1, k) * ex(i, j + 1, k, 2)
-                                     - sh_cc(i, j - 1, k)
-                                           * ex(i, j - 1, k, 2)),
-                              +hdtdz
-                                  * (sh_cc(i, j, k + 1) * ex(i, j, k + 1, 3)
-                                     - sh_cc(i, j, k - 1)
-                                           * ex(i, j, k - 1, 3))));
-                });
-
-            AMREX_D_TERM(const auto &fluxx = fx.array();
-                         , const auto &fluxy = fy.array();
-                         , const auto &fluxz = fz.array();)
-
-            // Update fluxes
-            ParallelFor(
-                AMREX_D_DECL(nbx[0], nbx[1], nbx[2]),
-                AMREX_D_DECL(
-                    [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                    {
-                        fluxx(i, j, k, 1)
-                            += heps * (p(i, j, k) + p(i - 1, j, k));
-                        fluxx(i, j, k, 1 + AMREX_SPACEDIM)
-                            += 0.5
-                               * (sh_cc(i, j, k) * ex(i, j, k, 1)
-                                  + sh_cc(i - 1, j, k) * ex(i - 1, j, k, 1));
-                    },
-                    [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                    {
-                        fluxy(i, j, k, 2)
-                            += heps * (p(i, j, k) + p(i, j - 1, k));
-                        fluxy(i, j, k, 1 + AMREX_SPACEDIM)
-                            += 0.5
-                               * (sh_cc(i, j, k) * ex(i, j, k, 2)
-                                  + sh_cc(i, j - 1, k) * ex(i, j - 1, k, 2));
-                    },
-                    [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                    {
-                        fluxz(i, j, k, 3)
-                            += heps * (p(i, j, k) + p(i, j, k - 1));
-                        fluxz(i, j, k, 1 + AMREX_SPACEDIM)
-                            += 0.5
-                               * (sh_cc(i, j, k) * ex(i, j, k, 3)
-                                  + sh_cc(i, j, k - 1) * ex(i, j, k - 1, 3));
-                    }));
-        });
 }
 
 namespace details
@@ -724,7 +555,7 @@ void picard_iterate(
         // here we can compute the residual if we wanted
         solve_pressure_eqn(geom, enthalpy, velocity, rhs, pressure, dt,
                            domainbcs, settings);
-        
+
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif

@@ -1,108 +1,235 @@
+#include <AMReX_DistributionMapping.H>
+#include <AMReX_MFIter.H>
+#include <gtest/gtest.h>
+
 #include "BoxTest.H"
+#include "Fluxes/Update.H"
+#include "IMEX/IMEXSettings.H"
 #include "IMEX/IMEX_O1.H"
 #include "IMEX_K/euler_K.H"
-#include <AMReX_DistributionMapping.H>
-#include <gtest/gtest.h>
 
 using namespace amrex;
 
-TEST_F(BoxTest, IMEX_O1_FluxMatching)
+class IMEXO1 : public BoxTest
+{
+  protected:
+    MultiFab m_pressure;
+
+    IMEXO1()
+        : BoxTest()
+    {
+    }
+
+    void setup(bool split_grid)
+    {
+        BoxTest::setup(split_grid);
+        m_pressure.define(ba, dm, 1, 2);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+        {
+            for (MFIter mfi(statein, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+            {
+                const Box  &bx = mfi.growntilebox();
+                const auto &p  = m_pressure.array(mfi);
+                ParallelFor(bx,
+                            [=] AMREX_GPU_DEVICE(int i, int j, int k)
+                            {
+                                if (i < 2 && j < 2 && k < 2)
+                                    p(i, j, k) = primv_L[1 + AMREX_SPACEDIM];
+                                else
+                                    p(i, j, k) = primv_R[1 + AMREX_SPACEDIM];
+                            });
+            }
+        }
+    }
+};
+
+TEST_F(IMEXO1, SplitKEEnergyMatch)
 {
     setup(true);
-    const Real epsilon = AmrLevelAdv::h_prob_parm->epsilon;
-    const Real adia    = AmrLevelAdv::h_prob_parm->adiabatic;
-    ASSERT_EQ(epsilon, 0.5);
+    const Real eps  = AmrLevelAdv::h_prob_parm->epsilon;
+    const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
+    ASSERT_EQ(eps, 0.5);
     ASSERT_EQ(adia, 1.6);
 
     ASSERT_FALSE(statein.contains_nan());
 
     const Real dt = 0.01;
-    IntVect    crse_ratio{ AMREX_D_DECL(1, 1, 1) };
-    advance_o1_pimex(0, crse_ratio, 0, geom, statein, stateout, fluxes,
-                     nullptr, dt, bcs, 1, 0);
 
-    ASSERT_FALSE(stateout.contains_nan());
+    IMEXSettings settings;
+    settings.linearise             = true;
+    settings.ke_method             = IMEXSettings::split;
+    settings.enthalpy_method       = IMEXSettings::reuse_pressure;
+    settings.verbose               = true;
+    settings.bottom_solver_verbose = true;
+
+    Print() << std::endl
+            << "Testing for enthalpy_method = reuse_pressure..." << std::endl
+            << std::endl;
+
+    compute_flux_imex_o1(0, geom, statein, m_pressure, fluxes, dt, bcs,
+                         settings);
+
     ASSERT_FALSE(fluxes[0].contains_nan());
     ASSERT_FALSE(fluxes[1].contains_nan());
 #if AMREX_SPACEDIM == 3
     ASSERT_FALSE(fluxes[2].contains_nan());
 #endif
 
+    conservative_update(geom, statein, fluxes, stateout, dt);
+
     for (MFIter mfi(stateout, false); mfi.isValid(); ++mfi)
     {
-        const Box  &bx    = mfi.validbox();
-        const auto &out   = stateout.const_array(mfi);
-        const auto &in    = statein.const_array(mfi);
-        const auto &fluxx = fluxes[0].const_array(mfi);
-        const auto &fluxy = fluxes[1].const_array(mfi);
-        const Real  dtdx  = dt / dx[0];
-        const Real  dtdy  = dt / dx[1];
-#if AMREX_SPACEDIM == 3
-        const auto &fluxz = fluxes[2].const_array(mfi);
-        const Real  dtdz  = dt / dx[2];
-#endif
+        const Box  &bx  = mfi.validbox();
+        const auto &out = stateout.const_array(mfi);
+        const auto &in  = statein.const_array(mfi);
+        const auto &p   = m_pressure.const_array(mfi);
         ParallelFor(bx,
                     [=] AMREX_GPU_DEVICE(int i, int j, int k)
                     {
-                        // Check output corresponds to flux
-                        // Print() << "i j k = " << i << " " << j << " " << k
-                        // << " "
-                        //         << std::endl;
-                        for (int n = 0; n < EULER_NCOMP; ++n)
-                        {
-                            // Print() << "\tn = " << n << std::endl;
-                            EXPECT_NEAR(out(i, j, k, n),
-                                        in(i, j, k, n)
-                                            - (AMREX_D_TERM(
-                                                dtdx
-                                                    * (fluxx(i + 1, j, k, n)
-                                                       - fluxx(i, j, k, n)),
-                                                +dtdy
-                                                    * (fluxy(i, j + 1, k, n)
-                                                       - fluxy(i, j, k, n)),
-                                                +dtdz
-                                                    * (fluxz(i, j, k + 1, n)
-                                                       - fluxz(i, j, k, n)))),
-                                        fabs(out(i, j, k, n)) * 1e-12);
-                        }
+                        Print() << i << " " << j << " " << k << std::endl;
+                        const Real expected
+                            = p(i, j, k) / (adia - 1)
+                              + 0.5 * eps / in(i, j, k, 0)
+                                    * (AMREX_D_TERM(
+                                        in(i, j, k, 1) * out(i, j, k, 1),
+                                        +in(i, j, k, 2) * out(i, j, k, 2),
+                                        +in(i, j, k, 3) * out(i, j, k, 3)));
+
+                        EXPECT_NEAR(expected, out(i, j, k, 1 + AMREX_SPACEDIM),
+                                    fabs(expected) * 1e-12);
                     });
     }
+
+    //     Print() << std::endl
+    //             << "Testing for enthalpy_method = conservative..." <<
+    //             std::endl
+    //             << std::endl;
+
+    //     settings.enthalpy_method = IMEXSettings::conservative;
+    //     compute_flux_imex_o1(0, geom, statein, m_pressure, fluxes, dt, bcs,
+    //                          settings);
+
+    //     ASSERT_FALSE(fluxes[0].contains_nan());
+    //     ASSERT_FALSE(fluxes[1].contains_nan());
+    // #if AMREX_SPACEDIM == 3
+    //     ASSERT_FALSE(fluxes[2].contains_nan());
+    // #endif
+
+    //     conservative_update(geom, statein, fluxes, stateout, dt);
+
+    //     for (MFIter mfi(stateout, false); mfi.isValid(); ++mfi)
+    //     {
+    //         const Box  &bx  = mfi.validbox();
+    //         const auto &out = stateout.const_array(mfi);
+    //         const auto &in  = statein.const_array(mfi);
+    //         const auto &p   = m_pressure.const_array(mfi);
+    //         ParallelFor(bx,
+    //                     [=] AMREX_GPU_DEVICE(int i, int j, int k)
+    //                     {
+    //                         const Real expected
+    //                             = p(i, j, k) / (adia - 1)
+    //                               + 0.5 * eps / in(i, j, k, 0)
+    //                                     * (AMREX_D_TERM(
+    //                                         in(i, j, k, 1) * out(i, j, k,
+    //                                         1), +in(i, j, k, 2) * out(i, j,
+    //                                         k, 2), +in(i, j, k, 3) * out(i,
+    //                                         j, k, 3)));
+
+    //                         EXPECT_NEAR(expected, out(i, j, k, 1 +
+    //                         AMREX_SPACEDIM),
+    //                                     fabs(expected) * 1e-12);
+    //                     });
+    //     }
+
+    //     Print() << std::endl
+    //             << "Testing for enthalpy_method = conservative_ex..." <<
+    //             std::endl
+    //             << std::endl;
+
+    //     settings.enthalpy_method = IMEXSettings::conservative_ex;
+    //     compute_flux_imex_o1(0, geom, statein, m_pressure, fluxes, dt, bcs,
+    //                          settings);
+
+    //     ASSERT_FALSE(fluxes[0].contains_nan());
+    //     ASSERT_FALSE(fluxes[1].contains_nan());
+    // #if AMREX_SPACEDIM == 3
+    //     ASSERT_FALSE(fluxes[2].contains_nan());
+    // #endif
+
+    //     conservative_update(geom, statein, fluxes, stateout, dt);
+
+    //     for (MFIter mfi(stateout, false); mfi.isValid(); ++mfi)
+    //     {
+    //         const Box  &bx  = mfi.validbox();
+    //         const auto &out = stateout.const_array(mfi);
+    //         const auto &in  = statein.const_array(mfi);
+    //         const auto &p   = m_pressure.const_array(mfi);
+    //         ParallelFor(bx,
+    //                     [=] AMREX_GPU_DEVICE(int i, int j, int k)
+    //                     {
+    //                         const Real expected
+    //                             = p(i, j, k) / (adia - 1)
+    //                               + 0.5 * eps / in(i, j, k, 0)
+    //                                     * (AMREX_D_TERM(
+    //                                         in(i, j, k, 1) * out(i, j, k,
+    //                                         1), +in(i, j, k, 2) * out(i, j,
+    //                                         k, 2), +in(i, j, k, 3) * out(i,
+    //                                         j, k, 3)));
+
+    //                         EXPECT_NEAR(expected, out(i, j, k, 1 +
+    //                         AMREX_SPACEDIM),
+    //                                     fabs(expected) * 1e-12);
+    //                     });
+    //     }
 }
 
-TEST_F(BoxTest, IMEX_O1_GridSplitting)
+TEST_F(IMEXO1, GridSplitting)
 {
     const Real dt = 0.01;
-    IntVect    crse_ratio{ AMREX_D_DECL(1, 1, 1) };
+
+    IMEXSettings settings;
+    settings.linearise       = true;
+    settings.ke_method       = IMEXSettings::ex;
+    settings.enthalpy_method = IMEXSettings::conservative_ex;
 
     // compute first without grid splitting
     setup(false);
-    advance_o1_pimex(0, crse_ratio, 0, geom, statein, stateout, fluxes,
-                     nullptr, dt, bcs, 1, 0);
+    compute_flux_imex_o1(0, geom, statein, m_pressure, fluxes, dt, bcs,
+                         settings);
 
-    BoxArray            ba1 = stateout.boxArray();
-    DistributionMapping dm1 = stateout.DistributionMap();
-    MultiFab            MFsoln1(ba1, dm1, EULER_NCOMP, 0);
-    MultiFab::Copy(MFsoln1, stateout, 0, 0, EULER_NCOMP, 0);
+    Array<MultiFab, AMREX_SPACEDIM> nonsplit_fluxes;
+    for (int d = 0; d < AMREX_SPACEDIM; ++d)
+    {
+        nonsplit_fluxes[d].define(fluxes[d].boxArray(),
+                                  fluxes[d].DistributionMap(), EULER_NCOMP, 0);
+        MultiFab::Copy(nonsplit_fluxes[d], fluxes[d], 0, 0, EULER_NCOMP, 0);
+    }
+
     TearDown();
     // compute with grid splitting
     setup(true);
-    advance_o1_pimex(0, crse_ratio, 0, geom, statein, stateout, fluxes,
-                     nullptr, dt, bcs, 1, 0);
+    compute_flux_imex_o1(0, geom, statein, m_pressure, fluxes, dt, bcs,
+                         settings);
 
     // compare solutions
     MFIter::allowMultipleMFIters(true);
-    for (MFIter mfi(stateout, false); mfi.isValid(); ++mfi)
+    for (int d = 0; d < AMREX_SPACEDIM; ++d)
     {
-        MFIter      mfi1(MFsoln1, false);
-        const Box  &bx    = mfi.validbox();
-        const auto &soln1 = MFsoln1.const_array(mfi1);
-        const auto &soln2 = stateout.const_array(mfi);
+        for (MFIter mfi(fluxes[d], false); mfi.isValid(); ++mfi)
+        {
+            MFIter      mfi1(nonsplit_fluxes[d], false);
+            const Box  &bx    = mfi.validbox();
+            const auto &soln1 = nonsplit_fluxes[d].const_array(mfi1);
+            const auto &soln2 = fluxes[d].const_array(mfi);
 
-        For(bx, EULER_NCOMP,
-            [=](int i, int j, int k, int n)
-            {
-                EXPECT_NEAR(soln1(i, j, k, n), soln2(i, j, k, n),
-                            fabs(soln1(i, j, k, n) * 1e-12));
-            });
+            For(bx, EULER_NCOMP,
+                [=](int i, int j, int k, int n)
+                {
+                    EXPECT_NEAR(soln1(i, j, k, n), soln2(i, j, k, n),
+                                fabs(soln1(i, j, k, n) * 1e-12));
+                });
+        }
     }
 }

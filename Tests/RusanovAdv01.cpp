@@ -1,6 +1,6 @@
 #include "BoxTest.H"
 #include "Euler/NComp.H"
-#include "IMEX/IMEX_O1.H"
+#include "IMEX/IMEX_Fluxes.H"
 #include "MFIterLoop.H"
 #include "UnitDomainTest.H"
 

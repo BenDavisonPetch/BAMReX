@@ -10,7 +10,7 @@ void advance_imex_rk(int level, amrex::IntVect &crse_ratio,
                      int bottom_verbose)
 {
     // if pressure not defined call init_pressure function
-    advance_imex_o1(time, geom, statein, stateout, pressure, fluxes, dt, domainbcs, settings);
+    compute_flux_imex_o1(time, geom, statein, pressure, fluxes, dt, domainbcs, settings);
 
     // conservative update
     // don forget to testtt
