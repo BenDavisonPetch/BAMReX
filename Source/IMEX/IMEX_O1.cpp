@@ -595,8 +595,7 @@ void picard_iterate(
     if (settings.compute_residual)
         residual.define(pressure.boxArray(), pressure.DistributionMap(), 1, 0);
 
-    // already done one pressure solve
-    for (int iter = 0; iter < settings.picard_max_iter - 1; ++iter)
+    for (int iter = 0; iter < settings.picard_max_iter; ++iter)
     {
         if (settings.verbose)
             Print() << "[IMEX] Beginning Picard iteration " << iter << "..."

@@ -119,8 +119,6 @@ void conservative_update(
     amrex::MultiFab &stateout, amrex::Vector<amrex::Real> dt, int N)
 {
     using namespace amrex;
-    if (N == 0)
-        return;
 
     AMREX_ASSERT(fluxes.size() >= N);
     AMREX_ASSERT(dt.size() >= N);
@@ -154,9 +152,6 @@ void conservative_update(
     const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &idx, int N)
 {
     using namespace amrex;
-
-    if (N == 0)
-        return;
 
     AMREX_ASSERT(statein.nComp() == stateout.nComp());
     AMREX_ASSERT(fluxes.size() >= N);

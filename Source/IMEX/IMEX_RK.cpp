@@ -36,8 +36,6 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
                                        fluxes[d].nComp(), fluxes[d].nGrow());
         }
 
-    Print() << "Allocated stage fluxes" << std::endl;
-
     MultiFab                statein_imp; // tildeQi
     std::array<MultiFab, 2> statein_exp; // stores Qe at the previous stage as
                                          // well as the current one

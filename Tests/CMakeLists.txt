@@ -44,6 +44,7 @@ add_executable(tests_3d
   IMEX_O1_01.cpp
   Euler01.cpp
   MLABecLapGrad01.cpp
+  Update01.cpp
 )
 
 if (AMReX_GPU_BACKEND STREQUAL "CUDA")

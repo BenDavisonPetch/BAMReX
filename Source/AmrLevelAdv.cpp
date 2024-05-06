@@ -12,6 +12,7 @@
 #include "CONTROL.H"
 #include "Euler/Euler.H"
 #include "Fluxes/Fluxes.H"
+#include "Fluxes/Update.H"
 #include "IMEX/IMEXSettings.H"
 #include "IMEX/IMEX_RK.H"
 #include "MFIterLoop.H"
@@ -520,6 +521,8 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     settings.linearise             = true;
     settings.ke_method             = IMEXSettings::split;
     settings.enthalpy_method       = IMEXSettings::reuse_pressure;
+    // settings.linearise = false;
+    // settings.picard_max_iter = 4;
     settings.butcher_tableau       = IMEXButcherTableau::SA111;
     settings.verbose               = verbose;
     settings.bottom_solver_verbose = verbose;
