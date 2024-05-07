@@ -29,7 +29,7 @@ geometry.prob_hi     =  1.0  1.0  1.0
 amr.n_cell           =  200 200 200
 
 # TIME STEP CONTROL
-adv.cfl            = 0.9     # cfl number for hyperbolic system
+adv.cfl            = 0.5     # cfl number for hyperbolic system
 
 # VERBOSITY
 adv.v              = 1       # verbosity in Adv

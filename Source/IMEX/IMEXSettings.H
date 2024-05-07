@@ -14,6 +14,13 @@ struct IMEXSettings
     bool compute_residual;
 
     /**
+     * The relative tolerance on the residual for the Picard iteration to
+     * terminate. If negative, Picard iteration will always go to max number
+     * of iterations
+     */
+    amrex::Real res_tol = 1e-12;
+
+    /**
      * The method for calculating enthalpy in the energy flux when using a
      * linearised scheme.
      * \c reuse_pressure uses the pressure from the previous
@@ -52,7 +59,8 @@ struct IMEXSettings
      */
     IMEXButcherTableau::TableauType butcher_tableau;
 
-    bool verbose = false;
+    bool verbose               = false;
+    bool solver_verbose        = false;
     bool bottom_solver_verbose = false;
 };
 

@@ -10,7 +10,6 @@
 #include <AMReX_BC_TYPES.H>
 #include <AMReX_Box.H>
 #include <AMReX_MFIter.H>
-#include <AMReX_MLMG.H>
 
 using namespace amrex;
 
@@ -253,16 +252,16 @@ void compute_velocity(const amrex::Box &bx, const amrex::FArrayBox &state,
 }
 
 AMREX_GPU_HOST
-void compute_pressure(
-                      const amrex::MultiFab &statein_exp_new,
+void compute_pressure(const amrex::MultiFab &statein_exp_new,
                       const amrex::MultiFab &statein_exp_old,
-                      amrex::MultiFab &a_pressure, const IMEXSettings &settings)
+                      amrex::MultiFab       &a_pressure,
+                      const IMEXSettings    &settings)
 {
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     {
-        const Real eps = AmrLevelAdv::h_prob_parm->epsilon;
+        const Real eps  = AmrLevelAdv::h_prob_parm->epsilon;
         const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
         for (MFIter mfi(a_pressure, TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
@@ -270,29 +269,27 @@ void compute_pressure(
             const auto &p    = a_pressure.array(mfi);
             const auto &sold = statein_exp_old.const_array(mfi);
             const auto &snew = statein_exp_new.const_array(mfi);
-            if (settings.linearise && settings.ke_method == IMEXSettings::split)
+            if (settings.linearise
+                && settings.ke_method == IMEXSettings::split)
                 ParallelFor(
                     bx,
                     [=] AMREX_GPU_DEVICE(int i, int j, int k)
                     {
                         p(i, j, k)
                             = (adia - 1)
-                            * (snew(i, j, k, 1 + AMREX_SPACEDIM)
-                                - 0.5 * eps
-                                    * (AMREX_D_TERM(
-                                        sold(i, j, k, 1) * snew(i, j, k, 1),
-                                        +sold(i, j, k, 2) * snew(i, j, k, 2),
-                                        +sold(i, j, k, 3) * snew(i, j, k, 3)))
-                                    / sold(i, j, k, 0));
+                              * (snew(i, j, k, 1 + AMREX_SPACEDIM)
+                                 - 0.5 * eps
+                                       * (AMREX_D_TERM(sold(i, j, k, 1)
+                                                           * snew(i, j, k, 1),
+                                                       +sold(i, j, k, 2)
+                                                           * snew(i, j, k, 2),
+                                                       +sold(i, j, k, 3)
+                                                           * snew(i, j, k, 3)))
+                                       / sold(i, j, k, 0));
                     });
             else
-               ParallelFor(
-                    bx,
-                    [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                    {
-                        p(i, j, k)
-                            = pressure(i,j,k,snew);
-                    }); 
+                ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
+                            { p(i, j, k) = pressure(i, j, k, snew); });
         }
     }
 }
@@ -306,69 +303,18 @@ void solve_pressure_eqn(const amrex::Geometry &geom,
                         const amrex::Vector<amrex::BCRec> &domainbcs,
                         const IMEXSettings                &settings)
 {
-    const bool use_grad_term
-        = (settings.linearise && settings.ke_method == IMEXSettings::split);
-    AMREX_ASSERT(enthalpy.nComp() == 1);
-    AMREX_ASSERT(velocity.nComp() == AMREX_SPACEDIM || !use_grad_term);
     AMREX_ASSERT(rhs.nComp() == 1);
     AMREX_ASSERT(pressure.nComp() == 1);
     // An operator representing an equation of the form
     // (A * alpha(x) - B div (beta(x) grad) + C c . grad) phi = f
-    MLABecLaplacianGrad pressure_op({ geom }, { rhs.boxArray() },
-                                    { rhs.DistributionMap() },
-                                    LPInfo().setMaxCoarseningLevel(0));
+    MLABecLaplacianGrad pressure_op;
 
-    // BCs
-    details::set_pressure_domain_BC(pressure_op, geom, domainbcs);
+    details::setup_pressure_op(geom, enthalpy, velocity, rhs, pressure_op, dt,
+                               domainbcs, settings);
 
-    // if (level > 0)
-    //     pressure_op.setCoarseFineBC(&crse_pressure, crse_ratio[0]);
-
-    // pure homogeneous Neumann BC so we pass nullptr
-    pressure_op.setLevelBC(0, nullptr);
-
-    // set coefficients
-    const amrex::Real eps        = AmrLevelAdv::h_prob_parm->epsilon;
-    const amrex::Real adia       = AmrLevelAdv::h_prob_parm->adiabatic;
-    const amrex::Real gradscalar = use_grad_term ? -0.5 * eps * dt : 0;
-    pressure_op.setScalars(1, dt * dt, gradscalar);
-    pressure_op.setACoeffs(0, eps / (adia - 1));
-
-    // Construct face-centred enthalpy
-    Array<MultiFab, AMREX_SPACEDIM> enthalpy_f;
-    for (int d = 0; d < AMREX_SPACEDIM; ++d)
-    {
-        BoxArray ba = rhs.boxArray();
-        ba.surroundingNodes(d);
-        enthalpy_f[d].define(ba, rhs.DistributionMap(), 1, 0);
-    }
-    amrex::average_cellcenter_to_face(GetArrOfPtrs(enthalpy_f), enthalpy,
-                                      geom);
-
-    pressure_op.setBCoeffs(0, amrex::GetArrOfConstPtrs(enthalpy_f));
-    if (use_grad_term)
-    {
-        pressure_op.setCCoeffs(0, velocity);
-    }
-
-    // Intialise solver
     MLMG solver(pressure_op);
-    solver.setMaxIter(100);
-    solver.setMaxFmgIter(0);
-    solver.setVerbose(settings.verbose);
-    solver.setBottomVerbose(settings.bottom_solver_verbose);
 
-    const Real TOL_RES = 1e-12;
-    const Real TOL_ABS = 0;
-
-    // TODO: use hypre here
-    solver.solve({ &pressure }, { &rhs }, TOL_RES, TOL_ABS);
-
-    AMREX_ASSERT(!pressure.contains_nan());
-
-    // TODO: fill course fine boundary cells for pressure!
-    pressure.FillBoundary(geom.periodicity());
-    FillDomainBoundary(pressure, geom, { domainbcs[1 + AMREX_SPACEDIM] });
+    details::solve_pressure(geom, rhs, pressure, solver, domainbcs, settings);
 }
 
 AMREX_GPU_HOST
@@ -522,6 +468,82 @@ namespace details
 {
 
 AMREX_GPU_HOST
+void setup_pressure_op(
+    const amrex::Geometry &geom, const amrex::MultiFab &enthalpy,
+    const amrex::MultiFab &velocity, const amrex::MultiFab &rhs,
+    amrex::MLABecLaplacianGrad &pressure_op, const amrex::Real dt,
+    const amrex::Vector<amrex::BCRec> &domainbcs, const IMEXSettings &settings)
+{
+    const bool use_grad_term
+        = (settings.linearise && settings.ke_method == IMEXSettings::split);
+    AMREX_ASSERT(enthalpy.nComp() == 1);
+    AMREX_ASSERT(velocity.nComp() == AMREX_SPACEDIM || !use_grad_term);
+
+    pressure_op.define({ geom }, { rhs.boxArray() }, { rhs.DistributionMap() },
+                       LPInfo().setMaxCoarseningLevel(0));
+
+    // BCs
+    details::set_pressure_domain_BC(pressure_op, geom, domainbcs);
+
+    // if (level > 0)
+    //     pressure_op.setCoarseFineBC(&crse_pressure, crse_ratio[0]);
+
+    // pure homogeneous Neumann BC so we pass nullptr
+    pressure_op.setLevelBC(0, nullptr);
+
+    // set coefficients
+    const amrex::Real eps        = AmrLevelAdv::h_prob_parm->epsilon;
+    const amrex::Real adia       = AmrLevelAdv::h_prob_parm->adiabatic;
+    const amrex::Real gradscalar = use_grad_term ? -0.5 * eps * dt : 0;
+    pressure_op.setScalars(1, dt * dt, gradscalar);
+    pressure_op.setACoeffs(0, eps / (adia - 1));
+
+    // Construct face-centred enthalpy
+    Array<MultiFab, AMREX_SPACEDIM> enthalpy_f;
+    for (int d = 0; d < AMREX_SPACEDIM; ++d)
+    {
+        BoxArray ba = rhs.boxArray();
+        ba.surroundingNodes(d);
+        enthalpy_f[d].define(ba, rhs.DistributionMap(), 1, 0);
+    }
+    amrex::average_cellcenter_to_face(GetArrOfPtrs(enthalpy_f), enthalpy,
+                                      geom);
+
+    pressure_op.setBCoeffs(0, amrex::GetArrOfConstPtrs(enthalpy_f));
+    if (use_grad_term)
+    {
+        pressure_op.setCCoeffs(0, velocity);
+    }
+}
+
+AMREX_GPU_HOST
+void solve_pressure(const amrex::Geometry &geom, const amrex::MultiFab &rhs,
+                    amrex::MultiFab &pressure, amrex::MLMG &solver,
+                    const amrex::Vector<amrex::BCRec> &domainbcs,
+                    const IMEXSettings                &settings)
+{
+    AMREX_ASSERT(pressure.nComp() == 1);
+    AMREX_ASSERT(rhs.nComp() == 1);
+    // Configure solver
+    solver.setMaxIter(100);
+    solver.setMaxFmgIter(0);
+    solver.setVerbose(settings.solver_verbose);
+    solver.setBottomVerbose(settings.bottom_solver_verbose);
+
+    const Real TOL_RES = 1e-12;
+    const Real TOL_ABS = 0;
+
+    // TODO: use hypre here
+    solver.solve({ &pressure }, { &rhs }, TOL_RES, TOL_ABS);
+
+    AMREX_ASSERT(!pressure.contains_nan());
+
+    // TODO: fill course fine boundary cells for pressure!
+    pressure.FillBoundary(geom.periodicity());
+    FillDomainBoundary(pressure, geom, { domainbcs[1 + AMREX_SPACEDIM] });
+}
+
+AMREX_GPU_HOST
 void copy_pressure(const amrex::MultiFab &statesrc, amrex::MultiFab &dst)
 {
 #ifdef AMREX_USE_OMP
@@ -601,9 +623,40 @@ void picard_iterate(
             Print() << "[IMEX] Beginning Picard iteration " << iter << "..."
                     << std::endl;
 
-        // here we can compute the residual if we wanted
-        solve_pressure_eqn(geom, enthalpy, velocity, rhs, pressure, dt,
-                           domainbcs, settings);
+        // here we call the other functions in details:: so that we can compute
+        // the residual
+        {
+            MLABecLaplacianGrad pressure_op;
+
+            details::setup_pressure_op(geom, enthalpy, velocity, rhs,
+                                       pressure_op, dt, domainbcs, settings);
+
+            // solver can only be constructed once the operator is initialised
+            MLMG residual_solver(pressure_op);
+            MLMG solver(pressure_op);
+
+            if (settings.compute_residual)
+            {
+                residual_solver.compResidual({ &residual }, { &pressure },
+                                             { &rhs });
+                const Real res_norm = residual.norm2();
+                const Real res_rel  = res_norm / rhs.norm2();
+                if (settings.verbose)
+                    Print() << "\tInitial residual = " << res_norm
+                            << "\tresidual/bnorm = " << res_rel << std::endl;
+                if (fabs(res_rel) < settings.res_tol)
+                {
+                    if (settings.verbose)
+                        Print()
+                            << "Picard iteration reached convergence after "
+                            << iter << " iterations" << std::endl;
+                    return;
+                }
+            }
+
+            details::solve_pressure(geom, rhs, pressure, solver, domainbcs,
+                                    settings);
+        }
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -630,17 +683,11 @@ void picard_iterate(
                                        AMREX_D_DECL(hdtdx, hdtdy, hdtdz));
             }
         }
-
-        if (settings.compute_residual)
-        {
-            amrex::Abort("Not implemented");
-        }
     }
 
     if (settings.verbose)
-        Print()
-            << "[IMEX] Reached maximum number of Picard iterations. Finishing."
-            << std::endl;
+        Print() << "[IMEX] Reached maximum number of Picard iterations = "
+                << settings.picard_max_iter << "!" << std::endl;
 }
 
 } // namespace details

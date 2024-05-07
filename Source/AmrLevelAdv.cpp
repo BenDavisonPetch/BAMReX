@@ -146,8 +146,7 @@ void AmrLevelAdv::variableSetUp()
                            StateDescriptor::Point, storedGhostZones, NUM_STATE,
                            &cell_cons_interp);
     desc_lst.addDescriptor(Pressure_Type, IndexType::TheCellType(),
-                           StateDescriptor::Point, 2, 1,
-                           &cell_cons_interp);
+                           StateDescriptor::Point, 2, 1, &cell_cons_interp);
 
     Geometry const *gg = AMReX::top()->getDefaultGeometry();
 
@@ -518,14 +517,19 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
 
 #elif SCHEME == 1
     IMEXSettings settings;
-    settings.linearise             = true;
-    settings.ke_method             = IMEXSettings::split;
-    settings.enthalpy_method       = IMEXSettings::reuse_pressure;
-    // settings.linearise = false;
-    // settings.picard_max_iter = 4;
-    settings.butcher_tableau       = IMEXButcherTableau::SA111;
+    // settings.linearise             = true;
+    // settings.ke_method             = IMEXSettings::split;
+    // settings.enthalpy_method       = IMEXSettings::reuse_pressure;
+    settings.linearise        = false;
+    settings.compute_residual = true;
+    settings.picard_max_iter  = 100;
+    settings.res_tol          = 1e-12;
+    settings.butcher_tableau  = IMEXButcherTableau::SA111;
+    // settings.verbose               = verbose;
+    // settings.bottom_solver_verbose = verbose;
     settings.verbose               = verbose;
-    settings.bottom_solver_verbose = verbose;
+    settings.solver_verbose        = false;
+    settings.bottom_solver_verbose = false;
 
     MultiFab::Copy(P_new, P_mm, 0, 0, 1, 2);
     // TODO: check if ghost cells are actually filled in P_new and P_mm

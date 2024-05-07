@@ -5,9 +5,10 @@
 #include <AMReX_Box.H>
 #include <AMReX_FArrayBox.H>
 #include <AMReX_GpuQualifiers.H>
-#include <AMReX_MLABecLaplacian.H>
+#include <AMReX_MLMG.H>
 
 #include "IMEXSettings.H"
+#include "LinearSolver/MLALaplacianGrad.H"
 
 /**
  * \brief First order routine that calculates the fluxes to go from
@@ -29,9 +30,12 @@ void compute_flux_imex_o1(
  * \param geom
  * \param enthalpy cell-centred specific enthalpy
  * \param velocity only used in linearised IMEX with the split KE term. Should
- * be equal to the velocity at the previous timestep \param rhs of the pressure
- * equation \param pressure used for output \param dt \param domainbcs \param
- * settings
+ * be equal to the velocity at the previous timestep
+ * \param rhs of the pressure equation
+ * \param pressure used for output
+ * \param dt
+ * \param domainbcs
+ * \param settings
  */
 AMREX_GPU_HOST
 void solve_pressure_eqn(const amrex::Geometry &geom,
@@ -82,10 +86,10 @@ void compute_velocity(const amrex::Box &bx, const amrex::FArrayBox &state,
  * Used by the RK method to retrieve the pressure for given initial conditions.
  */
 AMREX_GPU_HOST
-void compute_pressure(
-                      const amrex::MultiFab &statein_exp_new,
+void compute_pressure(const amrex::MultiFab &statein_exp_new,
                       const amrex::MultiFab &statein_exp_old,
-                      amrex::MultiFab &a_pressure, const IMEXSettings &settings);
+                      amrex::MultiFab       &a_pressure,
+                      const IMEXSettings    &settings);
 
 AMREX_GPU_HOST
 void pressure_source_vector(const amrex::Box       &bx,
@@ -130,6 +134,29 @@ void update_energy_flux(
 
 namespace details
 {
+/**
+ * Sets up the pressure operator
+ */
+AMREX_GPU_HOST
+void setup_pressure_op(const amrex::Geometry             &geom,
+                       const amrex::MultiFab             &enthalpy,
+                       const amrex::MultiFab             &velocity,
+                       const amrex::MultiFab             &rhs,
+                       amrex::MLABecLaplacianGrad        &pressure_op,
+                       const amrex::Real                  dt,
+                       const amrex::Vector<amrex::BCRec> &domainbcs,
+                       const IMEXSettings                &settings);
+
+/**
+ * Configures and runs the solver for pressure given a configured pressure
+ * operator and populated RHS
+ */
+AMREX_GPU_HOST
+void solve_pressure(const amrex::Geometry &geom, const amrex::MultiFab &rhs,
+                    amrex::MultiFab &pressure, amrex::MLMG &solver,
+                    const amrex::Vector<amrex::BCRec> &domainbcs,
+                    const IMEXSettings                &settings);
+
 AMREX_GPU_HOST
 void set_pressure_domain_BC(amrex::MLLinOp                    &pressure_op,
                             const amrex::Geometry             &geom,
