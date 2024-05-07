@@ -64,4 +64,9 @@ struct IMEXSettings
     bool bottom_solver_verbose = false;
 };
 
+/**
+ * Generates settings object from input file and verbosity of AmrLevelAdv.
+ */
+IMEXSettings get_imex_settings(bool verbose);
+
 #endif

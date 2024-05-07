@@ -2,7 +2,15 @@
 max_step = 1000000
 stop_time = 0.14
 
-# imex.acoustic_timestep_end_time = 0.01
+adv.num_method = imex
+imex.acoustic_timestep_end_time = 0.01
+imex.linearise                  = true
+imex.enthalpy_method            = reuse_pressure
+imex.ke_method                  = split
+imex.butcher_tableau            = SA111
+
+imex.solver_verbose = 0
+imex.bottom_solver_verbose = 0
 
 # PROBLEM-SPECIFIC PARAMETERS
 prob.adiabatic  = 1.4

@@ -6,7 +6,8 @@
 #include <AMReX_FluxRegister.H>
 #include <AMReX_PhysBCFunct.H>
 
-#include "CONTROL.H"
+#include "IMEX/IMEXSettings.H"
+#include "NumericalMethods.H"
 
 #ifdef AMREX_PARTICLES
 #include <AMReX_AmrParticles.H>
@@ -24,7 +25,7 @@
 
 enum StateType
 {
-    Consv_Type = 0,
+    Consv_Type    = 0,
     Pressure_Type = 1,
     NUM_STATE_TYPE
 };
@@ -241,10 +242,12 @@ class AmrLevelAdv : public amrex::AmrLevel
     /*
      * Static data members.
      */
-    static int         verbose;
-    static amrex::Real cfl;
-    static int         do_reflux;
-    static amrex::Real acoustic_timestep_end_time;
+    static int                      verbose;
+    static amrex::Real              cfl;
+    static int                      do_reflux;
+    static amrex::Real              acoustic_timestep_end_time;
+    static NumericalMethods::Method num_method;
+    static IMEXSettings             imex_settings;
 
 #ifdef AMREX_PARTICLES
     void                                                      init_particles();

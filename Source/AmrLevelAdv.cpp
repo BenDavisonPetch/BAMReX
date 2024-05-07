@@ -7,15 +7,16 @@
 #include <AMReX_StateDescriptor.H>
 #include <AMReX_TagBox.H>
 #include <AMReX_VisMF.H>
+#include <stdexcept>
 
 #include "AmrLevelAdv.H"
-#include "CONTROL.H"
 #include "Euler/Euler.H"
 #include "Fluxes/Fluxes.H"
 #include "Fluxes/Update.H"
 #include "IMEX/IMEXSettings.H"
 #include "IMEX/IMEX_RK.H"
 #include "MFIterLoop.H"
+#include "NumericalMethods.H"
 #include "Prob.H"
 #include "tagging_K.H"
 //#include "Kernels.H"
@@ -25,8 +26,10 @@ using namespace amrex;
 int  AmrLevelAdv::verbose = 0;
 Real AmrLevelAdv::cfl
     = 0.9; // Default value - can be overwritten in settings file
-int  AmrLevelAdv::do_reflux                  = 1;
-Real AmrLevelAdv::acoustic_timestep_end_time = 0;
+int                      AmrLevelAdv::do_reflux                  = 1;
+Real                     AmrLevelAdv::acoustic_timestep_end_time = 0;
+NumericalMethods::Method AmrLevelAdv::num_method;
+IMEXSettings             AmrLevelAdv::imex_settings;
 
 const int AmrLevelAdv::NUM_STATE = 2 + AMREX_SPACEDIM; // Euler eqns
 const int AmrLevelAdv::NUM_GROW  = 2;                  // number of ghost cells
@@ -399,146 +402,153 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     if (verbose)
         Print() << "\tFilled ghost states" << std::endl;
 
-#if (SCHEME == 0 || SCHEME == 2)
-    for (int d = 0; d < amrex::SpaceDim; d++)
+    if (num_method == NumericalMethods::muscl_hancock
+        || num_method == NumericalMethods::hllc)
     {
-        if (verbose)
-            Print() << "\tComputing update for direction " << d << std::endl;
+        for (int d = 0; d < amrex::SpaceDim; d++)
+        {
+            if (verbose)
+                Print() << "\tComputing update for direction " << d
+                        << std::endl;
 
-        const int iOffset = (d == 0 ? 1 : 0);
-        const int jOffset = (d == 1 ? 1 : 0);
-        const int kOffset = (d == 2 ? 1 : 0);
+            const int iOffset = (d == 0 ? 1 : 0);
+            const int jOffset = (d == 1 ? 1 : 0);
+            const int kOffset = (d == 2 ? 1 : 0);
 
-        // The below loop basically does an MFIter loop but with lots of
-        // hidden boilerplate to make things performance portable.
-        // Some isms with the
-        // muscl implementation: S_new is never touched, the below will update
-        // Sborder in place nodal boxes aren't used
-        MFIter_loop(
-            time, geom, S_new, Sborder, fluxes, dt,
-            [&](const amrex::MFIter & /*mfi*/, const amrex::Real time,
-                const amrex::Box &bx,
-                amrex::GpuArray<amrex::Box, AMREX_SPACEDIM> /*nbx*/,
-                const amrex::FArrayBox & /*statein*/,
-                amrex::FArrayBox &stateout,
-                AMREX_D_DECL(amrex::FArrayBox & fx, amrex::FArrayBox & fy,
-                             amrex::FArrayBox & fz),
-                amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx,
-                const amrex::Real                            dt)
-            {
-                const auto &arr = stateout.array();
-#if AMREX_SPACEDIM == 1
-                const auto &fluxArr = fx.array();
-#elif AMREX_SPACEDIM == 2
-                const auto &fluxArr = (d == 0) ? fx.array() : fy.array();
-#else
-                const auto &fluxArr
-                    = (d == 0) ? fx.array()
-                               : ((d == 1) ? fy.array() : fz.array());
-#endif
-                if (verbose)
-                    Print() << "\t\tComputing flux..." << std::endl;
-
-                switch (d)
+            // The below loop basically does an MFIter loop but with lots of
+            // hidden boilerplate to make things performance portable.
+            // Some isms with the
+            // muscl implementation: S_new is never touched, the below will
+            // update Sborder in place nodal boxes aren't used
+            MFIter_loop(
+                time, geom, S_new, Sborder, fluxes, dt,
+                [&](const amrex::MFIter & /*mfi*/, const amrex::Real time,
+                    const amrex::Box &bx,
+                    amrex::GpuArray<amrex::Box, AMREX_SPACEDIM> /*nbx*/,
+                    const amrex::FArrayBox & /*statein*/,
+                    amrex::FArrayBox &stateout,
+                    AMREX_D_DECL(amrex::FArrayBox & fx, amrex::FArrayBox & fy,
+                                 amrex::FArrayBox & fz),
+                    amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx,
+                    const amrex::Real                            dt)
                 {
-                case 0:
-#if SCHEME == 0
-                    compute_MUSCL_hancock_flux<0>(time, bx, fluxArr, arr, dx,
-                                                  dt);
-#elif SCHEME == 2
-                    compute_HLLC_flux<0>(time, bx, fluxArr, arr, dx, dt);
-#endif
-                    break;
-#if AMREX_SPACEDIM >= 2
-                case 1:
-#if SCHEME == 0
-                    compute_MUSCL_hancock_flux<1>(time, bx, fluxArr, arr, dx,
-                                                  dt);
-#elif SCHEME == 2
-                    compute_HLLC_flux<1>(time, bx, fluxArr, arr, dx, dt);
-#endif
-                    break;
-#endif
-#if AMREX_SPACEDIM >= 3
-                case 2:
-#if SCHEME == 0
-                    compute_MUSCL_hancock_flux<2>(time, bx, fluxArr, arr, dx,
-                                                  dt);
-#elif SCHEME == 2
-                    compute_HLLC_flux<2>(time, bx, fluxArr, arr, dx, dt);
-#endif
-                    break;
-#endif
-                }
-
-                if (verbose)
-                    Print() << "\t\tDone!" << std::endl;
-
-                if (verbose)
-                    Print() << "\t\tPerforming update" << std::endl;
-
-                // Conservative update
-                ParallelFor(
-                    bx, NUM_STATE,
-                    [=] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept
-                    {
-                        // Conservative update formula
-                        arr(i, j, k, n)
-                            = arr(i, j, k, n)
-                              - (dt / dx[d])
-                                    * (fluxArr(i + iOffset, j + jOffset,
-                                               k + kOffset, n)
-                                       - fluxArr(i, j, k, n));
-                    });
-                if (verbose)
-                    Print() << "\t\tDone!" << std::endl;
-            },
-            0, { d });
-
-        // We need to compute boundary conditions again after each update
-        fill_boundary(Sborder);
-
-        if (verbose)
-            Print() << "\tDirection update complete" << std::endl;
-    }
-
-    // The updated data is now copied to the S_new multifab.  This means
-    // it is now accessible through the get_new_data command, and AMReX
-    // can automatically interpolate or extrapolate between layers etc.
-    // S_new: Destination
-    // Sborder: Source
-    // Third entry: Starting variable in the source array to be copied (the
-    // zeroth variable in this case) Fourth entry: Starting variable in the
-    // destination array to receive the copy (again zeroth here) NUM_STATE:
-    // Total number of variables being copied Sixth entry: Number of ghost
-    // cells to be included in the copy (zero in this case, since only real
-    //              data is needed for S_new)
-    MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, 0);
-
-#elif SCHEME == 1
-    IMEXSettings settings;
-    // settings.linearise             = true;
-    // settings.ke_method             = IMEXSettings::split;
-    // settings.enthalpy_method       = IMEXSettings::reuse_pressure;
-    settings.linearise        = false;
-    settings.compute_residual = true;
-    settings.picard_max_iter  = 100;
-    settings.res_tol          = 1e-12;
-    settings.butcher_tableau  = IMEXButcherTableau::SA111;
-    // settings.verbose               = verbose;
-    // settings.bottom_solver_verbose = verbose;
-    settings.verbose               = verbose;
-    settings.solver_verbose        = false;
-    settings.bottom_solver_verbose = false;
-
-    MultiFab::Copy(P_new, P_mm, 0, 0, 1, 2);
-    // TODO: check if ghost cells are actually filled in P_new and P_mm
-    advance_imex_rk(time, geom, Sborder, S_new, P_new, fluxes, dt,
-                    get_state_data(Consv_Type).descriptor()->getBCs(),
-                    settings);
+                    const auto &arr = stateout.array();
+#if AMREX_SPACEDIM == 1
+                    const auto &fluxArr = fx.array();
+#elif AMREX_SPACEDIM == 2
+                    const auto &fluxArr = (d == 0) ? fx.array() : fy.array();
 #else
-#error "Invalid scheme!"
+                    const auto &fluxArr
+                        = (d == 0) ? fx.array()
+                                   : ((d == 1) ? fy.array() : fz.array());
 #endif
+                    if (verbose)
+                        Print() << "\t\tComputing flux..." << std::endl;
+
+                    switch (num_method)
+                    {
+                    case NumericalMethods::muscl_hancock:
+                        switch (d)
+                        {
+                        case 0:
+                            compute_MUSCL_hancock_flux<0>(time, bx, fluxArr,
+                                                          arr, dx, dt);
+                            break;
+#if AMREX_SPACEDIM >= 2
+                        case 1:
+                            compute_MUSCL_hancock_flux<1>(time, bx, fluxArr,
+                                                          arr, dx, dt);
+                            break;
+#if AMREX_SPACEDIM == 3
+                        case 2:
+                            compute_MUSCL_hancock_flux<2>(time, bx, fluxArr,
+                                                          arr, dx, dt);
+                            break;
+#endif
+#endif
+                        }
+                        break;
+                    case NumericalMethods::hllc:
+                        switch (d)
+                        {
+                        case 0:
+                            compute_HLLC_flux<0>(time, bx, fluxArr, arr, dx,
+                                                 dt);
+                            break;
+#if AMREX_SPACEDIM >= 2
+                        case 1:
+                            compute_HLLC_flux<1>(time, bx, fluxArr, arr, dx,
+                                                 dt);
+                            break;
+#if AMREX_SPACEDIM == 3
+                        case 2:
+                            compute_HLLC_flux<2>(time, bx, fluxArr, arr, dx,
+                                                 dt);
+                            break;
+#endif
+#endif
+                        }
+                        break;
+                    default: throw std::logic_error("Internal error");
+                    }
+
+                    if (verbose)
+                        Print() << "\t\tDone!" << std::endl;
+
+                    if (verbose)
+                        Print() << "\t\tPerforming update" << std::endl;
+
+                    // Conservative update
+                    ParallelFor(
+                        bx, NUM_STATE,
+                        [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
+                            noexcept
+                        {
+                            // Conservative update formula
+                            arr(i, j, k, n)
+                                = arr(i, j, k, n)
+                                  - (dt / dx[d])
+                                        * (fluxArr(i + iOffset, j + jOffset,
+                                                   k + kOffset, n)
+                                           - fluxArr(i, j, k, n));
+                        });
+                    if (verbose)
+                        Print() << "\t\tDone!" << std::endl;
+                },
+                0, { d });
+
+            // We need to compute boundary conditions again after each update
+            fill_boundary(Sborder);
+
+            if (verbose)
+                Print() << "\tDirection update complete" << std::endl;
+        }
+
+        // The updated data is now copied to the S_new multifab.  This means
+        // it is now accessible through the get_new_data command, and AMReX
+        // can automatically interpolate or extrapolate between layers etc.
+        // S_new: Destination
+        // Sborder: Source
+        // Third entry: Starting variable in the source array to be copied (the
+        // zeroth variable in this case) Fourth entry: Starting variable in the
+        // destination array to receive the copy (again zeroth here) NUM_STATE:
+        // Total number of variables being copied Sixth entry: Number of ghost
+        // cells to be included in the copy (zero in this case, since only real
+        //              data is needed for S_new)
+        MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, 0);
+    }
+    else if (num_method == NumericalMethods::imex)
+    {
+        MultiFab::Copy(P_new, P_mm, 0, 0, 1, 2);
+        // TODO: check if ghost cells are actually filled in P_new and P_mm
+        advance_imex_rk(time, geom, Sborder, S_new, P_new, fluxes, dt,
+                        get_state_data(Consv_Type).descriptor()->getBCs(),
+                        imex_settings);
+    }
+    else
+    {
+        amrex::Abort("Invalid scheme!");
+    }
 
     // The fluxes now need scaling for the reflux command.
     // This scaling is by the size of the boundary through which the flux
@@ -639,38 +649,44 @@ Real AmrLevelAdv::estTimeStep(Real)
 
     // This is just a dummy value to start with
     Real dt_est = 1.0e+20;
-#if (SCHEME == 0 || SCHEME == 2)
-    const Real wave_speed = max_wave_speed(cur_time, S_new);
-
-    if (verbose)
-        Print() << "Maximum wave speed: " << wave_speed << std::endl;
-
-    for (unsigned int d = 0; d < amrex::SpaceDim; ++d)
+    if (num_method == NumericalMethods::muscl_hancock
+        || num_method == NumericalMethods::hllc)
     {
-        dt_est = std::min(dt_est, dx[d] / wave_speed);
-    }
+        const Real wave_speed = max_wave_speed(cur_time, S_new);
 
-#elif (SCHEME == 1 || SCHEME == 3)
-    Real wave_speed;
-    if (cur_time < acoustic_timestep_end_time)
-    {
         if (verbose)
-            Print() << "\tUsing acoustic time step" << std::endl;
-        wave_speed = max_wave_speed(cur_time, S_new);
+            Print() << "Maximum wave speed: " << wave_speed << std::endl;
+
         for (unsigned int d = 0; d < amrex::SpaceDim; ++d)
         {
             dt_est = std::min(dt_est, dx[d] / wave_speed);
         }
     }
+    else if (num_method == NumericalMethods::imex)
+    {
+        Real wave_speed;
+        if (cur_time < acoustic_timestep_end_time)
+        {
+            if (verbose)
+                Print() << "\tUsing acoustic time step" << std::endl;
+            wave_speed = max_wave_speed(cur_time, S_new);
+            for (unsigned int d = 0; d < amrex::SpaceDim; ++d)
+            {
+                dt_est = std::min(dt_est, dx[d] / wave_speed);
+            }
+        }
+        else
+        {
+            if (verbose)
+                Print() << "\tUsing advective time step" << std::endl;
+            dt_est = 1 / max_dx_scaled_speed(S_new, dx);
+        }
+    }
     else
     {
-        if (verbose)
-            Print() << "\tUsing advective time step" << std::endl;
-        dt_est = 1 / max_dx_scaled_speed(S_new, dx);
+        amrex::Abort("Haven't implemented a time step estimator for given "
+                     "numerical method!");
     }
-#else
-#error "Haven't implemented time step for this scheme!"
-#endif
 
     dt_est *= cfl;
 
@@ -987,6 +1003,11 @@ void AmrLevelAdv::read_params()
     pp.query("v", verbose);
     pp.query("cfl", cfl);
     pp.query("do_reflux", do_reflux);
+    std::string method;
+    pp.get("num_method", method);
+    num_method = NumericalMethods::enum_from_string(method);
+
+    imex_settings = get_imex_settings(verbose);
 
     {
         ParmParse pp2;

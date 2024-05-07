@@ -16,6 +16,8 @@ class IMEXButcherTableau
         SA111
     };
 
+    static TableauType enum_from_string(const std::string &name);
+
     IMEXButcherTableau(IMEXButcherTableau::TableauType type);
 
     int n_steps_imp() const { return m_n_steps_imp; }

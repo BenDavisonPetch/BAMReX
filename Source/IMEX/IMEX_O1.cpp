@@ -1,6 +1,5 @@
 #include "IMEX_O1.H"
 #include "AmrLevelAdv.H"
-#include "CONTROL.H"
 #include "IMEX_Fluxes.H"
 #include "IMEX_K/euler_K.H"
 #include "LinearSolver/MLALaplacianGrad.H"

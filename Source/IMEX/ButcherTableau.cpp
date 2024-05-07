@@ -14,3 +14,15 @@ IMEXButcherTableau::IMEXButcherTableau(IMEXButcherTableau::TableauType type)
         b_exp         = { 1 };
     }
 }
+
+IMEXButcherTableau::TableauType
+IMEXButcherTableau::enum_from_string(const std::string &name)
+{
+    if (name == "SA111")
+        return SA111;
+    else
+    {
+        amrex::Abort("Invalid butcher tableau \"" + name + "\"");
+        return SA111;
+    }
+}
