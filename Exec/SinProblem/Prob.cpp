@@ -10,6 +10,24 @@
 #include "Euler/RiemannSolver.H"
 #include "Prob.H"
 
+using namespace amrex;
+
+AMREX_FORCE_INLINE AMREX_GPU_DEVICE Real density_integral(Real x)
+{
+    // indefinite integral of density wrt x
+    return 19 * x / 8 - Math::sinpi(2 * x) / (4 * Math::pi<Real>())
+           + Math::sinpi(4 * x) / (32 * Math::pi<Real>());
+}
+
+AMREX_FORCE_INLINE AMREX_GPU_DEVICE Real density_cell_avg(int i, Real dx,
+                                                          Real prob_lo,
+                                                          Real time)
+{
+    Real x_L = i * dx + prob_lo - time;
+    Real x_R = (i + 1) * dx + prob_lo - time;
+    return (density_integral(x_R) - density_integral(x_L)) / dx;
+}
+
 /**
  * Initialize Data on Multifab
  *
@@ -17,9 +35,6 @@
  * \param geom Pointer to Multifab's geometry data.
  *
  */
-
-using namespace amrex;
-
 void initdata(MultiFab &S_tmp, const Geometry &geom)
 {
 
@@ -47,9 +62,8 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
         ParallelFor(box,
                     [=] AMREX_GPU_DEVICE(int i, int j, int k)
                     {
-                        const Real  x     = (i + 0.5) * dx[0] + prob_lo[0];
                         const auto &consv = consv_from_primv(
-                            { 2 + amrex::Math::powi<4>(amrex::Math::sinpi(x)),
+                            { density_cell_avg(i, dx[0], prob_lo[0], 0),
                               AMREX_D_DECL(1, 0, 0), 1 },
                             adiabatic, epsilon);
                         for (int n = 0; n < EULER_NCOMP; ++n)

@@ -19,7 +19,7 @@ add_custom_target(run_sin
     COMMAND
         rm -rf ${CMAKE_CURRENT_BINARY_DIR}/output
     COMMAND
-        find ${CMAKE_CURRENT_SOURCE_DIR}/inputs -iname "inputs-*" -exec $<TARGET_FILE:sin_prob> {} \;
+        find ${CMAKE_CURRENT_SOURCE_DIR}/inputs/ -iname "eps*" -exec $<TARGET_FILE:sin_prob> {} \;
     COMMENT "Running tests"
     DEPENDS
         sin_prob

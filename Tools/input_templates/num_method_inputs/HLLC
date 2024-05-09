@@ -1,0 +1,8 @@
+adv.num_method = hllc
+# imex.acoustic_timestep_end_time = 0.01
+# imex.linearise                  = false
+# imex.enthalpy_method            = reuse_pressure
+# imex.ke_method                  = split
+# imex.compute_residual           = true
+# imex.picard_max_iter            = 100
+# imex.butcher_tableau            = SA111
