@@ -1,29 +1,26 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 max_step = 1000000
-stop_time = 0.5
+stop_time = 0.14
 
 adv.num_method = imex
-imex.acoustic_timestep_end_time = 0.5
+imex.acoustic_timestep_end_time = 0.01
 imex.linearise                  = false
-imex.enthalpy_method            = reuse_pressure
-imex.ke_method                  = ex
-imex.picard_max_iter            = 100
 imex.compute_residual           = true
-imex.res_tol                    = 1e-08
+imex.picard_max_iter            = 100
 imex.butcher_tableau            = SA111
 
-imex.solver_verbose        = true
-imex.bottom_solver_verbose = true
+imex.solver_verbose = 0
+imex.bottom_solver_verbose = 0
 
 # PROBLEM-SPECIFIC PARAMETERS
 prob.adiabatic  = 1.4
 prob.epsilon    = 1
-init.density_L  = 1000
-init.velocity_L = 0.5
-init.pressure_L = 1
-init.density_R  = 0.01
-init.velocity_R = 0.5
-init.pressure_R = 1
+init.density_L  = 0.445
+init.velocity_L = 0.698 # note typo in Boscheri and Pareshi
+init.pressure_L = 3.528
+init.density_R  = 0.5
+init.velocity_R = 0.0
+init.pressure_R = 0.571
 init.rotation   = 90 # Rotation of initial slice in degrees
 
 # LIMITER
@@ -37,10 +34,10 @@ geometry.is_periodic =  0  0  0
 geometry.coord_sys   =  0       # 0 => cart
 geometry.prob_lo     =  0.0  0.0  0.0 
 geometry.prob_hi     =  1.0  1.0  1.0
-amr.n_cell           =  400  400  400
+amr.n_cell           =  1000 1000 1000
 
 # TIME STEP CONTROL
-adv.cfl            = 0.5     # cfl number for hyperbolic system
+adv.cfl            = 0.7     # cfl number for hyperbolic system
 
 # VERBOSITY
 adv.v              = 1       # verbosity in Adv
@@ -62,8 +59,8 @@ amr.check_int               = 10    # number of timesteps between checkpoints
 # PLOTFILES
 amr.plot_files_output = 1      # 0 will disable plot files
 amr.plot_file         = plt    # root name of plot file
-amr.plot_int          = 100  # number of timesteps between plot files
-amr.plot_file = output/contact/100/plt
+amr.plot_int          = 100000 # number of timesteps between plot files
+amr.plot_file = output/FI-SA111/CFLtest/0.7/plt
 
 
 # TRACER PARTICLES

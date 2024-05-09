@@ -1,14 +1,23 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 max_step = 1000000
-stop_time = 0.15
+stop_time = 0.3
+
+adv.num_method = imex
+imex.acoustic_timestep_end_time = -1
+imex.linearise                  = true
+imex.enthalpy_method            = reuse_pressure
+imex.ke_method                  = split
+# imex.compute_residual           = true
+# imex.picard_max_iter            = 100
+imex.butcher_tableau            = SA111
 
 # PROBLEM-SPECIFIC PARAMETERS
 prob.adiabatic  = 1.4
 init.density_L  = 1.0
-init.velocity_L = -2.0
+init.velocity_L = 2.0
 init.pressure_L = 0.4
 init.density_R  = 1.0
-init.velocity_R = 2.0
+init.velocity_R = -2.0
 init.pressure_R = 0.4
 
 # LIMITER
@@ -22,10 +31,10 @@ geometry.is_periodic =  0  0  0
 geometry.coord_sys   =  0       # 0 => cart
 geometry.prob_lo     =  0.0  0.0  0.0 
 geometry.prob_hi     =  1.0  1.0  1.0
-amr.n_cell           =  200  200  200
+amr.n_cell           =  100  100  100
 
 # TIME STEP CONTROL
-adv.cfl            = 0.8     # cfl number for hyperbolic system
+adv.cfl            = 0.5     # cfl number for hyperbolic system
 
 adv.do_reflux = 0
 
@@ -49,8 +58,8 @@ amr.check_int               = 10    # number of timesteps between checkpoints
 # PLOTFILES
 amr.plot_files_output = 1      # 0 will disable plot files
 amr.plot_file         = plt    # root name of plot file
-amr.plot_int          = 10     # number of timesteps between plot files
-amr.plot_file = output/test2/200/plt
+amr.plot_int          = 100000 # number of timesteps between plot files
+amr.plot_file = output/PESK-SA111/incshocks/100/plt
 
 
 # TRACER PARTICLES

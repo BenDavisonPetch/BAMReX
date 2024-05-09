@@ -17,7 +17,7 @@ target_link_libraries(riemann_prob AMReX::amrex_1d)
 
 add_custom_target(run_lax
     COMMAND
-        find ${CMAKE_CURRENT_SOURCE_DIR}/inputs -iname "inputs-lax*" -exec $<TARGET_FILE:riemann_prob> {} \;
+        find ${CMAKE_CURRENT_SOURCE_DIR}/inputs -iname "lax*" -exec $<TARGET_FILE:riemann_prob> {} \;
     COMMENT "Running Lax tests"
     DEPENDS
         riemann_prob
@@ -26,8 +26,44 @@ add_custom_target(run_lax
 
 add_custom_target(run_sod
     COMMAND
-        find ${CMAKE_CURRENT_SOURCE_DIR}/inputs -iname "inputs-test1*" -exec $<TARGET_FILE:riemann_prob> {} \;
+        find ${CMAKE_CURRENT_SOURCE_DIR}/inputs -iname "test1*" -exec $<TARGET_FILE:riemann_prob> {} \;
     COMMENT "Running Sod test"
+    DEPENDS
+        riemann_prob
+    VERBATIM
+)
+
+add_custom_target(run_test2
+    COMMAND
+        find ${CMAKE_CURRENT_SOURCE_DIR}/inputs -iname "test2*" -exec $<TARGET_FILE:riemann_prob> {} \;
+    COMMENT "Running test 2"
+    DEPENDS
+        riemann_prob
+    VERBATIM
+)
+
+add_custom_target(run_test3
+    COMMAND
+        find ${CMAKE_CURRENT_SOURCE_DIR}/inputs -iname "test3*" -exec $<TARGET_FILE:riemann_prob> {} \;
+    COMMENT "Running test 3"
+    DEPENDS
+        riemann_prob
+    VERBATIM
+)
+
+add_custom_target(run_incshocks
+    COMMAND
+        find ${CMAKE_CURRENT_SOURCE_DIR}/inputs -iname "incshocks*" -exec $<TARGET_FILE:riemann_prob> {} \;
+    COMMENT "Running incident shock tests"
+    DEPENDS
+        riemann_prob
+    VERBATIM
+)
+
+add_custom_target(run_cfl
+    COMMAND
+        find ${CMAKE_CURRENT_SOURCE_DIR}/inputs-CFLtest -iname "lax*" -exec $<TARGET_FILE:riemann_prob> {} \;
+    COMMENT "Running Lax tests"
     DEPENDS
         riemann_prob
     VERBATIM

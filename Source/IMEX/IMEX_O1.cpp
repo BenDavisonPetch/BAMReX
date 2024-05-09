@@ -478,8 +478,8 @@ void setup_pressure_op(
     AMREX_ASSERT(enthalpy.nComp() == 1);
     AMREX_ASSERT(velocity.nComp() == AMREX_SPACEDIM || !use_grad_term);
 
-    pressure_op.define({ geom }, { rhs.boxArray() }, { rhs.DistributionMap() },
-                       LPInfo().setMaxCoarseningLevel(0));
+    pressure_op.define({ geom }, { rhs.boxArray() },
+                       { rhs.DistributionMap() });
 
     // BCs
     details::set_pressure_domain_BC(pressure_op, geom, domainbcs);
@@ -524,7 +524,7 @@ void solve_pressure(const amrex::Geometry &geom, const amrex::MultiFab &rhs,
     AMREX_ASSERT(pressure.nComp() == 1);
     AMREX_ASSERT(rhs.nComp() == 1);
     // Configure solver
-    solver.setMaxIter(100);
+    solver.setMaxIter(1000);
     solver.setMaxFmgIter(0);
     solver.setVerbose(settings.solver_verbose);
     solver.setBottomVerbose(settings.bottom_solver_verbose);

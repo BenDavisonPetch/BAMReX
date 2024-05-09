@@ -800,11 +800,11 @@ void AmrLevelAdv::computeNewDt(int          finest_level, int /*sub_cycle*/,
         //
         // Limit dt's by change_max * old dt
         //
-        static Real change_max = 1.1;
-        for (int i = 0; i <= finest_level; i++)
-        {
-            dt_min[i] = std::min(dt_min[i], change_max * dt_level[i]);
-        }
+        // static Real change_max = 1.1;
+        // for (int i = 0; i <= finest_level; i++)
+        // {
+        //     dt_min[i] = std::min(dt_min[i], change_max * dt_level[i]);
+        // }
     }
 
     //
@@ -1007,7 +1007,8 @@ void AmrLevelAdv::read_params()
     pp.get("num_method", method);
     num_method = NumericalMethods::enum_from_string(method);
 
-    imex_settings = get_imex_settings(verbose);
+    if (num_method == NumericalMethods::imex)
+        imex_settings = get_imex_settings(verbose);
 
     {
         ParmParse pp2;
