@@ -225,6 +225,8 @@ template <typename MF> class MLABecLaplacianGradT : public MLCellLinOpT<MF>
         return &(m_c_coeffs[amrlev][mglev]);
     }
 
+    void applyInhomogNeumannTerm (int amrlev, MF& rhs) const final;
+
     // [[nodiscard]] std::unique_ptr<MLLinOpT<MF>> makeNLinOp (int
     // /*grid_size*/) const final;
 
@@ -268,6 +270,8 @@ template <typename MF> class MLABecLaplacianGradT : public MLCellLinOpT<MF>
     {
         return false;
     }
+
+    [[nodiscard]] bool supportInhomogNeumannBC () const noexcept override { return true; }
 
   private:
     int m_ncomp = 1;
@@ -760,6 +764,169 @@ template <typename MF> void MLABecLaplacianGradT<MF>::prepareForSolve()
 //         detail::applyRobinBCTermsCoeffs(*this);
 //     }
 // }
+
+// The same as in MLCellABecLap but with Robin bits removed
+template <typename MF>
+void
+MLABecLaplacianGradT<MF>::applyInhomogNeumannTerm (int amrlev, MF& rhs) const
+{
+    bool has_inhomog_neumann = this->hasInhomogNeumannBC();
+    bool has_robin = this->hasRobinBC();
+
+    AMREX_ASSERT(!has_robin);
+
+    if (!has_inhomog_neumann) { return; }
+
+    int ncomp = this->getNComp();
+    const int mglev = 0;
+
+    const auto problo = this->m_geom[amrlev][mglev].ProbLoArray();
+    const auto probhi = this->m_geom[amrlev][mglev].ProbHiArray();
+    amrex::ignore_unused(probhi);
+    const RT dxi = static_cast<RT>(this->m_geom[amrlev][mglev].InvCellSize(0));
+    const RT dyi = static_cast<RT>((AMREX_SPACEDIM >= 2) ? this->m_geom[amrlev][mglev].InvCellSize(1) : Real(1.0));
+    const RT dzi = static_cast<RT>((AMREX_SPACEDIM == 3) ? this->m_geom[amrlev][mglev].InvCellSize(2) : Real(1.0));
+    const RT xlo = static_cast<RT>(problo[0]);
+    const RT dx = static_cast<RT>(this->m_geom[amrlev][mglev].CellSize(0));
+    const Box& domain = this->m_geom[amrlev][mglev].Domain();
+
+    const RT beta = getBScalar();
+    Array<MF const*, AMREX_SPACEDIM> const& bcoef = getBCoeffs(amrlev,mglev);
+    FAB foo(Box(IntVect(0),IntVect(1)));
+    bool has_bcoef = (bcoef[0] != nullptr);
+
+    const auto& maskvals = this->m_maskvals[amrlev][mglev];
+    const auto& bcondloc = *(this->m_bcondloc[amrlev][mglev]);
+    const auto& bndry = *(this->m_bndry_sol[amrlev]);
+
+    MFItInfo mfi_info;
+    if (Gpu::notInLaunchRegion()) { mfi_info.SetDynamic(true); }
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    for (MFIter mfi(rhs, mfi_info); mfi.isValid(); ++mfi)
+    {
+        const Box& vbx = mfi.validbox();
+        auto const& rhsfab = rhs.array(mfi);
+
+        const auto & bdlv = bcondloc.bndryLocs(mfi);
+        const auto & bdcv = bcondloc.bndryConds(mfi);
+
+        for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
+        {
+            auto const bfab = (has_bcoef)
+                ? bcoef[idim]->const_array(mfi) : foo.const_array();
+            const Orientation olo(idim,Orientation::low);
+            const Orientation ohi(idim,Orientation::high);
+            const Box blo = amrex::adjCellLo(vbx, idim);
+            const Box bhi = amrex::adjCellHi(vbx, idim);
+            const auto& mlo = maskvals[olo].array(mfi);
+            const auto& mhi = maskvals[ohi].array(mfi);
+            const auto& bvlo = bndry.bndryValues(olo).array(mfi);
+            const auto& bvhi = bndry.bndryValues(ohi).array(mfi);
+            bool outside_domain_lo = !(domain.contains(blo));
+            bool outside_domain_hi = !(domain.contains(bhi));
+            if ((!outside_domain_lo) && (!outside_domain_hi)) { continue; }
+            for (int icomp = 0; icomp < ncomp; ++icomp) {
+                const BoundCond bctlo = bdcv[icomp][olo];
+                const BoundCond bcthi = bdcv[icomp][ohi];
+                const RT bcllo = bdlv[icomp][olo];
+                const RT bclhi = bdlv[icomp][ohi];
+                if (this->m_lobc_orig[icomp][idim] == LinOpBCType::inhomogNeumann && outside_domain_lo)
+                {
+                    if (idim == 0) {
+                        RT fac = beta*dxi;
+                        if (this->m_has_metric_term && !has_bcoef) {
+#if (AMREX_SPACEDIM == 1)
+                            fac *= static_cast<RT>(problo[0]*problo[0]);
+#elif (AMREX_SPACEDIM == 2)
+                            fac *= static_cast<RT>(problo[0]);
+#endif
+                        }
+                        AMREX_HOST_DEVICE_FOR_3D(blo, i, j, k,
+                        {
+                            mllinop_apply_innu_xlo(i,j,k, rhsfab, mlo, bfab,
+                                                   bctlo, bcllo, bvlo,
+                                                   fac, has_bcoef, icomp);
+                        });
+                    } else if (idim == 1) {
+                        RT fac = beta*dyi;
+                        if (this->m_has_metric_term && !has_bcoef) {
+                            AMREX_HOST_DEVICE_FOR_3D(blo, i, j, k,
+                            {
+                                mllinop_apply_innu_ylo_m(i,j,k, rhsfab, mlo,
+                                                         bctlo, bcllo, bvlo,
+                                                         fac, xlo, dx, icomp);
+                            });
+                        }
+                        else {
+                            AMREX_HOST_DEVICE_FOR_3D(blo, i, j, k,
+                            {
+                                mllinop_apply_innu_ylo(i,j,k, rhsfab, mlo, bfab,
+                                                       bctlo, bcllo, bvlo,
+                                                       fac, has_bcoef, icomp);
+                            });
+                        }
+                    } else {
+                        RT fac = beta*dzi;
+                        AMREX_HOST_DEVICE_FOR_3D(blo, i, j, k,
+                        {
+                            mllinop_apply_innu_zlo(i,j,k, rhsfab, mlo, bfab,
+                                                   bctlo, bcllo, bvlo,
+                                                   fac, has_bcoef, icomp);
+                        });
+                    }
+                }
+                if (this->m_hibc_orig[icomp][idim] == LinOpBCType::inhomogNeumann && outside_domain_hi)
+                {
+                    if (idim == 0) {
+                        RT fac = beta*dxi;
+                        if (this->m_has_metric_term && !has_bcoef) {
+#if (AMREX_SPACEDIM == 1)
+                            fac *= static_cast<RT>(probhi[0]*probhi[0]);
+#elif (AMREX_SPACEDIM == 2)
+                            fac *= static_cast<RT>(probhi[0]);
+#endif
+                        }
+                        AMREX_HOST_DEVICE_FOR_3D(bhi, i, j, k,
+                        {
+                            mllinop_apply_innu_xhi(i,j,k, rhsfab, mhi, bfab,
+                                                   bcthi, bclhi, bvhi,
+                                                   fac, has_bcoef, icomp);
+                        });
+                    } else if (idim == 1) {
+                        RT fac = beta*dyi;
+                        if (this->m_has_metric_term && !has_bcoef) {
+                            AMREX_HOST_DEVICE_FOR_3D(bhi, i, j, k,
+                            {
+                                mllinop_apply_innu_yhi_m(i,j,k, rhsfab, mhi,
+                                                         bcthi, bclhi, bvhi,
+                                                         fac, xlo, dx, icomp);
+                            });
+                        } else {
+                            AMREX_HOST_DEVICE_FOR_3D(bhi, i, j, k,
+                            {
+                                mllinop_apply_innu_yhi(i,j,k, rhsfab, mhi, bfab,
+                                                       bcthi, bclhi, bvhi,
+                                                       fac, has_bcoef, icomp);
+                            });
+                        }
+                    } else {
+                        RT fac = beta*dzi;
+                        AMREX_HOST_DEVICE_FOR_3D(bhi, i, j, k,
+                        {
+                            mllinop_apply_innu_zhi(i,j,k, rhsfab, mhi, bfab,
+                                                   bcthi, bclhi, bvhi,
+                                                   fac, has_bcoef, icomp);
+                        });
+                    }
+                }
+            }
+        }
+
+    }
+}
 
 template <typename MF> void MLABecLaplacianGradT<MF>::averageDownCoeffs()
 {
