@@ -32,7 +32,7 @@ TEST_F(Toro2020Test4, WaveSpeedEstToro1994)
                                      adiabatic, 1, S_L, S_R, S_interm);
     EXPECT_NEAR(S_L, exp_To_S_L, 0.0001); // TODO: check if this is reasonable
     EXPECT_NEAR(S_R, exp_To_S_R, 0.0001);
-    EXPECT_NEAR(S_interm, exp_To_S_interm, 0.6);
+    EXPECT_NEAR(S_interm, exp_To_S_interm, 0.0005);
 }
 
 TEST_F(Toro2020Test5, WaveSpeedEstToro1994)
