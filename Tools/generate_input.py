@@ -18,6 +18,7 @@ parser.add_argument("-n", "--name", type=str, required=True, help="Test case nam
 parser.add_argument("-i", "--problem_input", required=True, type=argparse.FileType("r"), help="Additional text to give the input file. Should contain geometry settings, problem-specific entries, and generally anything not included in the template")
 parser.add_argument("-T", "--template", required=False, default=path+"/input_templates/master_template", type=argparse.FileType("r"), help="Template input file to use (optional)")
 parser.add_argument("-o", "--output", required=True, type=str, help="Output directory")
+parser.add_argument("--max_step", type=int, required=False, default=10000)
 
 args = parser.parse_args()
 
@@ -52,7 +53,8 @@ for i, num_method in enumerate(args.num_methods):
             num_method_settings = num_method_settings,
             num_method = num_method,
             testcase = args.name,
-            resolution_padded = resolution_padded
+            resolution_padded = resolution_padded,
+            max_step = args.max_step
             )
         input_file_name = name_format.format(
             testcase = args.name,
