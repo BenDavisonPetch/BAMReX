@@ -47,11 +47,16 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
         ParmParse pp2;
         pp2.get("stop_time", stop_time);
     }
+    Real p = 1;
+    {
+        ParmParse pp("prob");
+        pp.query("pressure", p);
+    }
 
     const Real adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
     const Real epsilon   = AmrLevelAdv::h_prob_parm->epsilon;
 
-    write_exact_solution(stop_time, adiabatic, epsilon);
+    write_exact_solution(stop_time, p, adiabatic, epsilon);
 
     for (MFIter mfi(S_tmp); mfi.isValid(); ++mfi)
     {
@@ -64,7 +69,7 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
                     {
                         const auto &consv = consv_from_primv(
                             { density_cell_avg(i, dx[0], prob_lo[0], 0),
-                              AMREX_D_DECL(1, 0, 0), 1 },
+                              AMREX_D_DECL(1, 0, 0), p },
                             adiabatic, epsilon);
                         for (int n = 0; n < EULER_NCOMP; ++n)
                             phi(i, j, k, n) = consv[n];
@@ -72,7 +77,7 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
     }
 }
 
-void write_exact_solution(amrex::Real time, amrex::Real adiabatic,
+void write_exact_solution(amrex::Real time, amrex::Real p, amrex::Real adiabatic,
                           amrex::Real epsilon)
 {
     // We have an exact solution so we can just write it to file
@@ -100,7 +105,7 @@ void write_exact_solution(amrex::Real time, amrex::Real adiabatic,
                 const Real x     = (i + 0.5) * dx[0] + prob_lo[0];
                 const auto consv = consv_from_primv(
                     { 2 + amrex::Math::powi<4>(amrex::Math::sinpi(x - time)),
-                      AMREX_D_DECL(1, 0, 0), 1 },
+                      AMREX_D_DECL(1, 0, 0), p },
                     adiabatic, epsilon);
                 for (int n = 0; n < EULER_NCOMP; ++n)
                     arr(i, j, k, n) = consv[n];
