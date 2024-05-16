@@ -2,8 +2,10 @@
 max_step = 10000
 
 ## PROBLEM INPUT
+stop_time = 2
+
 prob.adiabatic  = 1.4
-prob.epsilon = 1
+prob.epsilon = 1e-5
 
 imex.acoustic_timestep_end_time = -1
 
@@ -14,18 +16,18 @@ geometry.prob_lo     =  -1.0  -1.0  -1.0
 geometry.prob_hi     =  1.0  1.0  1.0
 
 # RESOLUTION
-amr.n_cell         =  400 400 400
+amr.n_cell         =  100 100 100
 
 # TIME STEP CONTROL
 adv.cfl            = 0.95   # cfl number for hyperbolic system
 
 ## NUMERICAL METHOD SETTINGS
 adv.num_method = imex
-imex.linearise                  = false
-# imex.enthalpy_method            = reuse_pressure
-# imex.ke_method                  = split
-imex.compute_residual           = true
-imex.picard_max_iter            = 100
+imex.linearise                  = true
+imex.enthalpy_method            = reuse_pressure
+imex.ke_method                  = ex
+# imex.compute_residual           = true
+# imex.picard_max_iter            = 100
 imex.butcher_tableau            = SA111
 
 # VERBOSITY
@@ -49,7 +51,7 @@ amr.check_int               = 10    # number of timesteps between checkpoints
 amr.plot_files_output = 1      # 0 will disable plot files
 amr.plot_file         = plt    # root name of plot file
 amr.plot_int          = 100000 # number of timesteps between plot files
-amr.plot_file = output/FA-SA111/eps1/0400/plt
+amr.plot_file = output/PEEK-SA111/eps1e-5/0100/plt
 
 # TRACER PARTICLES
 adv.do_tracers = 0

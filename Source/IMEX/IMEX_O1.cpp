@@ -530,7 +530,7 @@ void solve_pressure(const amrex::Geometry &geom, const amrex::MultiFab &rhs,
     solver.setBottomVerbose(settings.bottom_solver_verbose);
 
     const Real TOL_RES = 1e-12;
-    const Real TOL_ABS = 0;
+    const Real TOL_ABS = 1e-15;
 
     // TODO: use hypre here
     solver.solve({ &pressure }, { &rhs }, TOL_RES, TOL_ABS);
