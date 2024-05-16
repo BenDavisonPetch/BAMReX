@@ -126,6 +126,14 @@ compute_HLLC_flux(amrex::Real time, const amrex::Box &bx,
                               adia, eps, dx_arr, dt);
 }
 
+//! Low Mach correction
+template <int dir>
+AMREX_GPU_HOST void compute_corrected_HLLC_flux(
+    amrex::Real time, const amrex::Box &bx,
+    const amrex::Array4<amrex::Real>                &flux,
+    const amrex::Array4<const amrex::Real>          &consv_values,
+    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr, amrex::Real dt);
+
 template <int dir>
 AMREX_GPU_HOST void compute_MUSCL_hancock_flux(
     amrex::Real time, const amrex::Box &bx,

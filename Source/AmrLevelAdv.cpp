@@ -403,7 +403,8 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
         Print() << "\tFilled ghost states" << std::endl;
 
     if (num_method == NumericalMethods::muscl_hancock
-        || num_method == NumericalMethods::hllc)
+        || num_method == NumericalMethods::hllc
+        || num_method == NumericalMethods::hllc_corrected)
     {
         for (int d = 0; d < amrex::SpaceDim; d++)
         {
@@ -484,6 +485,27 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
                         case 2:
                             compute_HLLC_flux<2>(time, bx, fluxArr, arr, dx,
                                                  dt);
+                            break;
+#endif
+#endif
+                        }
+                        break;
+                    case NumericalMethods::hllc_corrected:
+                        switch (d)
+                        {
+                        case 0:
+                            compute_corrected_HLLC_flux<0>(time, bx, fluxArr,
+                                                           arr, dx, dt);
+                            break;
+#if AMREX_SPACEDIM >= 2
+                        case 1:
+                            compute_corrected_HLLC_flux<1>(time, bx, fluxArr,
+                                                           arr, dx, dt);
+                            break;
+#if AMREX_SPACEDIM == 3
+                        case 2:
+                            compute_corrected_HLLC_flux<2>(time, bx, fluxArr,
+                                                           arr, dx, dt);
                             break;
 #endif
 #endif
@@ -650,7 +672,8 @@ Real AmrLevelAdv::estTimeStep(Real)
     // This is just a dummy value to start with
     Real dt_est = 1.0e+20;
     if (num_method == NumericalMethods::muscl_hancock
-        || num_method == NumericalMethods::hllc)
+        || num_method == NumericalMethods::hllc
+        || num_method == NumericalMethods::hllc_corrected)
     {
         const Real wave_speed = max_wave_speed(cur_time, S_new);
 

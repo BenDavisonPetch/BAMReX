@@ -11,7 +11,8 @@ enum Method
 {
     muscl_hancock,
     hllc,
-    imex
+    imex,
+    hllc_corrected
 };
 
 inline Method enum_from_string(const std::string &name)
@@ -22,6 +23,8 @@ inline Method enum_from_string(const std::string &name)
         return hllc;
     else if (name == "imex")
         return imex;
+    else if (name == "hllc_corrected")
+        return hllc_corrected;
     else
     {
         amrex::Abort("Invalid numerical method! Valid options are "

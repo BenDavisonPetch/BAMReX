@@ -11,6 +11,7 @@ set (SRC_NO_MAIN ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Fluxes/Flux_Helpers.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Fluxes/MUSCL_Hancock.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Fluxes/HLLC.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/Fluxes/HLLC_corrected.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/IMEX/IMEX_O1.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/IMEX/IMEX_Fluxes.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/IMEX/IMEX_RK.cpp
