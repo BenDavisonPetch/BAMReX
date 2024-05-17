@@ -771,9 +771,8 @@ void
 MLABecLaplacianGradT<MF>::applyInhomogNeumannTerm (int amrlev, MF& rhs) const
 {
     bool has_inhomog_neumann = this->hasInhomogNeumannBC();
-    bool has_robin = this->hasRobinBC();
 
-    AMREX_ASSERT(!has_robin);
+    AMREX_ASSERT(!this->hasRobinBC());
 
     if (!has_inhomog_neumann) { return; }
 
