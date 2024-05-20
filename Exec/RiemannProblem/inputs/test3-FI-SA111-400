@@ -9,7 +9,7 @@ imex.linearise                  = false
 # imex.ke_method                  = split
 imex.compute_residual           = true
 imex.picard_max_iter            = 100
-imex.butcher_tableau            = SA111
+imex.butcher_tableau            = SP111
 
 # PROBLEM-SPECIFIC PARAMETERS
 prob.adiabatic  = 1.4
@@ -57,7 +57,7 @@ amr.check_int               = 10    # number of timesteps between checkpoints
 amr.plot_files_output = 1      # 0 will disable plot files
 amr.plot_file         = plt    # root name of plot file
 amr.plot_int          = 100000 # number of timesteps between plot files
-amr.plot_file = output/FI-SA111/test3/400/plt
+amr.plot_file = output/FI-SP111/test3/400/plt
 
 
 # TRACER PARTICLES

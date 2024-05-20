@@ -13,7 +13,7 @@ class IMEXButcherTableau
   public:
     enum TableauType
     {
-        SA111
+        SP111
     };
 
     static TableauType enum_from_string(const std::string &name);

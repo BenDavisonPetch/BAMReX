@@ -5,4 +5,4 @@ adv.num_method = hllc
 # imex.ke_method                  = split
 # imex.compute_residual           = true
 # imex.picard_max_iter            = 100
-# imex.butcher_tableau            = SA111
+# imex.butcher_tableau            = SP111

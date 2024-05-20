@@ -4,7 +4,7 @@ IMEXButcherTableau::IMEXButcherTableau(IMEXButcherTableau::TableauType type)
 {
     switch (type)
     {
-    case SA111:
+    case SP111:
         m_n_steps_imp = 1;
         m_n_steps_exp = 1;
         m_order       = 1;
@@ -18,11 +18,11 @@ IMEXButcherTableau::IMEXButcherTableau(IMEXButcherTableau::TableauType type)
 IMEXButcherTableau::TableauType
 IMEXButcherTableau::enum_from_string(const std::string &name)
 {
-    if (name == "SA111")
-        return SA111;
+    if (name == "SP111")
+        return SP111;
     else
     {
         amrex::Abort("Invalid butcher tableau \"" + name + "\"");
-        return SA111;
+        return SP111;
     }
 }
