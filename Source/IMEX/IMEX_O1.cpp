@@ -1,5 +1,6 @@
 #include "IMEX_O1.H"
 #include "AmrLevelAdv.H"
+#include "IMEX/IMEX_BCs.H"
 #include "IMEX_Fluxes.H"
 #include "IMEX_K/euler_K.H"
 #include "LinearSolver/MLALaplacianGrad.H"
@@ -308,7 +309,7 @@ void solve_pressure_eqn(const amrex::Geometry &geom,
     // (A * alpha(x) - B div (beta(x) grad) + C c . grad) phi = f
     MLABecLaplacianGrad pressure_op;
 
-    details::setup_pressure_op(geom, enthalpy, velocity, rhs, pressure_op, dt,
+    details::setup_pressure_op(geom, enthalpy, velocity, rhs, pressure, pressure_op, dt,
                                domainbcs, settings);
 
     MLMG solver(pressure_op);
@@ -469,7 +470,7 @@ namespace details
 AMREX_GPU_HOST
 void setup_pressure_op(
     const amrex::Geometry &geom, const amrex::MultiFab &enthalpy,
-    const amrex::MultiFab &velocity, const amrex::MultiFab &rhs,
+    const amrex::MultiFab &velocity, const amrex::MultiFab &rhs, const amrex::MultiFab& old_pressure,
     amrex::MLABecLaplacianGrad &pressure_op, const amrex::Real dt,
     const amrex::Vector<amrex::BCRec> &domainbcs, const IMEXSettings &settings)
 {
@@ -482,13 +483,10 @@ void setup_pressure_op(
                        { rhs.DistributionMap() });
 
     // BCs
-    details::set_pressure_domain_BC(pressure_op, geom, domainbcs);
+    details::set_pressure_domain_BC(pressure_op, geom, domainbcs, old_pressure);
 
     // if (level > 0)
     //     pressure_op.setCoarseFineBC(&crse_pressure, crse_ratio[0]);
-
-    // pure homogeneous Neumann BC so we pass nullptr
-    pressure_op.setLevelBC(0, nullptr);
 
     // set coefficients
     const amrex::Real eps        = AmrLevelAdv::h_prob_parm->epsilon;
@@ -580,7 +578,8 @@ LinOpBCType linop_from_BCType(int bc)
 AMREX_GPU_HOST
 void set_pressure_domain_BC(amrex::MLLinOp                    &pressure_op,
                             const amrex::Geometry             &geom,
-                            const amrex::Vector<amrex::BCRec> &bcs)
+                            const amrex::Vector<amrex::BCRec> &bcs,
+                            const amrex::MultiFab & old_pressure)
 {
     AMREX_ASSERT(bcs.size() == EULER_NCOMP);
     Array<LinOpBCType, AMREX_SPACEDIM> lobc, hibc;
@@ -594,12 +593,19 @@ void set_pressure_domain_BC(amrex::MLLinOp                    &pressure_op,
         }
         else
         {
-            lobc[d] = linop_from_BCType(bcs[1 + AMREX_SPACEDIM].lo(d));
-            hibc[d] = linop_from_BCType(bcs[1 + AMREX_SPACEDIM].hi(d));
+            // lobc[d] = linop_from_BCType(bcs[1 + AMREX_SPACEDIM].lo(d));
+            // hibc[d] = linop_from_BCType(bcs[1 + AMREX_SPACEDIM].hi(d));
+            lobc[d] = LinOpBCType::inhomogNeumann;
+            hibc[d] = LinOpBCType::inhomogNeumann;
         }
     }
 
     pressure_op.setDomainBC(lobc, hibc);
+
+    MultiFab grads(old_pressure.boxArray(), old_pressure.DistributionMap(), 1, 1);
+    extrap_grad(geom, old_pressure, grads);
+
+    pressure_op.setLevelBC(0, &grads);
 }
 
 AMREX_GPU_HOST
@@ -627,7 +633,7 @@ void picard_iterate(
         {
             MLABecLaplacianGrad pressure_op;
 
-            details::setup_pressure_op(geom, enthalpy, velocity, rhs,
+            details::setup_pressure_op(geom, enthalpy, velocity, rhs, pressure,
                                        pressure_op, dt, domainbcs, settings);
 
             // solver can only be constructed once the operator is initialised

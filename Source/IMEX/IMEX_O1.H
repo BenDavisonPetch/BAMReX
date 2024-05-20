@@ -142,6 +142,7 @@ void setup_pressure_op(const amrex::Geometry             &geom,
                        const amrex::MultiFab             &enthalpy,
                        const amrex::MultiFab             &velocity,
                        const amrex::MultiFab             &rhs,
+                       const amrex::MultiFab &old_pressure,
                        amrex::MLABecLaplacianGrad        &pressure_op,
                        const amrex::Real                  dt,
                        const amrex::Vector<amrex::BCRec> &domainbcs,
@@ -160,7 +161,8 @@ void solve_pressure(const amrex::Geometry &geom, const amrex::MultiFab &rhs,
 AMREX_GPU_HOST
 void set_pressure_domain_BC(amrex::MLLinOp                    &pressure_op,
                             const amrex::Geometry             &geom,
-                            const amrex::Vector<amrex::BCRec> &bcs);
+                            const amrex::Vector<amrex::BCRec> &bcs,
+                            const amrex::MultiFab& old_pressure);
 
 AMREX_GPU_HOST
 void copy_pressure(const amrex::MultiFab &statesrc, amrex::MultiFab &dst);

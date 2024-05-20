@@ -845,9 +845,14 @@ MLABecLaplacianGradT<MF>::applyInhomogNeumannTerm (int amrlev, MF& rhs) const
                         }
                         AMREX_HOST_DEVICE_FOR_3D(blo, i, j, k,
                         {
+                            Print() << std::endl << "applying term!" << std::endl;
+                            Print() << "\trhs before = " << rhsfab(i+1,j,k) << std::endl;
+                            Print() << "\tmask = " << mlo(i,j,k) << std::endl;
+                            Print() << "\tbct == AMREX_LO_NEUMANN: " << (bctlo == AMREX_LO_NEUMANN) << std::endl;
                             mllinop_apply_innu_xlo(i,j,k, rhsfab, mlo, bfab,
                                                    bctlo, bcllo, bvlo,
                                                    fac, has_bcoef, icomp);
+                            Print() << "\trhs after  = " << rhsfab(i+1,j,k) << std::endl << std::endl;;
                         });
                     } else if (idim == 1) {
                         RT fac = beta*dyi;

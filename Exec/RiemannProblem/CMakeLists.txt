@@ -69,6 +69,17 @@ add_custom_target(run_cfl
     VERBATIM
 )
 
+add_custom_target(run_bctest
+    COMMAND
+        rm -rf ${CMAKE_CURRENT_BINARY_DIR}/output/*/bctest
+    COMMAND
+        find ${CMAKE_CURRENT_SOURCE_DIR}/inputs-bctest -iname "bctest*" -exec $<TARGET_FILE:riemann_prob> {} \;
+    COMMENT "Running BC tests"
+    DEPENDS
+        riemann_prob
+    VERBATIM
+)
+
 add_custom_target(run_rp
     COMMAND
         rm -rf ${CMAKE_CURRENT_BINARY_DIR}/output
