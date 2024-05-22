@@ -1,5 +1,6 @@
 #include "IMEX_O1.H"
 #include "AmrLevelAdv.H"
+#include "IMEX/IMEXSettings.H"
 #include "IMEX_Fluxes.H"
 #include "IMEX_K/euler_K.H"
 #include "LinearSolver/MLALaplacianGrad.H"
@@ -209,6 +210,12 @@ compute_ke(const amrex::Box &bx, const amrex::FArrayBox &statein,
         ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
                     { kearr(i, j, k) = kinetic_energy(i, j, k, newarr); });
     }
+    else if (settings.ke_method == IMEXSettings::conservative_kinetic)
+    {
+        const Array4<const Real> consv = statein.const_array();
+        ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
+                    { kearr(i, j, k) = kinetic_energy(i, j, k, consv); });
+    }
     else if (settings.ke_method == IMEXSettings::ex)
     {
         const Array4<const Real> consv_ex = stateexp.const_array();
@@ -286,8 +293,7 @@ void compute_pressure(const amrex::MultiFab &statein_exp_new,
                                                            * snew(i, j, k, 3)))
                                        / sold(i, j, k, 0));
                     });
-            else
-                ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
+            else ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
                             { p(i, j, k) = pressure(i, j, k, snew); });
         }
     }

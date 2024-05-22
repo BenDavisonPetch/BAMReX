@@ -1,0 +1,71 @@
+# ------------------  INPUTS TO MAIN PROGRAM  -------------------
+max_step = 1000000
+stop_time = 0.14
+
+adv.num_method = imex
+imex.acoustic_timestep_end_time = 0.01
+imex.linearise                  = true
+imex.enthalpy_method            = conservative
+imex.ke_method                  = conservative
+imex.butcher_tableau            = SP111
+
+imex.solver_verbose = 0
+imex.bottom_solver_verbose = 0
+
+# PROBLEM-SPECIFIC PARAMETERS
+prob.adiabatic  = 1.4
+prob.epsilon    = 1
+init.density_L  = 0.445
+init.velocity_L = 0.698 # note typo in Boscheri and Pareshi
+init.pressure_L = 3.528
+init.density_R  = 0.5
+init.velocity_R = 0.0
+init.pressure_R = 0.571
+init.rotation   = 90 # Rotation of initial slice in degrees
+
+# LIMITER
+limiting.limiter = minbee
+limiting.density = energy
+limiting.mom     = energy energy energy
+limiting.energy  = energy
+
+# PROBLEM SIZE & GEOMETRY
+geometry.is_periodic =  0  0  0
+geometry.coord_sys   =  0       # 0 => cart
+geometry.prob_lo     =  0.0  0.0  0.0 
+geometry.prob_hi     =  1.0  1.0  1.0
+amr.n_cell           =  1000 1000 1000
+
+# TIME STEP CONTROL
+adv.cfl            = 0.5     # cfl number for hyperbolic system
+
+# VERBOSITY
+adv.v              = 1       # verbosity in Adv
+amr.v              = 1       # verbosity in Amr
+#amr.grid_log         = grdlog  # name of grid logging file
+
+# REFINEMENT / REGRIDDING
+amr.max_level       = 0       # maximum level number allowed
+amr.ref_ratio       = 2 2 2 2 # refinement ratio
+amr.regrid_int      = 2       # how often to regrid
+amr.blocking_factor = 1       # block factor in grid generation
+amr.max_grid_size   = 400
+
+# CHECKPOINT FILES
+amr.checkpoint_files_output = 0     # 0 will disable checkpoint files
+amr.check_file              = chk   # root name of checkpoint file
+amr.check_int               = 10    # number of timesteps between checkpoints
+
+# PLOTFILES
+amr.plot_files_output = 1      # 0 will disable plot files
+amr.plot_file         = plt    # root name of plot file
+amr.plot_int          = 100000 # number of timesteps between plot files
+amr.plot_file = output/CECK-SP111/CFLtest/0.5/plt
+
+
+# TRACER PARTICLES
+adv.do_tracers = 0
+
+# ERROR TAGGING
+tagging.phierr =  1.01  1.1   1.5
+tagging.max_phierr_lev = 10

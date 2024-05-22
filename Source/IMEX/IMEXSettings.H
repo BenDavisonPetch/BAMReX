@@ -46,6 +46,7 @@ struct IMEXSettings
      */
     enum KineticEnergyMethod
     {
+        conservative_kinetic,
         ex,
         split
     } ke_method;

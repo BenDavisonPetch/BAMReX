@@ -42,7 +42,9 @@ IMEXSettings get_imex_settings(bool verbose)
 
         std::string ke_method;
         pp.get("ke_method", ke_method);
-        if (ke_method == "ex")
+        if (ke_method == "conservative")
+            settings.ke_method = IMEXSettings::conservative_kinetic;
+        else if (ke_method == "ex")
             settings.ke_method = IMEXSettings::ex;
         else if (ke_method == "split")
             settings.ke_method = IMEXSettings::split;

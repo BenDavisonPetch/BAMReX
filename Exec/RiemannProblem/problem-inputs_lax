@@ -1,0 +1,16 @@
+stop_time = 0.14
+
+prob.adiabatic  = 1.4
+prob.epsilon    = 1
+init.density_L  = 0.445
+init.velocity_L = 0.698 # note typo in Boscheri and Pareshi
+init.pressure_L = 3.528
+init.density_R  = 0.5
+init.velocity_R = 0.0
+init.pressure_R = 0.571
+init.rotation   = 90 # Rotation of initial slice in degrees
+
+geometry.is_periodic =  0  0  0
+geometry.coord_sys   =  0       # 0 => cart
+geometry.prob_lo     =  0.0  0.0  0.0 
+geometry.prob_hi     =  1.0  1.0  1.0

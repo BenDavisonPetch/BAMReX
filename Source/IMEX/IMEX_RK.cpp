@@ -66,6 +66,7 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
         // Retrieve pressure
         if (stage > 0)
         {
+            amrex::Abort("Calculating of pressure at start of RK stages > 1 not currently correct!");
             compute_pressure(statein_exp[stage % 2],
                              statein_exp[(stage - 1) % 2], pressure, settings);
         }
