@@ -69,6 +69,15 @@ add_custom_target(run_cfl
     VERBATIM
 )
 
+add_custom_target(run_contact
+    COMMAND
+        find ${CMAKE_CURRENT_SOURCE_DIR}/inputs-contact/ -iname "contact*" -exec $<TARGET_FILE:riemann_prob> {} \;
+    COMMENT "Running contact tests"
+    DEPENDS
+        riemann_prob
+    VERBATIM
+)
+
 add_custom_target(run_rp
     COMMAND
         rm -rf ${CMAKE_CURRENT_BINARY_DIR}/output

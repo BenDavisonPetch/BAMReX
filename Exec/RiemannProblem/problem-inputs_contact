@@ -1,0 +1,18 @@
+stop_time = 0.5
+
+imex.acoustic_timestep_end_time = -1
+
+prob.adiabatic  = 1.4
+prob.epsilon    = 1
+init.density_L  = 1000
+init.velocity_L = 0.5
+init.pressure_L = 1
+init.density_R  = 0.01
+init.velocity_R = 0.5
+init.pressure_R = 1
+init.rotation   = 90 # Rotation of initial slice in degrees
+
+geometry.is_periodic =  0  0  0
+geometry.coord_sys   =  0       # 0 => cart
+geometry.prob_lo     =  0.0  0.0  0.0 
+geometry.prob_hi     =  1.0  1.0  1.0

@@ -1,0 +1,7 @@
+adv.num_method = imex
+imex.linearise                  = true
+imex.enthalpy_method            = conservative
+imex.ke_method                  = split
+# imex.compute_residual           = true
+# imex.picard_max_iter            = 100
+imex.butcher_tableau            = SP111
