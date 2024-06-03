@@ -76,8 +76,11 @@ class UpdateTest : public testing::Test
         dx       = geom.CellSizeArray();
 
         AmrLevelAdv::h_prob_parm = new ProbParm{};
-        int  dummy               = 0;
-        Real dummyreal           = 0;
+        int       dummy          = 0;
+        Real      dummyreal      = 0;
+        ParmParse pp("prob");
+        pp.add("adiabatic", 1.4);
+        pp.add("epsilon", 1);
         amrex_probinit(&dummy, &dummy, &dummy, &dummyreal, &dummyreal);
 
         statein.define(ba, dm, EULER_NCOMP, 2);
