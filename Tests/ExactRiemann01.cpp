@@ -19,8 +19,9 @@ TEST_F(ToroTest1, ExactRiemann)
 
         std::cout << "About to compute exact riemann problem" << std::endl;
 
-        compute_exact_RP_solution<0>(time, bx, dx, prob_lo, 0.5, primv_L,
-                                     primv_R, adiabatic, adiabatic, 1, arr);
+        EulerExactRiemannSolver<0> rp_solver(primv_L, primv_R, adiabatic,
+                                             adiabatic, 1);
+        rp_solver.fill(time, 0.5, bx, dx, prob_lo, arr);
 
         std::cout << "Done" << std::endl;
 
@@ -65,8 +66,9 @@ TEST_F(ToroTest2, ExactRiemann)
         const Box  &bx  = mfi.validbox();
         const auto &arr = mf.array(mfi);
 
-        compute_exact_RP_solution<0>(time, bx, dx, prob_lo, 0.5, primv_L,
-                                     primv_R, adiabatic, adiabatic, 1, arr);
+        EulerExactRiemannSolver<0> rp_solver(primv_L, primv_R, adiabatic,
+                                             adiabatic, 1);
+        rp_solver.fill(time, 0.5, bx, dx, prob_lo, arr);
 
         const auto interm_R_idx = idx_at(0.51);
         const auto interm_L_idx = idx_at(0.49);
@@ -104,8 +106,9 @@ TEST_F(ToroTest3, ExactRiemann)
         const Box  &bx  = mfi.validbox();
         const auto &arr = mf.array(mfi);
 
-        compute_exact_RP_solution<0>(time, bx, dx, prob_lo, 0.5, primv_L,
-                                     primv_R, adiabatic, adiabatic, 1, arr);
+        EulerExactRiemannSolver<0> rp_solver(primv_L, primv_R, adiabatic,
+                                             adiabatic, 1);
+        rp_solver.fill(time, 0.5, bx, dx, prob_lo, arr);
 
         const auto interm_R_idx = idx_at(0.75);
         const auto interm_L_idx = idx_at(0.4);
@@ -146,8 +149,9 @@ TEST_F(ToroTest4, ExactRiemann)
         const Box  &bx  = mfi.validbox();
         const auto &arr = mf.array(mfi);
 
-        compute_exact_RP_solution<0>(time, bx, dx, prob_lo, 0.5, primv_L,
-                                     primv_R, adiabatic, adiabatic, 1, arr);
+        EulerExactRiemannSolver<0> rp_solver(primv_L, primv_R, adiabatic,
+                                             adiabatic, 1);
+        rp_solver.fill(time, 0.5, bx, dx, prob_lo, arr);
 
         const auto interm_R_idx = idx_at(0.5);
         const auto interm_L_idx = idx_at(0.25);
@@ -185,8 +189,9 @@ TEST_F(ToroTest5, ExactRiemann)
         const Box  &bx  = mfi.validbox();
         const auto &arr = mf.array(mfi);
 
-        compute_exact_RP_solution<0>(time, bx, dx, prob_lo, 0.5, primv_L,
-                                     primv_R, adiabatic, adiabatic, 1, arr);
+        EulerExactRiemannSolver<0> rp_solver(primv_L, primv_R, adiabatic,
+                                             adiabatic, 1);
+        rp_solver.fill(time, 0.5, bx, dx, prob_lo, arr);
 
         const auto interm_R_idx = idx_at(0.85);
         const auto interm_L_idx = idx_at(0.7);
@@ -228,8 +233,9 @@ TEST_F(ToroTest1Scaled, ExactRiemann)
 
         std::cout << "About to compute exact riemann problem" << std::endl;
 
-        compute_exact_RP_solution<0>(time, bx, dx, prob_lo, 0.5, primv_L,
-                                     primv_R, adiabatic, adiabatic, epsilon, arr);
+        EulerExactRiemannSolver<0> rp_solver(primv_L, primv_R, adiabatic,
+                                             adiabatic, epsilon);
+        rp_solver.fill(time, 0.5, bx, dx, prob_lo, arr);
 
         std::cout << "Done" << std::endl;
 
