@@ -33,16 +33,15 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
     pp.query("radius", radius);
 
     const double adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
+    const double eps       = AmrLevelAdv::h_prob_parm->epsilon;
 
-    GpuArray<Real, EULER_NCOMP> primv_in{
-        density_in, AMREX_D_DECL(0, 0, 0), pressure_in
-    };
-    GpuArray<Real, EULER_NCOMP> primv_out{
-        density_out, AMREX_D_DECL(0, 0, 0), pressure_out
-    };
+    GpuArray<Real, EULER_NCOMP> primv_in{ density_in, AMREX_D_DECL(0, 0, 0),
+                                          pressure_in };
+    GpuArray<Real, EULER_NCOMP> primv_out{ density_out, AMREX_D_DECL(0, 0, 0),
+                                           pressure_out };
 
-    const auto consv_L = consv_from_primv(primv_in, adiabatic);
-    const auto consv_R = consv_from_primv(primv_out, adiabatic);
+    const auto consv_L = consv_from_primv(primv_in, adiabatic, eps);
+    const auto consv_R = consv_from_primv(primv_out, adiabatic, eps);
 
     for (MFIter mfi(S_tmp); mfi.isValid(); ++mfi)
     {
@@ -54,8 +53,9 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
                     [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
                     {
 #if AMREX_SPACEDIM == 1
+                        // RCM method
                         Real x = prob_lo[0] + (i + Real(0.5)) * dx[0];
-                        Real r = x-1;
+                        Real r = x;
 #elif AMREX_SPACEDIM == 2
                         Real x = prob_lo[0] + (i + Real(0.5)) * dx[0];
                         Real y = prob_lo[1] + (j + Real(0.5)) * dx[1];

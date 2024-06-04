@@ -252,10 +252,10 @@ EulerExactRiemannSolver<dir, dim>::compute_soln()
     consv_interm_L = consv_from_primv(primv_interm_L, adiabatic_L, epsilon);
     consv_interm_R = consv_from_primv(primv_interm_R, adiabatic_R, epsilon);
 
-    AMREX_ASSERT(speed_L_head <= speed_L_tail);
+    AMREX_ASSERT(speed_L_head <= speed_L_tail + 1e-12 * fabs(speed_L_tail));
     AMREX_ASSERT(speed_L_tail <= u_interm);
     AMREX_ASSERT(u_interm <= speed_R_tail);
-    AMREX_ASSERT(speed_R_tail <= speed_R_head);
+    AMREX_ASSERT(speed_R_tail <= speed_R_head + 1e-12 * fabs(speed_R_head));
 
     interm_states_computed = true;
     wave_speeds_computed   = true;

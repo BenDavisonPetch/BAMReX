@@ -8,6 +8,7 @@
 
 #include "IMEX/IMEXSettings.H"
 #include "NumericalMethods.H"
+#include "RCM/PseudoRandom.H"
 
 #ifdef AMREX_PARTICLES
 #include <AMReX_AmrParticles.H>
@@ -238,6 +239,7 @@ class AmrLevelAdv : public amrex::AmrLevel
      * The data.
      */
     std::unique_ptr<amrex::FluxRegister> flux_reg;
+    PseudoRandom<>                       random; // used for RCM
 
     /*
      * Static data members.

@@ -65,37 +65,10 @@ target_link_libraries(tests_3d GTest::gtest)
 target_link_libraries(tests_3d AMReX::amrex_3d)
 gtest_discover_tests(tests_3d)
 
-# add_executable(root_finding RootFinding01.cpp test_main.cpp)
-# target_link_libraries(root_finding GTest::gtest)
-# target_link_libraries(root_finding AMReX::amrex_1d)
-# gtest_discover_tests(root_finding)
+## Non-AMReX tests
 
-# add_executable(exact_riemann ExactRiemann01.cpp test_main.cpp)
-# target_link_libraries(exact_riemann GTest::gtest)
-# target_link_libraries(exact_riemann AMReX::amrex_1d)
-# gtest_discover_tests(exact_riemann)
-
-# add_executable(rusanov_adv_3d RusanovAdv01.cpp test_main.cpp)
-# target_link_libraries(rusanov_adv_3d GTest::gtest)
-# target_link_libraries(rusanov_adv_3d testing_base_lib_3d)
-# gtest_discover_tests(rusanov_adv_3d)
-
-# add_executable(rusanov_adv_1d RusanovAdv01.cpp test_main.cpp)
-# target_link_libraries(rusanov_adv_1d GTest::gtest)
-# target_link_libraries(rusanov_adv_1d testing_base_lib_1d)
-# gtest_discover_tests(rusanov_adv_1d)
-
-# add_executable(pressure_source_3d PressureSourceVec01.cpp test_main.cpp)
-# target_link_libraries(pressure_source_3d GTest::gtest)
-# target_link_libraries(pressure_source_3d testing_base_lib_3d)
-# gtest_discover_tests(pressure_source_3d)
-
-# add_executable(imex_3d IMEX_O1_01.cpp test_main.cpp)
-# target_link_libraries(imex_3d GTest::gtest)
-# target_link_libraries(imex_3d testing_base_lib_3d)
-# gtest_discover_tests(imex_3d)
-
-# add_executable(imex_2d IMEX_O1_01.cpp test_main.cpp)
-# target_link_libraries(imex_2d GTest::gtest)
-# target_link_libraries(imex_2d testing_base_lib_2d)
-# gtest_discover_tests(imex_2d)
+add_executable(extra_tests
+  PseudoRandom01.cpp
+)
+target_link_libraries(extra_tests GTest::gtest_main)
+gtest_discover_tests(extra_tests)

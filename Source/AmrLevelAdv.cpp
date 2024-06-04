@@ -18,6 +18,8 @@
 #include "MFIterLoop.H"
 #include "NumericalMethods.H"
 #include "Prob.H"
+#include "RCM/RCM.H"
+#include "SourceTerms/GeometricSource.H"
 #include "tagging_K.H"
 //#include "Kernels.H"
 
@@ -180,20 +182,40 @@ void AmrLevelAdv::variableSetUp()
     bndryfunc.setRunOnGPU(
         true); // I promise the bc function will launch gpu kernels.
 
-    // Set up variable-specific information; needs to be done for each variable
-    // in NUM_STATE Consv_Type: Enumerator for the variable type being set 0:
-    // Position of the variable in the variable vector.  Single variable for
-    // advection. phi: Name of the variable - appears in output to identify
-    // what is being plotted bc: Boundary condition object for this variable
-    // (defined above) bndryfunc: The boundary condition function set above
-    desc_lst.setComponent(Consv_Type, 0, "density", bc, bndryfunc);
-    AMREX_D_TERM(
-        desc_lst.setComponent(Consv_Type, 1, "mom_x", bc, bndryfunc);
-        , desc_lst.setComponent(Consv_Type, 2, "mom_y", bc, bndryfunc);
-        , desc_lst.setComponent(Consv_Type, 3, "mom_z", bc, bndryfunc);)
-    desc_lst.setComponent(Consv_Type, 1 + AMREX_SPACEDIM, "energy", bc,
-                          bndryfunc);
-    desc_lst.setComponent(Pressure_Type, 0, "IMEX_pressure", bc, bndryfunc);
+    if (num_method != NumericalMethods::rcm)
+    {
+        // Set up variable-specific information; needs to be done for each
+        // variable in NUM_STATE Consv_Type: Enumerator for the variable type
+        // being set 0: Position of the variable in the variable vector. Single
+        // variable for advection. phi: Name of the variable - appears in
+        // output to identify what is being plotted bc: Boundary condition
+        // object for this variable (defined above) bndryfunc: The boundary
+        // condition function set above
+        desc_lst.setComponent(Consv_Type, 0, "density", bc, bndryfunc);
+        AMREX_D_TERM(
+            desc_lst.setComponent(Consv_Type, 1, "mom_x", bc, bndryfunc);
+            , desc_lst.setComponent(Consv_Type, 2, "mom_y", bc, bndryfunc);
+            , desc_lst.setComponent(Consv_Type, 3, "mom_z", bc, bndryfunc);)
+        desc_lst.setComponent(Consv_Type, 1 + AMREX_SPACEDIM, "energy", bc,
+                              bndryfunc);
+        desc_lst.setComponent(Pressure_Type, 0, "IMEX_pressure", bc,
+                              bndryfunc);
+    }
+    else
+    {
+        // setup for RCM
+        AMREX_ASSERT(AMREX_SPACEDIM == 1);
+        BCRec bc_mom;
+        BCRec bc_others;
+        bc_mom.setLo(0, BCType::reflect_odd);
+        bc_mom.setHi(0, BCType::foextrap);
+        bc_others.setLo(0, BCType::reflect_even);
+        bc_others.setHi(0, BCType::foextrap);
+
+        desc_lst.setComponent(Consv_Type, 0, "density", bc_others, bndryfunc);
+        desc_lst.setComponent(Consv_Type, 1, "mom_x", bc_mom, bndryfunc);
+        desc_lst.setComponent(Consv_Type, 2, "energy", bc_others, bndryfunc);
+    }
 }
 
 /**
@@ -545,6 +567,23 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
                         get_state_data(Consv_Type).descriptor()->getBCs(),
                         imex_settings);
     }
+    else if (num_method == NumericalMethods::rcm)
+    {
+        ParmParse pp("rcm");
+        int       alpha;
+        pp.get("coord_sys", alpha);
+        Real rand = random.random();
+        Real dr   = geom.CellSize(0);
+        AMREX_ASSERT(fabs(geom.ProbLo(0)) < 1e-12);
+        for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
+        {
+            const auto &bx = mfi.validbox();
+            advance_RCM(dt, dr, rand, h_prob_parm->adiabatic,
+                        h_prob_parm->epsilon, bx, Sborder[mfi], S_new[mfi]);
+            advance_geometric(dt, dr, 0, alpha, bx, S_new[mfi], Sborder[mfi]);
+        }
+        MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, 0);
+    }
     else
     {
         amrex::Abort("Invalid scheme!");
@@ -650,7 +689,8 @@ Real AmrLevelAdv::estTimeStep(Real)
     // This is just a dummy value to start with
     Real dt_est = 1.0e+20;
     if (num_method == NumericalMethods::muscl_hancock
-        || num_method == NumericalMethods::hllc)
+        || num_method == NumericalMethods::hllc
+        || num_method == NumericalMethods::rcm)
     {
         const Real wave_speed = max_wave_speed(cur_time, S_new);
 

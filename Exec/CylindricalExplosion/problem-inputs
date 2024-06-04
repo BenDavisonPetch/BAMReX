@@ -1,0 +1,13 @@
+stop_time = 0.25
+
+prob.adiabatic  = 1.4
+init.density_in  = 1.0
+init.pressure_in = 1.0
+init.density_out  = 0.125
+init.pressure_out = 0.1
+init.radius     = 0.4
+
+geometry.is_periodic =  0  0  0
+geometry.coord_sys   =  0       # 0 => cartesian (geom source term set differently)
+geometry.prob_lo     =  0.0  0.0  0.0 
+geometry.prob_hi     =  2.0  2.0  2.0
