@@ -16,6 +16,18 @@ IMEXSettings get_imex_settings(bool verbose)
     pp.query("solver_verbose", settings.solver_verbose);
     pp.query("bottom_solver_verbose", settings.bottom_solver_verbose);
 
+    std::string adv_flux;
+    pp.query("advection_flux", adv_flux);
+    if (adv_flux.empty() || adv_flux == "rusanov")
+        settings.advection_flux = IMEXSettings::rusanov;
+    else if (adv_flux == "muscl_rusanov")
+        settings.advection_flux = IMEXSettings::muscl_rusanov;
+    else
+    {
+        amrex::Abort("Invalid advection flux specified! Valid options are "
+                     "rusanov and muscl_rusanov.");
+    }
+
     pp.get("linearise", settings.linearise);
     if (!settings.linearise)
     {

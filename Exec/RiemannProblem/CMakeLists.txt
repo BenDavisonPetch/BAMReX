@@ -33,6 +33,15 @@ add_custom_target(run_sod
     VERBATIM
 )
 
+add_custom_target(run_sod_order2
+    COMMAND
+        find ${CMAKE_CURRENT_SOURCE_DIR}/inputs-order2 -iname "test1*" -exec $<TARGET_FILE:riemann_prob> {} \;
+    COMMENT "Running Sod test, 2nd order methods"
+    DEPENDS
+        riemann_prob
+    VERBATIM
+)
+
 add_custom_target(run_test2
     COMMAND
         find ${CMAKE_CURRENT_SOURCE_DIR}/inputs -iname "test2*" -exec $<TARGET_FILE:riemann_prob> {} \;

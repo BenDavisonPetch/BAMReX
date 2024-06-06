@@ -34,7 +34,7 @@ NumericalMethods::Method AmrLevelAdv::num_method;
 IMEXSettings             AmrLevelAdv::imex_settings;
 
 const int AmrLevelAdv::NUM_STATE = 2 + AMREX_SPACEDIM; // Euler eqns
-const int AmrLevelAdv::NUM_GROW  = 2;                  // number of ghost cells
+const int AmrLevelAdv::NUM_GROW  = 3;                  // number of ghost cells
 
 // Mechanism for getting code to work on GPU
 ProbParm *AmrLevelAdv::h_prob_parm = nullptr;

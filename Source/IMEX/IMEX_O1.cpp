@@ -69,11 +69,23 @@ void compute_flux_imex_o1(
                          , nbx[2] = mfi.nodaltilebox(2));
             const Box gbx = mfi.growntilebox(1);
 
-            advance_rusanov_adv(
-                time, gbx, nbx, statein_exp[mfi], statein_imp[mfi],
-                stateex[mfi],
-                AMREX_D_DECL(fluxes[0][mfi], fluxes[1][mfi], fluxes[2][mfi]),
-                dx, dt);
+            if (settings.advection_flux == IMEXSettings::rusanov)
+                advance_rusanov_adv(time, gbx, nbx, statein_exp[mfi],
+                                    statein_imp[mfi], stateex[mfi],
+                                    AMREX_D_DECL(fluxes[0][mfi],
+                                                 fluxes[1][mfi],
+                                                 fluxes[2][mfi]),
+                                    dx, dt);
+            else if (settings.advection_flux == IMEXSettings::muscl_rusanov)
+                advance_MUSCL_rusanov_adv(time, gbx, nbx, statein_exp[mfi],
+                                          statein_imp[mfi], stateex[mfi],
+                                          AMREX_D_DECL(fluxes[0][mfi],
+                                                       fluxes[1][mfi],
+                                                       fluxes[2][mfi]),
+                                          dx, dt);
+            else
+                Abort("Not implemented");
+
             compute_enthalpy(gbx, statein_exp[mfi], stateex[mfi],
                              statein_imp[mfi], pressure[mfi], enthalpy[mfi],
                              settings);
@@ -293,7 +305,8 @@ void compute_pressure(const amrex::MultiFab &statein_exp_new,
                                                            * snew(i, j, k, 3)))
                                        / sold(i, j, k, 0));
                     });
-            else ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
+            else
+                ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
                             { p(i, j, k) = pressure(i, j, k, snew); });
         }
     }

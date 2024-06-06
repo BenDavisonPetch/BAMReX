@@ -97,4 +97,15 @@ AMREX_GPU_DEVICE AMREX_FORCE_INLINE amrex::Real superbee(const amrex::Real r)
     //     return std::fmin(r, std::fmin(2. / (1 + r), 2));
 }
 
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE amrex::Real
+minmod(const amrex::Real delta_L, const amrex::Real delta_R)
+{
+    if (delta_L * delta_R <= 0) return 0;
+    else if (fabs(delta_L) <= fabs(delta_R)) return delta_L;
+    else return delta_R;
+    // return (delta_L > 0 && delta_R > 0)
+    //            ? fmin(delta_L, delta_R)
+    //            : ((delta_L < 0 && delta_R < 0) ? fmax(delta_L, delta_R) : 0);
+}
+
 #endif

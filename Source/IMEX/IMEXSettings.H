@@ -52,8 +52,12 @@ struct IMEXSettings
     } ke_method;
 
     /**
-     * The method for
+     * Advection flux method
      */
+    enum AdvectionFlux {
+        rusanov, // 1st order
+        muscl_rusanov // 2nd order
+    } advection_flux;
 
     /**
      * Which Butcher Tableau to use
