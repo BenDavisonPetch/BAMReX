@@ -34,7 +34,9 @@ NumericalMethods::Method AmrLevelAdv::num_method;
 IMEXSettings             AmrLevelAdv::imex_settings;
 
 const int AmrLevelAdv::NUM_STATE = 2 + AMREX_SPACEDIM; // Euler eqns
-const int AmrLevelAdv::NUM_GROW  = 3;                  // number of ghost cells
+const int AmrLevelAdv::NUM_GROW  = 4;                  // number of ghost cells
+// (Pressure needs 2 ghost cells, and we need 2 more ghost cells than pressure
+//  bc of the explicit update for the EK formulations)
 
 // Mechanism for getting code to work on GPU
 ProbParm *AmrLevelAdv::h_prob_parm = nullptr;
@@ -250,7 +252,7 @@ void AmrLevelAdv::initData()
     FillPatcherFill(Sborder, 0, NUM_STATE, NUM_GROW, 0, Consv_Type, 0);
     IMEXSettings settings; // can just pass default settings to
                            // compute_pressure, doesn't make a difference
-    compute_pressure(Sborder, Sborder, P_new, settings);
+    compute_pressure(Sborder, Sborder, P_new, geom, 0, settings);
     AMREX_ASSERT(!P_new.contains_nan());
 
     if (verbose)

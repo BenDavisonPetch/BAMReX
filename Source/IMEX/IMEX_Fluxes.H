@@ -53,6 +53,7 @@ void advance_rusanov_adv(const amrex::Real time, const amrex::Box &bx,
  * \param fz z-flux
  * \param dx
  * \param dt
+ * \param local_time_step whether or not to perform the local time step
  *
  * \note Computes the flux on a domain grown by 1 from bx, so \c stateout
  * should be defined on this domain
@@ -67,6 +68,7 @@ void advance_MUSCL_rusanov_adv(const amrex::Real time, const amrex::Box &bx,
                                             amrex::FArrayBox &fy,
                                             amrex::FArrayBox &fz),
                                amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx,
-                               const amrex::Real dt);
+                               const amrex::Real                            dt,
+                               bool local_time_step = false);
 
 #endif

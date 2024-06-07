@@ -49,7 +49,8 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
 
     for (int stage = 0; stage < (int)s; ++stage)
     {
-        if (settings.verbose) Print() << "Starting RK stage " << stage  << "..." << std::endl;
+        if (settings.verbose)
+            Print() << "Starting RK stage " << stage << "..." << std::endl;
         // Put together Qe and Qs
         conservative_update(geom, statein, stage_fluxes, statein_imp,
                             tableau.get_A_imp_row(stage, dt), stage);
@@ -63,21 +64,23 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
         statein_imp.FillBoundary_finish();
         FillDomainBoundary(statein_imp, geom, domainbcs);
 
+        const Real adt = tableau.get_A_imp()[stage][stage] * dt;
+
         // Retrieve pressure
         if (stage > 0)
         {
-            amrex::Abort("Calculating of pressure at start of RK stages > 1 not currently correct!");
             compute_pressure(statein_exp[stage % 2],
-                             statein_exp[(stage - 1) % 2], pressure, settings);
+                             statein_exp[(stage - 1) % 2], pressure, geom, adt,
+                             settings);
         }
 
         // Compute stage flux for this step
         compute_flux_imex_o1(time, geom, statein_imp, statein_exp[stage % 2],
-                             pressure, stage_fluxes[stage],
-                             tableau.get_A_imp()[stage][stage] * dt, domainbcs,
+                             pressure, stage_fluxes[stage], adt, domainbcs,
                              settings);
 
-        if (settings.verbose) Print() << "Computed flux for RK stage " << stage << std::endl;
+        if (settings.verbose)
+            Print() << "Computed flux for RK stage " << stage << std::endl;
     }
 
     // Now we've computed all of the fluxes we sum to the get the final state

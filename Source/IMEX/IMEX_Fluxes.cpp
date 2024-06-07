@@ -123,7 +123,8 @@ void advance_MUSCL_rusanov_adv(const amrex::Real, const amrex::Box &bx,
                                             amrex::FArrayBox &fy,
                                             amrex::FArrayBox &fz),
                                amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx,
-                               const amrex::Real                            dt)
+                               const amrex::Real                            dt,
+                               bool local_time_step)
 {
     const Box gbx = amrex::grow(bx, 1);
 
@@ -198,31 +199,34 @@ void advance_MUSCL_rusanov_adv(const amrex::Real, const amrex::Box &bx,
             });
     }
 
+    if (local_time_step)
+    {
     // Compute physical fluxes
-    // ParallelFor(
-    //     gbx,
-    //     [=] AMREX_GPU_DEVICE(int i, int j, int k)
-    //     {
-    //         AMREX_D_TERM(adv_flux<0>(i, j, k, state_L[0], adv_fluxes_L[0]);
-    //                      , adv_flux<1>(i, j, k, state_L[1], adv_fluxes_L[1]);
-    //                      , adv_flux<2>(i, j, k, state_L[2], adv_fluxes_L[2]);)
-    //         AMREX_D_TERM(adv_flux<0>(i, j, k, state_R[0], adv_fluxes_R[0]);
-    //                      , adv_flux<1>(i, j, k, state_R[1], adv_fluxes_R[1]);
-    //                      , adv_flux<2>(i, j, k, state_R[2], adv_fluxes_R[2]);)
-    //     });
+    ParallelFor(
+        gbx,
+        [=] AMREX_GPU_DEVICE(int i, int j, int k)
+        {
+            AMREX_D_TERM(adv_flux<0>(i, j, k, state_L[0], adv_fluxes_L[0]);
+                         , adv_flux<1>(i, j, k, state_L[1], adv_fluxes_L[1]);
+                         , adv_flux<2>(i, j, k, state_L[2], adv_fluxes_L[2]);)
+            AMREX_D_TERM(adv_flux<0>(i, j, k, state_R[0], adv_fluxes_R[0]);
+                         , adv_flux<1>(i, j, k, state_R[1], adv_fluxes_R[1]);
+                         , adv_flux<2>(i, j, k, state_R[2], adv_fluxes_R[2]);)
+        });
     
-    // // Local update
-    // for (int d = 0; d < AMREX_SPACEDIM; ++d)
-    // {
-    //     ParallelFor(
-    //         gbx, EULER_NCOMP,
-    //         [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-    //         {
-    //             const Real local_update = hdtdxarr[d] * (adv_fluxes_R[d](i,j,k,n) - adv_fluxes_L[d](i,j,k,n));
-    //             state_L[d](i,j,k,n) -= local_update;
-    //             state_R[d](i,j,k,n) -= local_update;
-    //         });
-    // }
+    // Local update
+    for (int d = 0; d < AMREX_SPACEDIM; ++d)
+    {
+        ParallelFor(
+            gbx, EULER_NCOMP,
+            [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
+            {
+                const Real local_update = hdtdxarr[d] * (adv_fluxes_R[d](i,j,k,n) - adv_fluxes_L[d](i,j,k,n));
+                state_L[d](i,j,k,n) -= local_update;
+                state_R[d](i,j,k,n) -= local_update;
+            });
+    }
+    }
 
     // Compute physical fluxes
     ParallelFor(

@@ -1,0 +1,8 @@
+adv.num_method = imex
+imex.advection_flux = muscl_rusanov
+imex.linearise                  = true
+imex.enthalpy_method            = reuse_pressure
+imex.ke_method                  = ex
+# imex.compute_residual           = true
+# imex.picard_max_iter            = 100
+imex.butcher_tableau            = SASSP322
