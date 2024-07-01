@@ -31,5 +31,20 @@ add_custom_target(run_isen_stat2d
         isen_2d
 )
 
+add_custom_target(run_isen_stat2d_mpi
+    COMMAND
+        rm -rf ${CMAKE_CURRENT_BINARY_DIR}/output
+    COMMAND
+        find ${CMAKE_CURRENT_SOURCE_DIR}/inputs_stat -iname "stat2d*" -exec mpirun -np 10 $<TARGET_FILE:isen_2d> {} \;
+        COMMAND
+        find ${CMAKE_CURRENT_SOURCE_DIR}/inputs_stat_big -iname "stat2d*" -exec mpirun -np 10 $<TARGET_FILE:isen_2d> {} \;
+    COMMAND
+        bash -c [[for d in output/*/*/*/ ; do (cd ${d} ; ls -1 plt?????/Header | tee headers.visit); done]]
+    VERBATIM
+    COMMENT "Running tests"
+    DEPENDS
+        isen_2d
+)
+
 file(CREATE_LINK ${CMAKE_CURRENT_SOURCE_DIR}/inputs
                  ${CMAKE_CURRENT_BINARY_DIR}/inputs SYMBOLIC)

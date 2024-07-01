@@ -340,7 +340,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
                           int /*ncycle*/)
 {
     if (verbose)
-        AllPrint() << "Starting advance:" << std::endl;
+        Print() << "Starting advance:" << std::endl;
     // MultiFab &S_mm = get_new_data(Consv_Type);
     MultiFab &P_mm = get_new_data(Pressure_Type);
 
@@ -413,9 +413,6 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
         ba.surroundingNodes(j);
         fluxes[j].define(ba, dmap, NUM_STATE, 0);
     }
-
-    if (verbose)
-        AllPrint() << "\tAbout to fill ghost states" << std::endl;
         
     // State with ghost cells - this is used to compute fluxes and perform the
     // update.

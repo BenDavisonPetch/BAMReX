@@ -50,7 +50,7 @@ amrex::Real max_wave_speed(amrex::Real /*time*/, const amrex::MultiFab &S_new)
     const Real epsilon   = AmrLevelAdv::h_prob_parm->epsilon;
 
     auto const &ma = S_new.const_arrays();
-    return ParReduce(
+    auto wave_speed = ParReduce(
         TypeList<ReduceOpMax>{}, TypeList<Real>{}, S_new,
         IntVect(0), // no ghost cells
         [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k)
@@ -66,13 +66,16 @@ amrex::Real max_wave_speed(amrex::Real /*time*/, const amrex::MultiFab &S_new)
                         / (primv_arr[0] * epsilon))
                    + velocity;
         });
+    
+    ParallelDescriptor::ReduceRealMax(wave_speed);
+    return wave_speed;
 }
 
 AMREX_GPU_HOST
 amrex::Real max_speed(const amrex::MultiFab &state)
 {
     auto const &ma = state.const_arrays();
-    return ParReduce(
+    auto wave_speed = ParReduce(
         TypeList<ReduceOpMax>{}, TypeList<Real>{}, state,
         IntVect(0), // no ghost cells
         [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k)
@@ -86,6 +89,9 @@ amrex::Real max_speed(const amrex::MultiFab &state)
                   / (consv(i, j, k, 0) * consv(i, j, k, 0));
             return { sqrt(u_sq) };
         });
+
+    ParallelDescriptor::ReduceRealMax(wave_speed);
+    return wave_speed;
 }
 
 /**
@@ -97,7 +103,7 @@ amrex::Real max_dx_scaled_speed(const amrex::MultiFab                &state,
                                 const GpuArray<Real, AMREX_SPACEDIM> &dx)
 {
     auto const &ma = state.const_arrays();
-    return ParReduce(
+    auto wave_speed = ParReduce(
         TypeList<ReduceOpMax>{}, TypeList<Real>{}, state,
         IntVect(0), // no ghost cells
         [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k)
@@ -109,6 +115,9 @@ amrex::Real max_dx_scaled_speed(const amrex::MultiFab                &state,
                                  +fabs(consv(i, j, k, 3)) / dx[2]))
                    / consv(i, j, k, 0);
         });
+
+    ParallelDescriptor::ReduceRealMax(wave_speed);
+    return wave_speed;
 }
 
 template AMREX_GPU_HOST void
