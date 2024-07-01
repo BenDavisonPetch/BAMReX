@@ -115,9 +115,8 @@ void compute_flux_imex_o1(
 
     if (settings.linearise)
     {
-        // solve_pressure_eqn(geom, enthalpy, velocity, rhs, pressure, dt,
-        //                    domainbcs, settings);
-        pressure.setVal(1); static_assert(false, "THIS IS DEBUG CODE! DON'T USE BEFORE FIXING");
+        solve_pressure_eqn(geom, enthalpy, velocity, rhs, pressure, dt,
+                           domainbcs, settings);
     }
     else
     {

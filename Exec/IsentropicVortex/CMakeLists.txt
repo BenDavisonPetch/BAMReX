@@ -18,20 +18,17 @@ endif()
 target_link_libraries(isen_2d AMReX::amrex_2d)
 target_link_libraries(isen_3d AMReX::amrex_3d)
 
-add_custom_target(run_isen
+add_custom_target(run_isen_stat2d
     COMMAND
         rm -rf ${CMAKE_CURRENT_BINARY_DIR}/output
     COMMAND
-        find ${CMAKE_CURRENT_SOURCE_DIR}/inputs -iname "inputs-2d*" -exec $<TARGET_FILE:isen_2d> {} \;
+        find ${CMAKE_CURRENT_SOURCE_DIR}/inputs_stat -iname "stat2d*" -exec $<TARGET_FILE:isen_2d> {} \;
     COMMAND
-        find ${CMAKE_CURRENT_SOURCE_DIR}/inputs -iname "inputs-3d*" -exec $<TARGET_FILE:isen_3d> {} \;
-    COMMAND
-        bash -c [[for d in output/*/*/ ; do (cd ${d} ; ls -1 plt?????/Header | tee headers.visit); done]]
+        bash -c [[for d in output/*/*/*/ ; do (cd ${d} ; ls -1 plt?????/Header | tee headers.visit); done]]
     VERBATIM
     COMMENT "Running tests"
     DEPENDS
         isen_2d
-        isen_3d
 )
 
 file(CREATE_LINK ${CMAKE_CURRENT_SOURCE_DIR}/inputs

@@ -109,9 +109,13 @@ TEST_F(ConservativeUpdate, NormalSameAsWeightedVersion)
     const Vector<Real> dts = { 0.1, 0.2, 0.6 };
     MultiFab           tmp1(ba, dm, EULER_NCOMP, 0);
     MultiFab           tmp2(ba, dm, EULER_NCOMP, 0);
+    tmp1.setVal(0.5);
+    tmp2.setVal(0.25);
 
     MultiFab stateout1(ba, dm, EULER_NCOMP, 0);
     MultiFab stateout2(ba, dm, EULER_NCOMP, 0);
+    stateout1.setVal(1);
+    stateout2.setVal(-1);
 
     conservative_update(geom, statein, fluxes[0], tmp1, dts[0]);
     conservative_update(geom, tmp1, fluxes[1], tmp2, dts[1]);
@@ -139,6 +143,7 @@ TEST_F(ConservativeUpdate, StateCopying)
     setup(10, 5, 2, 2, 5); // dx = (0.1, 0.2, 0.5)
 
     MultiFab stateout(ba, dm, EULER_NCOMP, 0);
+    stateout.setVal(2);
     conservative_update(geom, statein, fluxes, stateout, { 0.1, 0.5 }, 0);
 
     for (MFIter mfi(stateout, false); mfi.isValid(); ++mfi)
@@ -164,6 +169,7 @@ TEST_F(ConservativeUpdate, SumFluxes)
         auto nodeba = ba;
         nodeba.surroundingNodes(d);
         summed_fluxes[d].define(nodeba, dm, EULER_NCOMP, 0);
+        summed_fluxes[d].setVal(d);
     }
     const Vector<Real> weighting = { 1, 2, -3 };
     const Vector<Real> dts       = { 0.1, 0.2, -0.3 };
@@ -171,6 +177,8 @@ TEST_F(ConservativeUpdate, SumFluxes)
 
     MultiFab stateout1(ba, dm, EULER_NCOMP, 0);
     MultiFab stateout2(ba, dm, EULER_NCOMP, 0);
+    stateout1.setVal(0.5);
+    stateout2.setVal(5);
 
     Print() << "Doing first update" << std::endl;
 

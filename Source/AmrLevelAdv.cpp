@@ -116,7 +116,6 @@ void AmrLevelAdv::checkPoint(const std::string &dir, std::ostream &os,
 void AmrLevelAdv::writePlotFile(const std::string &dir, std::ostream &os,
                                 VisMF::How how)
 {
-
     AmrLevel::writePlotFile(dir, os, how);
 }
 
@@ -341,17 +340,17 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
                           int /*ncycle*/)
 {
     if (verbose)
-        Print() << "Starting advance:" << std::endl;
-    MultiFab &S_mm = get_new_data(Consv_Type);
+        AllPrint() << "Starting advance:" << std::endl;
+    // MultiFab &S_mm = get_new_data(Consv_Type);
     MultiFab &P_mm = get_new_data(Pressure_Type);
 
     // Note that some useful commands exist - the maximum and minumum
     // values on the current level can be computed directly - here the
     // max and min of variable 0 are being calculated, and output.
-    Real maxval = S_mm.max(0);
-    Real minval = S_mm.min(0);
-    amrex::Print() << "phi max = " << maxval << ", min = " << minval
-                   << std::endl;
+    // Real maxval = S_mm.max(0);
+    // Real minval = S_mm.min(0);
+    // amrex::Print() << "phi max = " << maxval << ", min = " << minval
+    //                << std::endl;
 
     // This ensures that all data computed last time step is moved from
     // `new' data to `old data' - this should not need changing If more
@@ -415,6 +414,9 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
         fluxes[j].define(ba, dmap, NUM_STATE, 0);
     }
 
+    if (verbose)
+        AllPrint() << "\tAbout to fill ghost states" << std::endl;
+        
     // State with ghost cells - this is used to compute fluxes and perform the
     // update.
     MultiFab Sborder(grids, dmap, NUM_STATE, NUM_GROW);
@@ -424,7 +426,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     FillPatcherFill(Sborder, 0, NUM_STATE, NUM_GROW, time, Consv_Type, 0);
 
     if (verbose)
-        Print() << "\tFilled ghost states" << std::endl;
+        AllPrint() << "\tFilled ghost states" << std::endl;
 
     if (num_method == NumericalMethods::muscl_hancock
         || num_method == NumericalMethods::hllc)

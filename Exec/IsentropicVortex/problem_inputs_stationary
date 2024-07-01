@@ -1,0 +1,16 @@
+stop_time = 1
+
+prob.adiabatic  = 1.4
+init.lambda = 5
+init.density_bg = 1
+init.u_bg = 0
+init.v_bg = 0
+init.w_bg = 0
+init.pressure_bg = 1
+init.x_c = 0
+init.y_c = 0
+
+geometry.is_periodic =  1  1  1
+geometry.coord_sys   =  0       # 0 => cart
+geometry.prob_lo     =  -5.0  -5.0  -5.0 
+geometry.prob_hi     =  5.0  5.0  5.0
