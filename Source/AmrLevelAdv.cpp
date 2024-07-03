@@ -413,7 +413,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
         ba.surroundingNodes(j);
         fluxes[j].define(ba, dmap, NUM_STATE, 0);
     }
-        
+
     // State with ghost cells - this is used to compute fluxes and perform the
     // update.
     MultiFab Sborder(grids, dmap, NUM_STATE, NUM_GROW);
@@ -562,11 +562,15 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     }
     else if (num_method == NumericalMethods::imex)
     {
+        if (imex_settings.stabilize && do_reflux && this->parent->maxLevel() > 0)
+            amrex::Abort("Refluxing with high-Mach number stabilisation not "
+                         "supported!");
+
         MultiFab::Copy(P_new, P_mm, 0, 0, 1, 2);
         // TODO: check if ghost cells are actually filled in P_new and P_mm
-        advance_imex_rk(time, geom, Sborder, S_new, P_new, fluxes, dt,
-                        get_state_data(Consv_Type).descriptor()->getBCs(),
-                        imex_settings);
+        advance_imex_rk_stab(time, geom, Sborder, S_new, P_new, fluxes, dt,
+                             get_state_data(Consv_Type).descriptor()->getBCs(),
+                             imex_settings);
     }
     else if (num_method == NumericalMethods::rcm)
     {

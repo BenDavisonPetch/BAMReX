@@ -54,8 +54,9 @@ struct IMEXSettings
     /**
      * Advection flux method
      */
-    enum AdvectionFlux {
-        rusanov, // 1st order
+    enum AdvectionFlux
+    {
+        rusanov,      // 1st order
         muscl_rusanov // 2nd order
     } advection_flux;
 
@@ -63,6 +64,12 @@ struct IMEXSettings
      * Which Butcher Tableau to use
      */
     IMEXButcherTableau::TableauType butcher_tableau;
+
+    /**
+     * Whether or not to use high-Mach number stabilisation
+     */
+    bool stabilize = false;
+    amrex::Real k1 = 1e-2;
 
     bool verbose               = false;
     bool solver_verbose        = false;

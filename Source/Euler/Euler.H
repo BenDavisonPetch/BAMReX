@@ -52,6 +52,13 @@ primv_from_consv(const amrex::Array4<const amrex::Real> &consv_values,
                  const amrex::Real adiabatic, const amrex::Real epsilon,
                  const int i, const int j, const int k);
 
+AMREX_GPU_HOST_DEVICE
+AMREX_FORCE_INLINE
+amrex::GpuArray<amrex::Real, EULER_NCOMP>
+primv_from_consv(const amrex::Array4<const amrex::Real> &consv_values,
+                 const amrex::Real adiabatic, const amrex::Real epsilon,
+                 const amrex::IntVect &iv);
+
 template <int dir>
 AMREX_GPU_HOST_DEVICE
     AMREX_FORCE_INLINE amrex::GpuArray<amrex::Real, EULER_NCOMP>
@@ -187,6 +194,17 @@ primv_from_consv(const amrex::Array4<const amrex::Real> &consv_values,
              - 0.5 * epsilon * consv_values(i, j, k, 0) * u_sq);
 
     return primv_values;
+}
+
+AMREX_GPU_HOST_DEVICE
+AMREX_FORCE_INLINE
+amrex::GpuArray<amrex::Real, EULER_NCOMP>
+primv_from_consv(const amrex::Array4<const amrex::Real> &consv_values,
+                 const amrex::Real adiabatic, const amrex::Real epsilon,
+                 const amrex::IntVect &iv)
+{
+    return primv_from_consv(consv_values, adiabatic, epsilon, iv.dim3().x,
+                            iv.dim3().y, iv.dim3().z);
 }
 
 template <int dir>
