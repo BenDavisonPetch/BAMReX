@@ -316,47 +316,47 @@ void compute_pressure(const amrex::MultiFab &statein_exp_new,
                                        / sold(i, j, k, 0));
                     });
             // EK schemes
-            // else if (settings.linearise
-            //          && settings.ke_method == IMEXSettings::ex)
-            // {
-            //     // Explicitly updated as if doing update from (U_E)^{l-1} to
-            //     // (U_E)^l
-            //     FArrayBox consv_exp(bx, EULER_NCOMP, The_Async_Arena());
-            //     const Array4<const Real>     &ex = consv_exp.const_array();
-            //     FArrayBox                     dummy;
-            //     GpuArray<Box, AMREX_SPACEDIM> dummy_bx;
-            //     if (settings.advection_flux == IMEXSettings::rusanov)
-            //         advance_rusanov_adv(0, bx, dummy_bx,
-            //         statein_exp_old[mfi],
-            //                             statein_exp_old[mfi], consv_exp,
-            //                             AMREX_D_DECL(dummy, dummy, dummy),
-            //                             dx, adt);
-            //     else if (settings.advection_flux
-            //              == IMEXSettings::muscl_rusanov)
-            //         advance_MUSCL_rusanov_adv(
-            //             0, bx, dummy_bx, statein_exp_old[mfi],
-            //             statein_exp_old[mfi], consv_exp,
-            //             AMREX_D_DECL(dummy, dummy, dummy), dx, adt);
-            //     else
-            //         Abort("Not implemented");
+            else if (settings.linearise
+                     && settings.ke_method == IMEXSettings::ex)
+            {
+                // Explicitly updated as if doing update from (U_E)^{l-1} to
+                // (U_E)^l
+                FArrayBox consv_exp(bx, EULER_NCOMP, The_Async_Arena());
+                const Array4<const Real>     &ex = consv_exp.const_array();
+                FArrayBox                     dummy;
+                GpuArray<Box, AMREX_SPACEDIM> dummy_bx;
+                if (settings.advection_flux == IMEXSettings::rusanov)
+                    advance_rusanov_adv(0, bx, dummy_bx,
+                    statein_exp_old[mfi],
+                                        statein_exp_old[mfi], consv_exp,
+                                        AMREX_D_DECL(dummy, dummy, dummy),
+                                        dx, adt);
+                else if (settings.advection_flux
+                         == IMEXSettings::muscl_rusanov)
+                    advance_MUSCL_rusanov_adv(
+                        0, bx, dummy_bx, statein_exp_old[mfi],
+                        statein_exp_old[mfi], consv_exp,
+                        AMREX_D_DECL(dummy, dummy, dummy), dx, adt);
+                else
+                    Abort("Not implemented");
 
-            //     // Now compute pressure
-            //     ParallelFor(
-            //         bx,
-            //         [=] AMREX_GPU_DEVICE(int i, int j, int k)
-            //         {
-            //             p(i, j, k)
-            //                 = (adia - 1)
-            //                   * (snew(i, j, k, 1 + AMREX_SPACEDIM)
-            //                      - 0.5 * eps
-            //                            * (AMREX_D_TERM(
-            //                                ex(i, j, k, 1) * ex(i, j, k, 1),
-            //                                +ex(i, j, k, 2) * ex(i, j, k, 2),
-            //                                +ex(i, j, k, 3) * ex(i, j, k,
-            //                                3)))
-            //                            / snew(i, j, k, 0));
-            //         });
-            // }
+                // Now compute pressure
+                ParallelFor(
+                    bx,
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k)
+                    {
+                        p(i, j, k)
+                            = (adia - 1)
+                              * (snew(i, j, k, 1 + AMREX_SPACEDIM)
+                                 - 0.5 * eps
+                                       * (AMREX_D_TERM(
+                                           ex(i, j, k, 1) * ex(i, j, k, 1),
+                                           +ex(i, j, k, 2) * ex(i, j, k, 2),
+                                           +ex(i, j, k, 3) * ex(i, j, k,
+                                           3)))
+                                       / snew(i, j, k, 0));
+                    });
+            }
             else // any other methods
                 ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
                             { p(i, j, k) = pressure(i, j, k, snew); });
