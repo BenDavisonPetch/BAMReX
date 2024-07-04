@@ -73,6 +73,7 @@ IMEXSettings get_imex_settings(bool verbose)
         = IMEXButcherTableau::enum_from_string(butcher_tableau);
 
     pp.query("stabilize", settings.stabilize);
+    pp.query("k1", settings.k1);
 
     return settings;
 }

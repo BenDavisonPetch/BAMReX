@@ -69,7 +69,7 @@ struct IMEXSettings
      * Whether or not to use high-Mach number stabilisation
      */
     bool stabilize = false;
-    amrex::Real k1 = 1e-2;
+    amrex::Real k1 = 1e-3;
 
     bool verbose               = false;
     bool solver_verbose        = false;
