@@ -1,0 +1,23 @@
+stop_time = 0.25
+
+imex.acoustic_timestep_end_time = 0.01
+
+prob.adiabatic  = 1.4
+prob.epsilon    = 1
+init.density_L  = 1.0
+init.velocity_L = 0.0
+init.pressure_L = 1.0
+init.density_R  = 0.125
+init.velocity_R = 0.0
+init.pressure_R = 0.1
+init.rotation   = 90
+
+geometry.is_periodic =  0  0  0
+geometry.coord_sys   =  0       # 0 => cart
+geometry.prob_lo     =  0.0  0.0  0.0 
+geometry.prob_hi     =  1.0  1.0  1.0
+
+limiting.limiter = minbee
+limiting.density = energy
+limiting.mom     = energy energy energy
+limiting.energy  = energy

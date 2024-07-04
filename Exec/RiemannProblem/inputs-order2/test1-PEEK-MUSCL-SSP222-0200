@@ -25,7 +25,7 @@ geometry.prob_hi     =  1.0  1.0  1.0
 amr.n_cell         =  200 200 200
 
 # TIME STEP CONTROL
-adv.cfl            = 0.5   # cfl number for hyperbolic system
+adv.cfl            = 0.4   # cfl number for hyperbolic system
 
 ## NUMERICAL METHOD SETTINGS
 adv.num_method = imex
