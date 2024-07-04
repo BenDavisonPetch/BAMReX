@@ -1,11 +1,13 @@
 #include "IMEX_O1.H"
 #include "AmrLevelAdv.H"
+#include "IMEX/ButcherTableau.H"
 #include "IMEX/IMEXSettings.H"
 #include "IMEX_Fluxes.H"
 #include "IMEX_K/euler_K.H"
 #include "LinearSolver/MLALaplacianGrad.H"
 #include "MFIterLoop.H"
 
+#include <AMReX_Arena.H>
 #include <AMReX_BCUtil.H>
 #include <AMReX_BC_TYPES.H>
 #include <AMReX_Box.H>
@@ -69,11 +71,24 @@ void compute_flux_imex_o1(
                          , nbx[2] = mfi.nodaltilebox(2));
             const Box gbx = mfi.growntilebox(1);
 
-            advance_rusanov_adv(
-                time, gbx, nbx, statein_exp[mfi], statein_imp[mfi],
-                stateex[mfi],
-                AMREX_D_DECL(fluxes[0][mfi], fluxes[1][mfi], fluxes[2][mfi]),
-                dx, dt);
+            if (settings.advection_flux == IMEXSettings::rusanov)
+                advance_rusanov_adv(time, gbx, nbx, statein_exp[mfi],
+                                    statein_imp[mfi], stateex[mfi],
+                                    AMREX_D_DECL(fluxes[0][mfi],
+                                                 fluxes[1][mfi],
+                                                 fluxes[2][mfi]),
+                                    dx, dt);
+            else if (settings.advection_flux == IMEXSettings::muscl_rusanov)
+                advance_MUSCL_rusanov_adv(
+                    time, gbx, nbx, statein_exp[mfi], statein_imp[mfi],
+                    stateex[mfi],
+                    AMREX_D_DECL(fluxes[0][mfi], fluxes[1][mfi],
+                                 fluxes[2][mfi]),
+                    dx, dt,
+                    settings.butcher_tableau == IMEXButcherTableau::SP111);
+            else
+                Abort("Not implemented");
+
             compute_enthalpy(gbx, statein_exp[mfi], stateex[mfi],
                              statein_imp[mfi], pressure[mfi], enthalpy[mfi],
                              settings);
@@ -260,23 +275,30 @@ void compute_velocity(const amrex::Box &bx, const amrex::FArrayBox &state,
 AMREX_GPU_HOST
 void compute_pressure(const amrex::MultiFab &statein_exp_new,
                       const amrex::MultiFab &statein_exp_old,
-                      amrex::MultiFab       &a_pressure,
-                      const IMEXSettings    &settings)
+                      amrex::MultiFab &a_pressure, const amrex::Geometry &geom,
+                      const amrex::Real adt, const IMEXSettings &settings)
 {
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     {
-        const Real eps  = AmrLevelAdv::h_prob_parm->epsilon;
-        const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
+        const Real  eps  = AmrLevelAdv::h_prob_parm->epsilon;
+        const Real  adia = AmrLevelAdv::h_prob_parm->adiabatic;
+        const auto &dx   = geom.CellSizeArray();
+        amrex::ignore_unused(adt, dx);
         for (MFIter mfi(a_pressure, TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
             const auto &bx   = mfi.growntilebox();
             const auto &p    = a_pressure.array(mfi);
             const auto &sold = statein_exp_old.const_array(mfi);
             const auto &snew = statein_exp_new.const_array(mfi);
-            if (settings.linearise
-                && settings.ke_method == IMEXSettings::split)
+            // FI
+            if (!settings.linearise)
+                ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
+                            { p(i, j, k) = pressure(i, j, k, snew); });
+            // SK schemes
+            else if (settings.linearise
+                     && settings.ke_method == IMEXSettings::split)
                 ParallelFor(
                     bx,
                     [=] AMREX_GPU_DEVICE(int i, int j, int k)
@@ -293,7 +315,50 @@ void compute_pressure(const amrex::MultiFab &statein_exp_new,
                                                            * snew(i, j, k, 3)))
                                        / sold(i, j, k, 0));
                     });
-            else ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
+            // EK schemes
+            else if (settings.linearise
+                     && settings.ke_method == IMEXSettings::ex)
+            {
+                // Explicitly updated as if doing update from (U_E)^{l-1} to
+                // (U_E)^l
+                FArrayBox consv_exp(bx, EULER_NCOMP, The_Async_Arena());
+                const Array4<const Real>     &ex = consv_exp.const_array();
+                FArrayBox                     dummy;
+                GpuArray<Box, AMREX_SPACEDIM> dummy_bx;
+                if (settings.advection_flux == IMEXSettings::rusanov)
+                    advance_rusanov_adv(0, bx, dummy_bx,
+                    statein_exp_old[mfi],
+                                        statein_exp_old[mfi], consv_exp,
+                                        AMREX_D_DECL(dummy, dummy, dummy),
+                                        dx, adt);
+                else if (settings.advection_flux
+                         == IMEXSettings::muscl_rusanov)
+                    advance_MUSCL_rusanov_adv(
+                        0, bx, dummy_bx, statein_exp_old[mfi],
+                        statein_exp_old[mfi], consv_exp,
+                        AMREX_D_DECL(dummy, dummy, dummy), dx, adt);
+                else
+                    Abort("Not implemented");
+
+                // Now compute pressure
+                ParallelFor(
+                    bx,
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k)
+                    {
+                        p(i, j, k)
+                            = (adia - 1)
+                              * (snew(i, j, k, 1 + AMREX_SPACEDIM)
+                                 - 0.5 * eps
+                                       * (AMREX_D_TERM(
+                                           ex(i, j, k, 1) * ex(i, j, k, 1),
+                                           +ex(i, j, k, 2) * ex(i, j, k, 2),
+                                           +ex(i, j, k, 3) * ex(i, j, k,
+                                           3)))
+                                       / snew(i, j, k, 0));
+                    });
+            }
+            else // any other methods
+                ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
                             { p(i, j, k) = pressure(i, j, k, snew); });
         }
     }

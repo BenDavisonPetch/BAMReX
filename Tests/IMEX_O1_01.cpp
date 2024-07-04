@@ -5,6 +5,7 @@
 #include "BoxTest.H"
 #include "Fluxes/Update.H"
 #include "IMEX/IMEXSettings.H"
+#include "IMEX/IMEX_Fluxes.H"
 #include "IMEX/IMEX_O1.H"
 #include "IMEX_K/euler_K.H"
 
@@ -63,13 +64,14 @@ TEST_F(IMEXO1, SplitKEEnergyMatch)
     settings.enthalpy_method       = IMEXSettings::reuse_pressure;
     settings.verbose               = true;
     settings.bottom_solver_verbose = true;
+    settings.advection_flux        = IMEXSettings::rusanov;
 
     Print() << std::endl
             << "Testing for enthalpy_method = reuse_pressure..." << std::endl
             << std::endl;
 
-    compute_flux_imex_o1(0, geom, statein, statein, m_pressure, fluxes, dt, bcs,
-                         settings);
+    compute_flux_imex_o1(0, geom, statein, statein, m_pressure, fluxes, dt,
+                         bcs, settings);
 
     ASSERT_FALSE(fluxes[0].contains_nan());
     ASSERT_FALSE(fluxes[1].contains_nan());
@@ -108,7 +110,8 @@ TEST_F(IMEXO1, SplitKEEnergyMatch)
     //             << std::endl;
 
     //     settings.enthalpy_method = IMEXSettings::conservative;
-    //     compute_flux_imex_o1(0, geom, statein, statein, m_pressure, fluxes, dt, bcs,
+    //     compute_flux_imex_o1(0, geom, statein, statein, m_pressure, fluxes,
+    //     dt, bcs,
     //                          settings);
 
     //     ASSERT_FALSE(fluxes[0].contains_nan());
@@ -149,7 +152,8 @@ TEST_F(IMEXO1, SplitKEEnergyMatch)
     //             << std::endl;
 
     //     settings.enthalpy_method = IMEXSettings::conservative_ex;
-    //     compute_flux_imex_o1(0, geom, statein, statein, m_pressure, fluxes, dt, bcs,
+    //     compute_flux_imex_o1(0, geom, statein, statein, m_pressure, fluxes,
+    //     dt, bcs,
     //                          settings);
 
     //     ASSERT_FALSE(fluxes[0].contains_nan());
@@ -185,6 +189,73 @@ TEST_F(IMEXO1, SplitKEEnergyMatch)
     //     }
 }
 
+TEST_F(IMEXO1, ExplicitKEEnergyMatch)
+{
+    setup(true);
+    const Real eps  = AmrLevelAdv::h_prob_parm->epsilon;
+    const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
+    ASSERT_EQ(eps, 0.5);
+    ASSERT_EQ(adia, 1.6);
+
+    ASSERT_FALSE(statein.contains_nan());
+
+    const Real dt = 0.01;
+
+    IMEXSettings settings;
+    settings.linearise             = true;
+    settings.ke_method             = IMEXSettings::ex;
+    settings.enthalpy_method       = IMEXSettings::reuse_pressure;
+    settings.verbose               = true;
+    settings.bottom_solver_verbose = true;
+    settings.advection_flux        = IMEXSettings::rusanov;
+
+    Print() << std::endl
+            << "Testing for enthalpy_method = reuse_pressure..." << std::endl
+            << std::endl;
+
+    compute_flux_imex_o1(0, geom, statein, statein, m_pressure, fluxes, dt,
+                         bcs, settings);
+
+    ASSERT_FALSE(fluxes[0].contains_nan());
+    ASSERT_FALSE(fluxes[1].contains_nan());
+#if AMREX_SPACEDIM == 3
+    ASSERT_FALSE(fluxes[2].contains_nan());
+#endif
+
+    conservative_update(geom, statein, fluxes, stateout, dt);
+
+    for (MFIter mfi(stateout, false); mfi.isValid(); ++mfi)
+    {
+        const Box  &bx  = mfi.validbox();
+        const auto &out = stateout.const_array(mfi);
+        const auto &p   = m_pressure.const_array(mfi);
+
+        FArrayBox                     consv_ex(bx, EULER_NCOMP);
+        GpuArray<Box, AMREX_SPACEDIM> dummy;
+        FArrayBox                     dummyfab;
+        advance_rusanov_adv(0, bx, dummy, statein[mfi], statein[mfi], consv_ex,
+                            AMREX_D_DECL(dummyfab, dummyfab, dummyfab), dx,
+                            dt);
+        const auto &ex = consv_ex.const_array();
+
+        ParallelFor(
+            bx,
+            [=] AMREX_GPU_DEVICE(int i, int j, int k)
+            {
+                Print() << i << " " << j << " " << k << std::endl;
+                const Real expected
+                    = p(i, j, k) / (adia - 1)
+                      + 0.5 * eps / ex(i, j, k, 0)
+                            * (AMREX_D_TERM(ex(i, j, k, 1) * ex(i, j, k, 1),
+                                            +ex(i, j, k, 2) * ex(i, j, k, 2),
+                                            +ex(i, j, k, 3) * ex(i, j, k, 3)));
+
+                EXPECT_NEAR(expected, out(i, j, k, 1 + AMREX_SPACEDIM),
+                            fabs(expected) * 1e-12);
+            });
+    }
+}
+
 TEST_F(IMEXO1, GridSplitting)
 {
     const Real dt = 0.01;
@@ -196,8 +267,8 @@ TEST_F(IMEXO1, GridSplitting)
 
     // compute first without grid splitting
     setup(false);
-    compute_flux_imex_o1(0, geom, statein, statein, m_pressure, fluxes, dt, bcs,
-                         settings);
+    compute_flux_imex_o1(0, geom, statein, statein, m_pressure, fluxes, dt,
+                         bcs, settings);
 
     Array<MultiFab, AMREX_SPACEDIM> nonsplit_fluxes;
     for (int d = 0; d < AMREX_SPACEDIM; ++d)
@@ -210,8 +281,8 @@ TEST_F(IMEXO1, GridSplitting)
     TearDown();
     // compute with grid splitting
     setup(true);
-    compute_flux_imex_o1(0, geom, statein, statein, m_pressure, fluxes, dt, bcs,
-                         settings);
+    compute_flux_imex_o1(0, geom, statein, statein, m_pressure, fluxes, dt,
+                         bcs, settings);
 
     // compare solutions
     MFIter::allowMultipleMFIters(true);

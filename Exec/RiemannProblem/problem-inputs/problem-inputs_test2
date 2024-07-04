@@ -1,0 +1,19 @@
+stop_time = 0.15
+
+prob.adiabatic  = 1.4
+init.density_L  = 1.0
+init.velocity_L = -2.0
+init.pressure_L = 0.4
+init.density_R  = 1.0
+init.velocity_R = 2.0
+init.pressure_R = 0.4
+
+geometry.is_periodic =  0  0  0
+geometry.coord_sys   =  0       # 0 => cart
+geometry.prob_lo     =  0.0  0.0  0.0 
+geometry.prob_hi     =  1.0  1.0  1.0
+
+limiting.limiter = van_leer
+limiting.density = density
+limiting.mom     = mom_x mom_y mom_z
+limiting.energy  = energy

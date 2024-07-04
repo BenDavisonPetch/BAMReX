@@ -52,13 +52,24 @@ struct IMEXSettings
     } ke_method;
 
     /**
-     * The method for
+     * Advection flux method
      */
+    enum AdvectionFlux
+    {
+        rusanov,      // 1st order
+        muscl_rusanov // 2nd order
+    } advection_flux;
 
     /**
      * Which Butcher Tableau to use
      */
     IMEXButcherTableau::TableauType butcher_tableau;
+
+    /**
+     * Whether or not to use high-Mach number stabilisation
+     */
+    bool stabilize = false;
+    amrex::Real k1 = 1e-3;
 
     bool verbose               = false;
     bool solver_verbose        = false;

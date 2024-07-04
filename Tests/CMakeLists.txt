@@ -27,6 +27,7 @@ add_executable(tests_1d
   HLLC01.cpp
   MLABecLapGrad01.cpp
   IMEX_O1_01.cpp
+  IMEXButcherTableaux01.cpp
 )
 
 add_executable(tests_2d

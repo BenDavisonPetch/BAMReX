@@ -34,7 +34,9 @@ NumericalMethods::Method AmrLevelAdv::num_method;
 IMEXSettings             AmrLevelAdv::imex_settings;
 
 const int AmrLevelAdv::NUM_STATE = 2 + AMREX_SPACEDIM; // Euler eqns
-const int AmrLevelAdv::NUM_GROW  = 2;                  // number of ghost cells
+const int AmrLevelAdv::NUM_GROW  = 4;                  // number of ghost cells
+// (Pressure needs 2 ghost cells, and we need 2 more ghost cells than pressure
+//  bc of the explicit update for the EK formulations)
 
 // Mechanism for getting code to work on GPU
 ProbParm *AmrLevelAdv::h_prob_parm = nullptr;
@@ -114,7 +116,6 @@ void AmrLevelAdv::checkPoint(const std::string &dir, std::ostream &os,
 void AmrLevelAdv::writePlotFile(const std::string &dir, std::ostream &os,
                                 VisMF::How how)
 {
-
     AmrLevel::writePlotFile(dir, os, how);
 }
 
@@ -250,7 +251,7 @@ void AmrLevelAdv::initData()
     FillPatcherFill(Sborder, 0, NUM_STATE, NUM_GROW, 0, Consv_Type, 0);
     IMEXSettings settings; // can just pass default settings to
                            // compute_pressure, doesn't make a difference
-    compute_pressure(Sborder, Sborder, P_new, settings);
+    compute_pressure(Sborder, Sborder, P_new, geom, 0, settings);
     AMREX_ASSERT(!P_new.contains_nan());
 
     if (verbose)
@@ -340,16 +341,16 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
 {
     if (verbose)
         Print() << "Starting advance:" << std::endl;
-    MultiFab &S_mm = get_new_data(Consv_Type);
+    // MultiFab &S_mm = get_new_data(Consv_Type);
     MultiFab &P_mm = get_new_data(Pressure_Type);
 
     // Note that some useful commands exist - the maximum and minumum
     // values on the current level can be computed directly - here the
     // max and min of variable 0 are being calculated, and output.
-    Real maxval = S_mm.max(0);
-    Real minval = S_mm.min(0);
-    amrex::Print() << "phi max = " << maxval << ", min = " << minval
-                   << std::endl;
+    // Real maxval = S_mm.max(0);
+    // Real minval = S_mm.min(0);
+    // amrex::Print() << "phi max = " << maxval << ", min = " << minval
+    //                << std::endl;
 
     // This ensures that all data computed last time step is moved from
     // `new' data to `old data' - this should not need changing If more
@@ -422,7 +423,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     FillPatcherFill(Sborder, 0, NUM_STATE, NUM_GROW, time, Consv_Type, 0);
 
     if (verbose)
-        Print() << "\tFilled ghost states" << std::endl;
+        AllPrint() << "\tFilled ghost states" << std::endl;
 
     if (num_method == NumericalMethods::muscl_hancock
         || num_method == NumericalMethods::hllc)
@@ -561,11 +562,15 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     }
     else if (num_method == NumericalMethods::imex)
     {
+        if (imex_settings.stabilize && do_reflux && this->parent->maxLevel() > 0)
+            amrex::Abort("Refluxing with high-Mach number stabilisation not "
+                         "supported!");
+
         MultiFab::Copy(P_new, P_mm, 0, 0, 1, 2);
         // TODO: check if ghost cells are actually filled in P_new and P_mm
-        advance_imex_rk(time, geom, Sborder, S_new, P_new, fluxes, dt,
-                        get_state_data(Consv_Type).descriptor()->getBCs(),
-                        imex_settings);
+        advance_imex_rk_stab(time, geom, Sborder, S_new, P_new, fluxes, dt,
+                             get_state_data(Consv_Type).descriptor()->getBCs(),
+                             imex_settings);
     }
     else if (num_method == NumericalMethods::rcm)
     {

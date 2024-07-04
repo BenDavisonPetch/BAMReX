@@ -13,7 +13,11 @@ class IMEXButcherTableau
   public:
     enum TableauType
     {
-        SP111
+        SP111,
+        SSP222,
+        SASSP322,
+        SASSP332,
+        SSP433
     };
 
     static TableauType enum_from_string(const std::string &name);
@@ -57,8 +61,8 @@ IMEXButcherTableau::get_A_imp_row(int row, amrex::Real mult) const
 AMREX_FORCE_INLINE amrex::Vector<amrex::Real>
 IMEXButcherTableau::get_A_exp_row(int row, amrex::Real mult) const
 {
-    amrex::Vector<amrex::Real> r(m_n_steps_exp);
-    for (int i = 0; i < m_n_steps_exp; ++i) r[i] = A_exp[row][i] * mult;
+    amrex::Vector<amrex::Real> r(m_n_steps_imp);
+    for (int i = 0; i < m_n_steps_imp; ++i) r[i] = A_exp[row][i] * mult;
     return r;
 }
 

@@ -84,12 +84,19 @@ void compute_velocity(const amrex::Box &bx, const amrex::FArrayBox &state,
 
 /**
  * Used by the RK method to retrieve the pressure for given initial conditions.
+ *
+ * @param statein_exp_new \[ (U_E)^l \]
+ * @param statein_exp_old \[ (U_E)^{l-1} \]
+ * @param a_pressure
+ * @param geom
+ * @param adt \[ a_{ll} \Delta t \]
+ * @param settings
  */
 AMREX_GPU_HOST
 void compute_pressure(const amrex::MultiFab &statein_exp_new,
                       const amrex::MultiFab &statein_exp_old,
-                      amrex::MultiFab       &a_pressure,
-                      const IMEXSettings    &settings);
+                      amrex::MultiFab &a_pressure, const amrex::Geometry &geom,
+                      const amrex::Real adt, const IMEXSettings &settings);
 
 AMREX_GPU_HOST
 void pressure_source_vector(const amrex::Box       &bx,
