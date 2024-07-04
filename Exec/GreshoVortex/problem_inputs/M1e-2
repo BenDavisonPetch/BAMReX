@@ -1,0 +1,14 @@
+stop_time = 1
+
+prob.adiabatic  = 1.4
+init.M = 0.01
+
+geometry.is_periodic =  0 0 0
+geometry.coord_sys   =  0       # 0 => cart
+geometry.prob_lo     =  -0.5  -0.5  -0.5
+geometry.prob_hi     =  0.5  0.5  0.5
+
+limiting.limiter = superbee
+limiting.density = energy
+limiting.mom     = energy energy energy
+limiting.energy  = energy
