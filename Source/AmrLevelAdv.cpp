@@ -339,6 +339,7 @@ void AmrLevelAdv::init()
 Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
                           int /*ncycle*/)
 {
+    BL_PROFILE("AmrLevelAdv::advance()")
     if (verbose)
         Print() << "Starting advance:" << std::endl;
     // MultiFab &S_mm = get_new_data(Consv_Type);
@@ -424,6 +425,8 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
 
     if (verbose)
         AllPrint() << "\tFilled ghost states" << std::endl;
+
+    BL_PROFILE_VAR("AmrLevelAdv::flux_computation", pflux_computation);
 
     if (num_method == NumericalMethods::muscl_hancock
         || num_method == NumericalMethods::hllc)
@@ -562,7 +565,8 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     }
     else if (num_method == NumericalMethods::imex)
     {
-        if (imex_settings.stabilize && do_reflux && this->parent->maxLevel() > 0)
+        if (imex_settings.stabilize && do_reflux
+            && this->parent->maxLevel() > 0)
             amrex::Abort("Refluxing with high-Mach number stabilisation not "
                          "supported!");
 
@@ -593,6 +597,8 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     {
         amrex::Abort("Invalid scheme!");
     }
+
+    BL_PROFILE_VAR_STOP(pflux_computation);
 
     // The fluxes now need scaling for the reflux command.
     // This scaling is by the size of the boundary through which the flux
@@ -686,6 +692,7 @@ void AmrLevelAdv::fill_boundary(amrex::MultiFab &fab)
 //
 Real AmrLevelAdv::estTimeStep(Real)
 {
+    BL_PROFILE("AmrLevelAdv::estTimeStep()")
     GpuArray<Real, BL_SPACEDIM> dx = geom.CellSizeArray();
     // GpuArray<Real, BL_SPACEDIM> prob_lo  = geom.ProbLoArray();
     const Real      cur_time = state[Consv_Type].curTime();
@@ -757,6 +764,7 @@ void AmrLevelAdv::computeInitialDt(int finest_level, int /*sub_cycle*/,
                                    const Vector<IntVect> & /*ref_ratio*/,
                                    Vector<Real> &dt_level, Real stop_time)
 {
+    BL_PROFILE("AmrLevelAdv::computeInitialDt()")
     //
     // Grids have been constructed, compute dt for all levels.
     //
@@ -807,6 +815,7 @@ void AmrLevelAdv::computeNewDt(int          finest_level, int /*sub_cycle*/,
                                Vector<Real> &dt_min, Vector<Real> &dt_level,
                                Real stop_time, int post_regrid_flag)
 {
+    BL_PROFILE("AmrLevelAdv::computeNewDt()")
     //
     // We are at the end of a coarse grid timecycle.
     // Compute the timesteps for the next iteration.

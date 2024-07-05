@@ -27,6 +27,7 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
                      const amrex::Vector<amrex::BCRec>             &domainbcs,
                      const IMEXSettings                             settings)
 {
+    BL_PROFILE("advance_imex_rk()");
     AMREX_ASSERT(!pressure.contains_nan()); // pressure must be initialised!
     AMREX_ASSERT(pressure.nGrow() >= 2);
 
@@ -104,6 +105,7 @@ void advance_imex_rk_stab(
     const amrex::Real dt, const amrex::Vector<amrex::BCRec> &domainbcs,
     const IMEXSettings settings)
 {
+    BL_PROFILE("advance_imex_rk_stab()");
     if (!settings.stabilize)
     {
         advance_imex_rk(time, geom, statein, stateout, pressure, fluxes, dt,
@@ -196,6 +198,7 @@ void sum_fluxes(
     amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &dst,
     const amrex::Vector<amrex::Real>              &weighting)
 {
+    BL_PROFILE("sum_fluxes()");
     AMREX_ASSERT(fluxes.size() == weighting.size());
     int size = fluxes.size();
 #ifdef AMREX_USE_OMP
@@ -237,6 +240,7 @@ compute_shock_indicator(const amrex::Geometry &geom, amrex::MultiFab &dst,
                         const amrex::Vector<amrex::BCRec> &domainbcs,
                         const amrex::Real                  k1)
 {
+    BL_PROFILE("compute_shock_indicator()");
 #ifdef DEBUG
     ParmParse pp("amr");
     int       max_level;

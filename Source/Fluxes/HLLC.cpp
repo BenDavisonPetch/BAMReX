@@ -24,6 +24,7 @@ AMREX_GPU_HOST void compute_HLLC_flux_LR(
     amrex::GpuArray<amrex::Real, BL_SPACEDIM> const & /*dx_arr*/,
     amrex::Real /*dt*/)
 {
+    BL_PROFILE("compute_HLLC_flux_LR()");
     const int NSTATE = AmrLevelAdv::NUM_STATE;
     // const Real         dx     = dx_arr[dir];
 

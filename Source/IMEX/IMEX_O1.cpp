@@ -24,6 +24,7 @@ void compute_flux_imex_o1(
     const amrex::Real dt, const amrex::Vector<amrex::BCRec> &domainbcs,
     const IMEXSettings &settings)
 {
+    BL_PROFILE("compute_flux_imex_o1()");
     AMREX_ASSERT(statein_imp.nGrow() >= 2);
     AMREX_ASSERT(statein_exp.nGrow() >= 2);
     AMREX_ASSERT(pressure.nGrow() >= 2);
@@ -165,6 +166,7 @@ void compute_enthalpy(const amrex::Box &bx, const amrex::FArrayBox &statein,
                       amrex::FArrayBox &a_pressure, amrex::FArrayBox &enthalpy,
                       const IMEXSettings &settings)
 {
+    BL_PROFILE("compute_enthalpy()");
     const Array4<const Real> in   = statein.const_array();
     const Array4<const Real> exp  = stateexp.const_array();
     const Array4<Real>       enth = enthalpy.array();
@@ -218,6 +220,7 @@ compute_ke(const amrex::Box &bx, const amrex::FArrayBox &statein,
            const amrex::FArrayBox &stateexp, const amrex::FArrayBox &statenew,
            amrex::FArrayBox &ke, const IMEXSettings &settings)
 {
+    BL_PROFILE("compute_ke()");
     const Array4<Real> kearr = ke.array();
     if (!settings.linearise)
     {
@@ -261,6 +264,7 @@ AMREX_GPU_HOST
 void compute_velocity(const amrex::Box &bx, const amrex::FArrayBox &state,
                       amrex::FArrayBox &dst)
 {
+    BL_PROFILE("compute_velocity()");
     AMREX_ASSERT(state.nComp() == EULER_NCOMP);
     AMREX_ASSERT(dst.nComp() == AMREX_SPACEDIM);
     const auto &in  = state.const_array();
@@ -278,6 +282,7 @@ void compute_pressure(const amrex::MultiFab &statein_exp_new,
                       amrex::MultiFab &a_pressure, const amrex::Geometry &geom,
                       const amrex::Real adt, const IMEXSettings &settings)
 {
+    BL_PROFILE("compute_pressure()");
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -326,11 +331,10 @@ void compute_pressure(const amrex::MultiFab &statein_exp_new,
                 FArrayBox                     dummy;
                 GpuArray<Box, AMREX_SPACEDIM> dummy_bx;
                 if (settings.advection_flux == IMEXSettings::rusanov)
-                    advance_rusanov_adv(0, bx, dummy_bx,
-                    statein_exp_old[mfi],
+                    advance_rusanov_adv(0, bx, dummy_bx, statein_exp_old[mfi],
                                         statein_exp_old[mfi], consv_exp,
-                                        AMREX_D_DECL(dummy, dummy, dummy),
-                                        dx, adt);
+                                        AMREX_D_DECL(dummy, dummy, dummy), dx,
+                                        adt);
                 else if (settings.advection_flux
                          == IMEXSettings::muscl_rusanov)
                     advance_MUSCL_rusanov_adv(
@@ -352,8 +356,7 @@ void compute_pressure(const amrex::MultiFab &statein_exp_new,
                                        * (AMREX_D_TERM(
                                            ex(i, j, k, 1) * ex(i, j, k, 1),
                                            +ex(i, j, k, 2) * ex(i, j, k, 2),
-                                           +ex(i, j, k, 3) * ex(i, j, k,
-                                           3)))
+                                           +ex(i, j, k, 3) * ex(i, j, k, 3)))
                                        / snew(i, j, k, 0));
                     });
             }
@@ -395,6 +398,7 @@ void pressure_source_vector(const amrex::Box       &bx,
                             AMREX_D_DECL(amrex::Real hdtdx, amrex::Real hdtdy,
                                          amrex::Real hdtdz))
 {
+    BL_PROFILE("pressure_source_vector()");
     const Real               epsilon  = AmrLevelAdv::h_prob_parm->epsilon;
     const Array4<const Real> consv_ex = stateexp.const_array();
     const Array4<const Real> enth     = enthalpy.const_array();
@@ -430,6 +434,7 @@ void update_momentum(const amrex::Box &bx, const amrex::FArrayBox &stateex,
                      AMREX_D_DECL(amrex::Real hdtdxe, amrex::Real hdtdye,
                                   amrex::Real hdtdze))
 {
+    BL_PROFILE("update_momentum()");
     const auto &out = dst.array();
     const auto &p   = pressure.const_array();
     const auto &ex  = stateex.const_array();
@@ -460,6 +465,7 @@ void update_momentum_flux(
     AMREX_D_DECL(amrex::FArrayBox &fx, amrex::FArrayBox &fy,
                  amrex::FArrayBox &fz))
 {
+    BL_PROFILE("update_momentum_flux()");
     AMREX_D_TERM(const auto &fluxx = fx.array();
                  , const auto &fluxy = fy.array();
                  , const auto &fluxz = fz.array();)
@@ -489,6 +495,7 @@ void update_energy_flux(
                  amrex::FArrayBox &fz),
     AMREX_D_DECL(amrex::Real hdtdxe, amrex::Real hdtdye, amrex::Real hdtdze))
 {
+    BL_PROFILE("update_energy_flux()");
     const auto &p    = pressure.const_array();
     const auto &ex   = stateex.const_array();
     const auto &enth = enthalpy.const_array();
@@ -544,6 +551,7 @@ void setup_pressure_op(
     amrex::MLABecLaplacianGrad &pressure_op, const amrex::Real dt,
     const amrex::Vector<amrex::BCRec> &domainbcs, const IMEXSettings &settings)
 {
+    BL_PROFILE("details::setup_pressure_op()");
     const bool use_grad_term
         = (settings.linearise && settings.ke_method == IMEXSettings::split);
     AMREX_ASSERT(enthalpy.nComp() == 1);
@@ -592,6 +600,7 @@ void solve_pressure(const amrex::Geometry &geom, const amrex::MultiFab &rhs,
                     const amrex::Vector<amrex::BCRec> &domainbcs,
                     const IMEXSettings                &settings)
 {
+    BL_PROFILE("details::solve_pressure()");
     AMREX_ASSERT(pressure.nComp() == 1);
     AMREX_ASSERT(rhs.nComp() == 1);
     // Configure solver
@@ -616,6 +625,7 @@ void solve_pressure(const amrex::Geometry &geom, const amrex::MultiFab &rhs,
 AMREX_GPU_HOST
 void copy_pressure(const amrex::MultiFab &statesrc, amrex::MultiFab &dst)
 {
+    BL_PROFILE("copy_pressure()");
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -683,6 +693,7 @@ void picard_iterate(
     AMREX_D_DECL(amrex::Real hdtdxe, amrex::Real hdtdye, amrex::Real hdtdze),
     const amrex::Vector<amrex::BCRec> &domainbcs, const IMEXSettings &settings)
 {
+    BL_PROFILE("picard_iterate()");
     MultiFab residual;
     if (settings.compute_residual)
         residual.define(pressure.boxArray(), pressure.DistributionMap(), 1, 0);

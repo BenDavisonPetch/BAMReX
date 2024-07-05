@@ -31,6 +31,19 @@ if(NOT DEFINED AMReX_ROOT)
     endif()
 endif()
 
+if(NOT DEFINED HYPRE_DIR)
+    message(
+        WARNING
+            "HYPRE_DIR has not been \
+            specified. Make sure to pass the argument \
+            -DHYPRE_DIR=/path/to/hypre to cmake if using an \
+            AMReX installation with HYPRE support"
+    )
+else()
+    set(HYPRE_LIBRARIES ${HYPRE_DIR}/lib/libHYPRE.a)
+    set(HYPRE_INCLUDE_DIRS ${HYPRE_DIR}/include)
+endif()
+
 # Finding packages
 find_package(AMReX PATHS ${AMReX_ROOT}/lib/cmake/AMReX
                    REQUIRED 1D 2D 3D NO_DEFAULT_PATH)

@@ -59,6 +59,7 @@ AMREX_GPU_HOST void reconstruct_and_half_time_step(
     const amrex::Array4<const amrex::Real>          &consv_values,
     amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr, amrex::Real dt)
 {
+    BL_PROFILE("reconstruct_and_half_time_step()");
     const Real &dx = dx_arr[dir];
     // Temporary fab
     FArrayBox tmpfab;

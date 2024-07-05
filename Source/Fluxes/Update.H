@@ -58,6 +58,7 @@ void conservative_update(
     const amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
     amrex::MultiFab &stateout, amrex::Real dt)
 {
+    BL_PROFILE("conservative_update(geom, statein, fluxes, stateout, dt)");
     using namespace amrex;
     const auto &idx = geom.InvCellSizeArray();
 #ifdef AMREX_USE_OMP
@@ -84,6 +85,7 @@ void conservative_update(
     amrex::FArrayBox &stateout, amrex::Real dt,
     const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &idx)
 {
+    BL_PROFILE("conservative_update(bx, statein, fx, fy, fz)");
     AMREX_ASSERT(statein.nComp() == stateout.nComp());
     AMREX_ASSERT(fx.nComp() == statein.nComp());
 
@@ -118,6 +120,7 @@ void conservative_update(
                     &fluxes,
     amrex::MultiFab &stateout, amrex::Vector<amrex::Real> dt, int N)
 {
+    BL_PROFILE("conservative_update(geom, statein, fluxes, stateout, dt, N)");
     using namespace amrex;
 
     AMREX_ASSERT(fluxes.size() >= N);
@@ -151,6 +154,8 @@ void conservative_update(
     const amrex::Array4<amrex::Real> &stateout, amrex::Vector<amrex::Real> &dt,
     const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &idx, int N)
 {
+    BL_PROFILE(
+        "conservative_update(bx, statein, fluxes, stateout, dt, idx, N)");
     using namespace amrex;
 
     AMREX_ASSERT(statein.nComp() == stateout.nComp());

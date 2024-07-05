@@ -19,6 +19,7 @@ void advance_rusanov_adv(const amrex::Real /*time*/, const amrex::Box &bx,
                          amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx,
                          const amrex::Real                            dt)
 {
+    BL_PROFILE("advance_rusanov_adv()");
     const int     NSTATE  = AmrLevelAdv::NUM_STATE;
     constexpr int STENSIL = 1;
     const Box     gbx     = amrex::grow(bx, STENSIL);
@@ -123,13 +124,13 @@ void advance_MUSCL_rusanov_adv(const amrex::Real, const amrex::Box &bx,
                                             amrex::FArrayBox &fy,
                                             amrex::FArrayBox &fz),
                                amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx,
-                               const amrex::Real                            dt,
-                               bool local_time_step)
+                               const amrex::Real dt, bool local_time_step)
 {
+    BL_PROFILE("advance_MUSCL_rusanov_adv()");
     const Box gbx = amrex::grow(bx, 1);
 
     constexpr int ntmpcomps = EULER_NCOMP * 5 * AMREX_SPACEDIM;
-    FArrayBox tmpfab;
+    FArrayBox     tmpfab;
     tmpfab.resize(gbx, ntmpcomps, The_Async_Arena());
     // Using the Async Arena stops temporary fab from having its destructor
     // called too early. It is equivalent on old versions of CUDA to using
@@ -175,7 +176,8 @@ void advance_MUSCL_rusanov_adv(const amrex::Real, const amrex::Box &bx,
 
     AMREX_D_TERM(const Real dtdx = dt / dx[0];, const Real dtdy = dt / dx[1];
                  , const Real                              dtdz = dt / dx[2];)
-    const GpuArray<Real, AMREX_SPACEDIM> hdtdxarr{AMREX_D_DECL(0.5*dtdx,0.5*dtdy, 0.5*dtdz)};
+    const GpuArray<Real, AMREX_SPACEDIM> hdtdxarr{ AMREX_D_DECL(
+        0.5 * dtdx, 0.5 * dtdy, 0.5 * dtdz) };
 
     // Now we can do actual computation
 
@@ -201,31 +203,35 @@ void advance_MUSCL_rusanov_adv(const amrex::Real, const amrex::Box &bx,
 
     if (local_time_step)
     {
-    // Compute physical fluxes
-    ParallelFor(
-        gbx,
-        [=] AMREX_GPU_DEVICE(int i, int j, int k)
-        {
-            AMREX_D_TERM(adv_flux<0>(i, j, k, state_L[0], adv_fluxes_L[0]);
-                         , adv_flux<1>(i, j, k, state_L[1], adv_fluxes_L[1]);
-                         , adv_flux<2>(i, j, k, state_L[2], adv_fluxes_L[2]);)
-            AMREX_D_TERM(adv_flux<0>(i, j, k, state_R[0], adv_fluxes_R[0]);
-                         , adv_flux<1>(i, j, k, state_R[1], adv_fluxes_R[1]);
-                         , adv_flux<2>(i, j, k, state_R[2], adv_fluxes_R[2]);)
-        });
-    
-    // Local update
-    for (int d = 0; d < AMREX_SPACEDIM; ++d)
-    {
+        // Compute physical fluxes
         ParallelFor(
-            gbx, EULER_NCOMP,
-            [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
+            gbx,
+            [=] AMREX_GPU_DEVICE(int i, int j, int k)
             {
-                const Real local_update = hdtdxarr[d] * (adv_fluxes_R[d](i,j,k,n) - adv_fluxes_L[d](i,j,k,n));
-                state_L[d](i,j,k,n) -= local_update;
-                state_R[d](i,j,k,n) -= local_update;
+                AMREX_D_TERM(
+                    adv_flux<0>(i, j, k, state_L[0], adv_fluxes_L[0]);
+                    , adv_flux<1>(i, j, k, state_L[1], adv_fluxes_L[1]);
+                    , adv_flux<2>(i, j, k, state_L[2], adv_fluxes_L[2]);)
+                AMREX_D_TERM(
+                    adv_flux<0>(i, j, k, state_R[0], adv_fluxes_R[0]);
+                    , adv_flux<1>(i, j, k, state_R[1], adv_fluxes_R[1]);
+                    , adv_flux<2>(i, j, k, state_R[2], adv_fluxes_R[2]);)
             });
-    }
+
+        // Local update
+        for (int d = 0; d < AMREX_SPACEDIM; ++d)
+        {
+            ParallelFor(gbx, EULER_NCOMP,
+                        [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
+                        {
+                            const Real local_update
+                                = hdtdxarr[d]
+                                  * (adv_fluxes_R[d](i, j, k, n)
+                                     - adv_fluxes_L[d](i, j, k, n));
+                            state_L[d](i, j, k, n) -= local_update;
+                            state_R[d](i, j, k, n) -= local_update;
+                        });
+        }
     }
 
     // Compute physical fluxes

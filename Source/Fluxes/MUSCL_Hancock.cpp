@@ -19,6 +19,7 @@ AMREX_GPU_HOST void compute_MUSCL_hancock_flux(
     const amrex::Array4<const amrex::Real>          &consv_values,
     amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr, amrex::Real dt)
 {
+    BL_PROFILE("compute_MUSCL_hancock_flux()");
     const Real adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
     const Real epsilon   = AmrLevelAdv::h_prob_parm->epsilon;
     // const Real &dx        = dx_arr[dir];
