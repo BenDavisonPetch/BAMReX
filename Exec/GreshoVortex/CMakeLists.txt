@@ -29,11 +29,5 @@ add_custom_target(run_gresho
         gresho_2d
 )
 
-add_custom_target(generate_visit_headers
-    COMMAND
-        bash -c [[for d in output/*/*/*/ ; do (cd ${d} ; ls -1 plt?????/Header | tee headers.visit); done]]
-    VERBATIM
-)
-
 file(CREATE_LINK ${CMAKE_CURRENT_SOURCE_DIR}/inputs
                  ${CMAKE_CURRENT_BINARY_DIR}/inputs SYMBOLIC)

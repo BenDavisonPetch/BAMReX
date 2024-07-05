@@ -15,18 +15,17 @@ endif()
 
 target_link_libraries(adv_2d AMReX::amrex_2d)
 
-add_custom_target(run_adv
-    COMMAND
-        rm -rf ${CMAKE_CURRENT_BINARY_DIR}/output
-    COMMAND
-        find ${CMAKE_CURRENT_SOURCE_DIR}/inputs -iname "inputs-*" -exec $<TARGET_FILE:adv_2d> {} \;
-    COMMAND
-        bash -c [[for d in output/*/*/ ; do (cd ${d} ; ls -1 plt?????/Header | tee headers.visit); done]]
-    VERBATIM
-    COMMENT "Running tests"
-    DEPENDS
-        adv_2d
-)
+if (AMReX_MPI STREQUAL "YES")
+    add_custom_target(run_adv_mpi
+        COMMAND
+            find ${CMAKE_CURRENT_SOURCE_DIR}/inputs-exp -iname "eps*" -exec mpirun -np 10 $<TARGET_FILE:adv_2d> {} \;
+        COMMAND
+            find ${CMAKE_CURRENT_SOURCE_DIR}/inputs-IMEX -iname "eps*" -exec $<TARGET_FILE:adv_2d> {} \;
+        VERBATIM
+        DEPENDS
+            adv_2d
+    )
+endif()
 
 file(CREATE_LINK ${CMAKE_CURRENT_SOURCE_DIR}/inputs
                  ${CMAKE_CURRENT_BINARY_DIR}/inputs SYMBOLIC)
