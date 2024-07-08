@@ -126,13 +126,11 @@ void advance_MUSCL_rusanov_adv(const amrex::Real, const amrex::Box &bx,
                                amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx,
                                const amrex::Real dt, bool local_time_step)
 {
-    BL_PROFILE_REGION("advance_MUSCL_rusanov_adv()");
     BL_PROFILE("advance_MUSCL_rusanov_adv()");
     const Box gbx = amrex::grow(bx, 1);
 
     constexpr int ntmpcomps = EULER_NCOMP * 5 * AMREX_SPACEDIM;
-    FArrayBox     tmpfab;
-    tmpfab.resize(gbx, ntmpcomps, The_Async_Arena());
+    FArrayBox     tmpfab(gbx, ntmpcomps, The_Async_Arena());
     // Using the Async Arena stops temporary fab from having its destructor
     // called too early. It is equivalent on old versions of CUDA to using
     // Elixir

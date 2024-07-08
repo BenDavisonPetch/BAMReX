@@ -7,6 +7,7 @@
 
 #include <AMReX_PROB_AMR_F.H>
 #include <AMReX_Random.H>
+#include <AMReX_ParmParse.H>
 
 using namespace amrex;
 

@@ -14,6 +14,7 @@
 #include <AMReX_GpuControl.H>
 #include <AMReX_MFIter.H>
 #include <AMReX_ParallelDescriptor.H>
+#include <AMReX_ParmParse.H>
 #include <AMReX_REAL.H>
 
 using namespace amrex;
