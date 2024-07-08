@@ -31,3 +31,6 @@ add_custom_target(run_gresho
 
 file(CREATE_LINK ${CMAKE_CURRENT_SOURCE_DIR}/inputs
                  ${CMAKE_CURRENT_BINARY_DIR}/inputs SYMBOLIC)
+
+file(CREATE_LINK ${CMAKE_CURRENT_SOURCE_DIR}/profiling
+                 ${CMAKE_CURRENT_BINARY_DIR}/profiling SYMBOLIC)
