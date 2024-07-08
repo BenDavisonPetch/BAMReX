@@ -264,6 +264,7 @@ TEST_F(IMEXO1, GridSplitting)
     settings.linearise       = true;
     settings.ke_method       = IMEXSettings::ex;
     settings.enthalpy_method = IMEXSettings::conservative_ex;
+    settings.advection_flux  = IMEXSettings::rusanov;
 
     // compute first without grid splitting
     setup(false);

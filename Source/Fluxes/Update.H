@@ -8,6 +8,8 @@
 #include <AMReX_MFIter.H>
 #include <AMReX_MultiFab.H>
 
+#define MAX_UPDATE_STEPS 16
+
 //! Dimensionally unsplit
 AMREX_GPU_HOST
 AMREX_FORCE_INLINE
@@ -46,6 +48,16 @@ void conservative_update(
                                      AMREX_SPACEDIM> > &fluxes,
     const amrex::Array4<amrex::Real> &stateout, amrex::Vector<amrex::Real> &dt,
     const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &idx, int N);
+
+AMREX_GPU_HOST
+AMREX_FORCE_INLINE
+void conservative_update(
+    const amrex::Geometry &geom, const amrex::MultiFab &statein,
+    const amrex::Vector<amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> >
+                    &fluxes,
+    amrex::MultiFab &stateout1, amrex::MultiFab &stateout2,
+    const amrex::Vector<amrex::Real> &dt1,
+    const amrex::Vector<amrex::Real> &dt2, int N);
 
 //
 // Implementations
@@ -188,6 +200,93 @@ void conservative_update(
                                    - fluxes[iN][2](i, j, k, n)));
                     }
                 });
+}
+
+AMREX_GPU_HOST
+AMREX_FORCE_INLINE
+void conservative_update(
+    const amrex::Geometry &geom, const amrex::MultiFab &statein,
+    const amrex::Vector<amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> >
+                    &fluxes,
+    amrex::MultiFab &stateout1, amrex::MultiFab &stateout2,
+    const amrex::Vector<amrex::Real> &dt1,
+    const amrex::Vector<amrex::Real> &dt2, int N)
+{
+    BL_PROFILE("conservative_update(geom, statein, fluxes, stateout1, "
+               "stateout2, dt1, dt2, N)");
+    using namespace amrex;
+
+    AMREX_ASSERT(statein.nComp() == stateout1.nComp());
+    AMREX_ASSERT(statein.nComp() == stateout2.nComp());
+    AMREX_ASSERT(fluxes.size() >= N);
+    AMREX_ASSERT(dt1.size() >= N);
+    AMREX_ASSERT(dt2.size() >= N);
+    AMREX_ASSERT(MAX_UPDATE_STEPS >= N);
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    {
+        const auto &idx = geom.InvCellSizeArray();
+
+        GpuArray<Real, MAX_UPDATE_STEPS> AMREX_D_DECL(dtdx1, dtdy1, dtdz1);
+        GpuArray<Real, MAX_UPDATE_STEPS> AMREX_D_DECL(dtdx2, dtdy2, dtdz2);
+
+        for (int iN = 0; iN < N; ++iN)
+        {
+            AMREX_D_TERM(dtdx1[iN] = dt1[iN] * idx[0];
+                         , dtdy1[iN] = dt1[iN] * idx[1];
+                         , dtdz1[iN] = dt1[iN] * idx[2];)
+            AMREX_D_TERM(dtdx2[iN] = dt2[iN] * idx[0];
+                         , dtdy2[iN] = dt2[iN] * idx[1];
+                         , dtdz2[iN] = dt2[iN] * idx[2];)
+        }
+
+        for (MFIter mfi(statein, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
+            const auto &bx = mfi.tilebox();
+
+            const auto &out1 = stateout1.array(mfi);
+            const auto &out2 = stateout2.array(mfi);
+            const auto &in   = statein.const_array(mfi);
+            GpuArray<GpuArray<Array4<const Real>, AMREX_SPACEDIM>,
+                     MAX_UPDATE_STEPS>
+                fluxarr;
+            for (int d = 0; d < AMREX_SPACEDIM; ++d)
+                for (int iN = 0; iN < N; ++iN)
+                    fluxarr[iN][d] = fluxes[iN][d].const_array(mfi);
+
+            ParallelFor(bx, statein.nComp(),
+                        [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
+                        {
+                            out1(i, j, k, n) = in(i, j, k, n);
+                            out2(i, j, k, n) = in(i, j, k, n);
+                            for (int iN = 0; iN < N; ++iN)
+                            {
+                                out1(i, j, k, n) -= AMREX_D_TERM(
+                                    dtdx1[iN]
+                                        * (fluxarr[iN][0](i + 1, j, k, n)
+                                           - fluxarr[iN][0](i, j, k, n)),
+                                    +dtdy1[iN]
+                                        * (fluxarr[iN][1](i, j + 1, k, n)
+                                           - fluxarr[iN][1](i, j, k, n)),
+                                    +dtdz1[iN]
+                                        * (fluxarr[iN][2](i, j, k + 1, n)
+                                           - fluxarr[iN][2](i, j, k, n)));
+                                out2(i, j, k, n) -= AMREX_D_TERM(
+                                    dtdx2[iN]
+                                        * (fluxarr[iN][0](i + 1, j, k, n)
+                                           - fluxarr[iN][0](i, j, k, n)),
+                                    +dtdy2[iN]
+                                        * (fluxarr[iN][1](i, j + 1, k, n)
+                                           - fluxarr[iN][1](i, j, k, n)),
+                                    +dtdz2[iN]
+                                        * (fluxarr[iN][2](i, j, k + 1, n)
+                                           - fluxarr[iN][2](i, j, k, n)));
+                            }
+                        });
+        }
+    }
 }
 
 #endif

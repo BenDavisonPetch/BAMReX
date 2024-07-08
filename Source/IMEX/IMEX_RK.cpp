@@ -27,6 +27,7 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
                      const amrex::Vector<amrex::BCRec>             &domainbcs,
                      const IMEXSettings                             settings)
 {
+    BL_PROFILE_REGION("advance_imex_rk()");
     BL_PROFILE("advance_imex_rk()");
     AMREX_ASSERT(!pressure.contains_nan()); // pressure must be initialised!
     AMREX_ASSERT(pressure.nGrow() >= 2);
@@ -59,11 +60,10 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
         if (settings.verbose)
             Print() << "Starting RK stage " << stage << "..." << std::endl;
         // Put together Qe and Qs
+        const auto dt_imp = tableau.get_A_imp_row(stage, dt);
+        const auto dt_exp = tableau.get_A_exp_row(stage, dt);
         conservative_update(geom, statein, stage_fluxes, statein_imp,
-                            tableau.get_A_imp_row(stage, dt), stage);
-        conservative_update(geom, statein, stage_fluxes,
-                            statein_exp[stage % 2],
-                            tableau.get_A_exp_row(stage, dt), stage);
+                            statein_exp[stage % 2], dt_imp, dt_exp, stage);
         statein_exp[stage % 2].FillBoundary_nowait(geom.periodicity());
         statein_imp.FillBoundary_nowait(geom.periodicity());
         statein_exp[stage % 2].FillBoundary_finish();

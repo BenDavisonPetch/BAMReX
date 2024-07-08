@@ -409,13 +409,15 @@ TEST_F(BoxTest, RusanovAdvExpImp)
     // Advance with Rusanov flux
     const Real dt = 0.1;
 
-    MultiFab toupdate(statein.boxArray(), statein.DistributionMap(), statein.nComp(), statein.nGrow());
+    MultiFab toupdate(statein.boxArray(), statein.DistributionMap(),
+                      statein.nComp(), statein.nGrow());
     toupdate.setVal(1);
-    MultiFab::Saxpy(toupdate, 1.5, statein, 0, 0, toupdate.nComp(), toupdate.nGrow());
+    MultiFab::Saxpy(toupdate, 1.5, statein, 0, 0, toupdate.nComp(),
+                    toupdate.nGrow());
 
     MFIter_loop(
         0, geom, statein, stateout, fluxes, dt,
-        [&](const MFIter & mfi, const Real time, const Box &bx,
+        [&](const MFIter &mfi, const Real time, const Box &bx,
             GpuArray<Box, AMREX_SPACEDIM> nbx, const FArrayBox &infab,
             FArrayBox &outfab,
             AMREX_D_DECL(FArrayBox & fx, FArrayBox & fy, FArrayBox & fz),
@@ -435,9 +437,9 @@ TEST_F(BoxTest, RusanovAdvExpImp)
                      , const Real dtdz = dt / dx[2];)
         for (MFIter mfi(stateout, TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
-            const Box  &bx  = mfi.tilebox();
-            const auto &in  = statein.array(mfi);
-            const auto &out = stateout.array(mfi);
+            const Box &bx = mfi.tilebox();
+            // const auto &in  = statein.array(mfi);
+            const auto &out          = stateout.array(mfi);
             const auto &toupdate_arr = toupdate.const_array(mfi);
             AMREX_D_TERM(const auto &fluxx = fluxes[0].array(mfi);
                          , const auto &fluxy = fluxes[1].array(mfi);

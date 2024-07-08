@@ -99,6 +99,10 @@ class ConservativeUpdate : public UpdateTest
 {
 };
 
+class MultiConservativeUpdate : public UpdateTest
+{
+};
+
 #if AMREX_SPACEDIM != 3
 #error "3D tests only!"
 #endif
@@ -197,6 +201,91 @@ TEST_F(ConservativeUpdate, SumFluxes)
             {
                 EXPECT_NEAR(out1(i, j, k, n), out2(i, j, k, n),
                             fabs(out1(i, j, k, n) * 1e-12));
+            });
+    }
+}
+
+TEST_F(MultiConservativeUpdate, NormalSameAsWeightedVersion)
+{
+    setup(10, 5, 2, 3, 5); // dx = (0.1, 0.2, 0.5)
+    const Vector<Real> dts1 = { 0.1, 0.2, 0.6 };
+    const Vector<Real> dts2 = { 0.15, 0.8, 0.3 };
+    MultiFab           tmp1(ba, dm, EULER_NCOMP, 0);
+    MultiFab           tmp2(ba, dm, EULER_NCOMP, 0);
+    MultiFab           tmp3(ba, dm, EULER_NCOMP, 0);
+    MultiFab           tmp4(ba, dm, EULER_NCOMP, 0);
+    tmp1.setVal(0.5);
+    tmp2.setVal(0.25);
+    tmp3.setVal(-0.1);
+    tmp4.setVal(25);
+
+    MultiFab stateout1(ba, dm, EULER_NCOMP, 0);
+    MultiFab stateout2(ba, dm, EULER_NCOMP, 0);
+    MultiFab stateout3(ba, dm, EULER_NCOMP, 0);
+    MultiFab stateout4(ba, dm, EULER_NCOMP, 0);
+    stateout1.setVal(1);
+    stateout2.setVal(-1);
+    stateout3.setVal(1.5);
+    stateout4.setVal(-3.2);
+
+    // Do it one-by-one
+    conservative_update(geom, statein, fluxes[0], tmp1, dts1[0]);
+    conservative_update(geom, tmp1, fluxes[1], tmp2, dts1[1]);
+    conservative_update(geom, tmp2, fluxes[2], stateout1, dts1[2]);
+
+    conservative_update(geom, statein, fluxes[0], tmp3, dts2[0]);
+    conservative_update(geom, tmp3, fluxes[1], tmp4, dts2[1]);
+    conservative_update(geom, tmp4, fluxes[2], stateout3, dts2[2]);
+
+    // Now do multi conservative update
+    conservative_update(geom, statein, fluxes, stateout2, stateout4, dts1,
+                        dts2, 3);
+
+    for (MFIter mfi(stateout1, false); mfi.isValid(); ++mfi)
+    {
+        const auto &bx   = mfi.validbox();
+        const auto &out1 = stateout1.const_array(mfi);
+        const auto &out2 = stateout2.const_array(mfi);
+        const auto &out3 = stateout3.const_array(mfi);
+        const auto &out4 = stateout4.const_array(mfi);
+
+        For(bx, stateout1.nComp(),
+            [=](int i, int j, int k, int n)
+            {
+                EXPECT_NEAR(out1(i, j, k, n), out2(i, j, k, n),
+                            fabs(out1(i, j, k, n) * 1e-12));
+                EXPECT_NEAR(out3(i, j, k, n), out4(i, j, k, n),
+                            fabs(out3(i, j, k, n) * 1e-12));
+            });
+    }
+}
+
+TEST_F(MultiConservativeUpdate, StateCopying)
+{
+    // If N = 0 state should be copied
+    setup(10, 5, 2, 2, 5); // dx = (0.1, 0.2, 0.5)
+
+    MultiFab stateout1(ba, dm, EULER_NCOMP, 0);
+    stateout1.setVal(2);
+    MultiFab stateout2(ba, dm, EULER_NCOMP, 0);
+    stateout2.setVal(-0.4);
+    conservative_update(geom, statein, fluxes, stateout1, stateout2,
+                        { 0.1, 0.5 }, { 0.2, 0.6 }, 0);
+
+    for (MFIter mfi(stateout1, false); mfi.isValid(); ++mfi)
+    {
+        const auto &bx   = mfi.validbox();
+        const auto &out1 = stateout1.const_array(mfi);
+        const auto &out2 = stateout2.const_array(mfi);
+
+        const auto &in = statein.const_array(mfi);
+        For(bx, stateout1.nComp(),
+            [=](int i, int j, int k, int n)
+            {
+                EXPECT_NEAR(out1(i, j, k, n), in(i, j, k, n),
+                            fabs(in(i, j, k, n) * 1e-12));
+                EXPECT_NEAR(out2(i, j, k, n), in(i, j, k, n),
+                            fabs(in(i, j, k, n) * 1e-12));
             });
     }
 }
