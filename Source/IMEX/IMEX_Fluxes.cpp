@@ -126,6 +126,7 @@ void advance_MUSCL_rusanov_adv(const amrex::Real, const amrex::Box &bx,
                                amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx,
                                const amrex::Real dt, bool local_time_step)
 {
+    BL_PROFILE_REGION("advance_MUSCL_rusanov_adv()");
     BL_PROFILE("advance_MUSCL_rusanov_adv()");
     const Box gbx = amrex::grow(bx, 1);
 
@@ -182,24 +183,33 @@ void advance_MUSCL_rusanov_adv(const amrex::Real, const amrex::Box &bx,
     // Now we can do actual computation
 
     // Reconstruct
-    for (int d = 0; d < AMREX_SPACEDIM; ++d)
-    {
-        const int i_off = (d == 0) ? 1 : 0;
-        const int j_off = (d == 1) ? 1 : 0;
-        const int k_off = (d == 2) ? 1 : 0;
-        ParallelFor(
-            gbx, EULER_NCOMP,
-            [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-            {
-                const Real delta_L
-                    = in(i, j, k, n) - in(i - i_off, j - j_off, k - k_off, n);
-                const Real delta_R
-                    = in(i + i_off, j + j_off, k + k_off, n) - in(i, j, k, n);
-                const Real hdelta      = 0.5 * minmod(delta_L, delta_R);
-                state_L[d](i, j, k, n) = in(i, j, k, n) - hdelta;
-                state_R[d](i, j, k, n) = in(i, j, k, n) + hdelta;
-            });
-    }
+    BL_PROFILE_VAR("advance_MUSCL_rusanov_adv::reconstruction",
+                   preconstruction);
+    ParallelFor(gbx, EULER_NCOMP,
+                [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
+                {
+                    const Real delta_L_x = in(i, j, k, n) - in(i - 1, j, k);
+                    const Real delta_R_x = in(i + 1, j, k, n) - in(i, j, k, n);
+                    const Real hdelta_x  = 0.5 * minmod(delta_L_x, delta_R_x);
+                    state_L[0](i, j, k, n) = in(i, j, k, n) - hdelta_x;
+                    state_R[0](i, j, k, n) = in(i, j, k, n) + hdelta_x;
+
+#if AMREX_SPACEDIM >= 2
+                    const Real delta_L_y = in(i, j, k, n) - in(i, j - 1, k);
+                    const Real delta_R_y = in(i, j + 1, k, n) - in(i, j, k, n);
+                    const Real hdelta_y  = 0.5 * minmod(delta_L_y, delta_R_y);
+                    state_L[1](i, j, k, n) = in(i, j, k, n) - hdelta_y;
+                    state_R[1](i, j, k, n) = in(i, j, k, n) + hdelta_y;
+#endif
+#if AMREX_SPACEDIM == 3
+                    const Real delta_L_z = in(i, j, k, n) - in(i - 1, j, k);
+                    const Real delta_R_z = in(i + 1, j, k, n) - in(i, j, k, n);
+                    const Real hdelta_z  = 0.5 * minmod(delta_L_z, delta_R_z);
+                    state_L[2](i, j, k, n) = in(i, j, k, n) - hdelta_z;
+                    state_R[2](i, j, k, n) = in(i, j, k, n) + hdelta_z;
+#endif
+                });
+    BL_PROFILE_VAR_STOP(preconstruction);
 
     if (local_time_step)
     {
@@ -235,6 +245,7 @@ void advance_MUSCL_rusanov_adv(const amrex::Real, const amrex::Box &bx,
     }
 
     // Compute physical fluxes
+    BL_PROFILE_VAR("advance_MUSCL_rusanov_adv::physical_fluxes", pfluxes);
     ParallelFor(
         gbx,
         [=] AMREX_GPU_DEVICE(int i, int j, int k)
@@ -246,8 +257,10 @@ void advance_MUSCL_rusanov_adv(const amrex::Real, const amrex::Box &bx,
                          , adv_flux<1>(i, j, k, state_R[1], adv_fluxes_R[1]);
                          , adv_flux<2>(i, j, k, state_R[2], adv_fluxes_R[2]);)
         });
+    BL_PROFILE_VAR_STOP(pfluxes);
 
     // Compute Rusanov fluxes using reconstructed states
+    BL_PROFILE_VAR("advance_MUSCL_rusanov_adv::flux_calculation", pfluxcalc);
     for (int d = 0; d < AMREX_SPACEDIM; d++)
     {
         const int i_off = (d == 0) ? 1 : 0;
@@ -273,8 +286,10 @@ void advance_MUSCL_rusanov_adv(const amrex::Real, const amrex::Box &bx,
                                                n)));
             });
     }
+    BL_PROFILE_VAR_STOP(pfluxcalc);
 
     // Apply fluxes to state_toupdate
+    BL_PROFILE_VAR("advance_MUSCL_rusanov_adv::update", pupdate);
     ParallelFor(bx, EULER_NCOMP,
                 [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
                 {
@@ -290,10 +305,13 @@ void advance_MUSCL_rusanov_adv(const amrex::Real, const amrex::Box &bx,
                                               * (tfluxes_c[2](i, j, k + 1, n)
                                                  - tfluxes_c[2](i, j, k, n))));
                 });
+    BL_PROFILE_VAR_STOP(pupdate);
 
     // Copy temporary fluxes onto potentially smaller nodal tile
+    BL_PROFILE_VAR("advance_MUSCL_rusanov_adv::flux_copy", pfluxcopy);
     for (int d = 0; d < AMREX_SPACEDIM; d++)
         ParallelFor(nbx[d], EULER_NCOMP,
                     [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
                     { fluxes[d](i, j, k, n) = tfluxes_c[d](i, j, k, n); });
+    BL_PROFILE_VAR_STOP(pfluxcopy);
 }
