@@ -113,14 +113,14 @@ void write_exact_solution(
     Geometry   geom(domain, &real_box);
     const auto dx = geom.CellSizeArray();
 
-    for (MFIter mfi(mf, true); mfi.isValid(); ++mfi)
+    for (MFIter mfi(mf, false); mfi.isValid(); ++mfi)
     {
         const auto &bx  = mfi.tilebox();
         const auto &arr = mf.array(mfi);
 
-        compute_exact_RP_solution<0>(time, bx, dx, prob_lo, 0.5, primv_L,
-                                     primv_R, adiabatic_L, adiabatic_R,
-                                     epsilon, arr);
+        EulerExactRiemannSolver<0> rp_solver(primv_L, primv_R, adiabatic_L,
+                                             adiabatic_R, epsilon);
+        rp_solver.fill(time, 0.5, bx, dx, prob_lo, arr);
     }
     ParmParse   pp("amr");
     std::string plotfile_name;
