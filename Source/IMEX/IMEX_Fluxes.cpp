@@ -186,22 +186,22 @@ void advance_MUSCL_rusanov_adv(const amrex::Real, const amrex::Box &bx,
     ParallelFor(gbx, EULER_NCOMP,
                 [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
                 {
-                    const Real delta_L_x = in(i, j, k, n) - in(i - 1, j, k);
+                    const Real delta_L_x = in(i, j, k, n) - in(i - 1, j, k, n);
                     const Real delta_R_x = in(i + 1, j, k, n) - in(i, j, k, n);
                     const Real hdelta_x  = 0.5 * minmod(delta_L_x, delta_R_x);
                     state_L[0](i, j, k, n) = in(i, j, k, n) - hdelta_x;
                     state_R[0](i, j, k, n) = in(i, j, k, n) + hdelta_x;
 
 #if AMREX_SPACEDIM >= 2
-                    const Real delta_L_y = in(i, j, k, n) - in(i, j - 1, k);
+                    const Real delta_L_y = in(i, j, k, n) - in(i, j - 1, k, n);
                     const Real delta_R_y = in(i, j + 1, k, n) - in(i, j, k, n);
                     const Real hdelta_y  = 0.5 * minmod(delta_L_y, delta_R_y);
                     state_L[1](i, j, k, n) = in(i, j, k, n) - hdelta_y;
                     state_R[1](i, j, k, n) = in(i, j, k, n) + hdelta_y;
 #endif
 #if AMREX_SPACEDIM == 3
-                    const Real delta_L_z = in(i, j, k, n) - in(i - 1, j, k);
-                    const Real delta_R_z = in(i + 1, j, k, n) - in(i, j, k, n);
+                    const Real delta_L_z = in(i, j, k, n) - in(i, j, k - 1, n);
+                    const Real delta_R_z = in(i, j, k + 1, n) - in(i, j, k, n);
                     const Real hdelta_z  = 0.5 * minmod(delta_L_z, delta_R_z);
                     state_L[2](i, j, k, n) = in(i, j, k, n) - hdelta_z;
                     state_R[2](i, j, k, n) = in(i, j, k, n) + hdelta_z;
