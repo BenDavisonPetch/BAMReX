@@ -15,13 +15,16 @@ if ! [[ -e $2 ]]; then
     exit 1
 fi
 
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+echo ${SCRIPT_DIR}
+
 EXECUTABLE=`realpath ${2}`
 
 read -r -a wcresult <<< `wc -l $1`
 num_configs=${wcresult[0]}
 num_inputs=`find inputs/ -type f | wc -l`
 
-mkdir -p outputs
+mkdir -p ${SCRIPT_DIR}/outputs
 
 i=1
 while read -u 4 line; do
@@ -31,5 +34,11 @@ while read -u 4 line; do
     export OMP_NUM_THREADS=${splitline[1]}
     echo "    MPI_NUM_RANKS=${MPI_NUM_RANKS} OMP_NUM_THREADS=${OMP_NUM_THREADS}"
     ((++i))
-    find inputs/ -type f -exec bash -c 'mpirun -np '${MPI_NUM_RANKS}' '${EXECUTABLE}' $0 > outputs/$(basename $0).'${MPI_NUM_RANKS}'.${OMP_NUM_THREADS}' {} \; 
+    echo "RUN 1/3"
+    find ${SCRIPT_DIR}/inputs/ -type f -exec bash -c 'echo "    Starting test on input {}"; mpirun -np '${MPI_NUM_RANKS}' '${EXECUTABLE}' $0 amr.v=0 adv.v=0 amr.plot_files_output=0 > '${SCRIPT_DIR}'/outputs/$(basename $0).'${MPI_NUM_RANKS}'.${OMP_NUM_THREADS}.0; echo "    Done"' {} \; 
+    echo "RUN 2/3"
+    find ${SCRIPT_DIR}/inputs/ -type f -exec bash -c 'echo "    Starting test on input {}"; mpirun -np '${MPI_NUM_RANKS}' '${EXECUTABLE}' $0 amr.v=0 adv.v=0 amr.plot_files_output=0 > '${SCRIPT_DIR}'/outputs/$(basename $0).'${MPI_NUM_RANKS}'.${OMP_NUM_THREADS}.1; echo "    Done"' {} \; 
+    echo "RUN 3/3"
+    find ${SCRIPT_DIR}/inputs/ -type f -exec bash -c 'echo "    Starting test on input {}"; mpirun -np '${MPI_NUM_RANKS}' '${EXECUTABLE}' $0 amr.v=0 adv.v=0 amr.plot_files_output=0 > '${SCRIPT_DIR}'/outputs/$(basename $0).'${MPI_NUM_RANKS}'.${OMP_NUM_THREADS}.2; echo "    Done"' {} \; 
+    echo "DONE"
 done 4< $1
