@@ -36,7 +36,7 @@ void copy_to_symbol(OutIter symbol, InIter start, InIter end)
 #endif
 }
 
-};
-};
+}
+}
 
 #endif
