@@ -51,6 +51,7 @@ AMREX_GPU_HOST void compute_HLLC_flux_LR(
                 const auto euler_flux_L
                     = euler_flux<dir>(consv_values_L, adiabatic_L, epsilon,
                                       i - i_off, j - j_off, k - k_off);
+                AMREX_PRAGMA_SIMD
                 for (int n = 0; n < NSTATE; ++n)
                 {
                     flux(i, j, k, n) = euler_flux_L[n];
@@ -71,6 +72,7 @@ AMREX_GPU_HOST void compute_HLLC_flux_LR(
                     consv_values_L(i - i_off, j - j_off, k - k_off,
                                    1 + AMREX_SPACEDIM),
                     speed_L, speed_interm, epsilon);
+                AMREX_PRAGMA_SIMD
                 for (int n = 0; n < NSTATE; ++n)
                 {
                     flux(i, j, k, n)
@@ -92,6 +94,7 @@ AMREX_GPU_HOST void compute_HLLC_flux_LR(
                 HLLC_interm_state_replace<dir>(
                     primv_R, consv_values_R(i, j, k, 1 + AMREX_SPACEDIM),
                     speed_R, speed_interm, epsilon);
+                AMREX_PRAGMA_SIMD
                 for (int n = 0; n < NSTATE; ++n)
                 {
                     flux(i, j, k, n)
@@ -104,6 +107,7 @@ AMREX_GPU_HOST void compute_HLLC_flux_LR(
             {
                 const auto euler_flux_R = euler_flux<dir>(
                     consv_values_R, adiabatic_R, epsilon, i, j, k);
+                AMREX_PRAGMA_SIMD
                 for (int n = 0; n < NSTATE; ++n)
                 {
                     flux(i, j, k, n) = euler_flux_R[n];
