@@ -46,6 +46,7 @@ compute_flux_function(amrex::Real /*time*/, const amrex::Box &bx,
 AMREX_GPU_HOST
 amrex::Real max_wave_speed(amrex::Real /*time*/, const amrex::MultiFab &S_new)
 {
+    BL_PROFILE("max_wave_speed()");
     const Real adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
     const Real epsilon   = AmrLevelAdv::h_prob_parm->epsilon;
 
@@ -67,13 +68,16 @@ amrex::Real max_wave_speed(amrex::Real /*time*/, const amrex::MultiFab &S_new)
                    + velocity;
         });
     
+    BL_PROFILE_VAR("wave_wave_speed::ReduceRealMax", preduce);
     ParallelDescriptor::ReduceRealMax(wave_speed);
+    BL_PROFILE_VAR_STOP(preduce);
     return wave_speed;
 }
 
 AMREX_GPU_HOST
 amrex::Real max_speed(const amrex::MultiFab &state)
 {
+    BL_PROFILE("max_speed()");
     auto const &ma = state.const_arrays();
     auto wave_speed = ParReduce(
         TypeList<ReduceOpMax>{}, TypeList<Real>{}, state,
@@ -90,7 +94,9 @@ amrex::Real max_speed(const amrex::MultiFab &state)
             return { sqrt(u_sq) };
         });
 
+    BL_PROFILE_VAR("max_speed::ReduceRealMax", preduce);
     ParallelDescriptor::ReduceRealMax(wave_speed);
+    BL_PROFILE_VAR_STOP(preduce);
     return wave_speed;
 }
 
@@ -102,6 +108,7 @@ AMREX_GPU_HOST
 amrex::Real max_dx_scaled_speed(const amrex::MultiFab                &state,
                                 const GpuArray<Real, AMREX_SPACEDIM> &dx)
 {
+    BL_PROFILE("max_dx_scaled_speed()");
     auto const &ma = state.const_arrays();
     auto wave_speed = ParReduce(
         TypeList<ReduceOpMax>{}, TypeList<Real>{}, state,
@@ -116,7 +123,9 @@ amrex::Real max_dx_scaled_speed(const amrex::MultiFab                &state,
                    / consv(i, j, k, 0);
         });
 
+    BL_PROFILE_VAR("max_dx_scaled_speed::ReduceRealMax", preduce);
     ParallelDescriptor::ReduceRealMax(wave_speed);
+    BL_PROFILE_VAR_STOP(preduce);
     return wave_speed;
 }
 

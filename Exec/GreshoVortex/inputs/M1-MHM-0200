@@ -13,7 +13,7 @@ geometry.prob_lo     =  -0.5  -0.5  -0.5
 geometry.prob_hi     =  0.5  0.5  0.5
 
 # RESOLUTION
-amr.n_cell         =  200 200 200
+amr.n_cell         =  512 512 512
 
 # TIME STEP CONTROL
 adv.cfl            = 0.8   # cfl number for hyperbolic system
@@ -32,6 +32,7 @@ amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
 amr.blocking_factor = 1       # block factor in grid generation
 amr.max_grid_size   = 100
+DistributionMapping.strategy = SFC
 
 # CHECKPOINT FILES
 amr.checkpoint_files_output = 0     # 0 will disable checkpoint files
@@ -41,7 +42,7 @@ amr.check_int               = 10    # number of timesteps between checkpoints
 # PLOTFILES
 amr.plot_files_output = 1      # 0 will disable plot files
 amr.plot_file         = plt    # root name of plot file
-amr.plot_int          = 10 # number of timesteps between plot files
+amr.plot_int          = 100000 # number of timesteps between plot files
 amr.plot_file = output/MHM/M1/0200/plt
 
 # TRACER PARTICLES
