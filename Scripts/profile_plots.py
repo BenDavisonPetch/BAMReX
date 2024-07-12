@@ -50,6 +50,7 @@ ax[1].axline((1,1),slope=1,color="k",linestyle="-.", label="Ideal")
 
 
 fig.tight_layout(pad=0.8)
+fig.savefig("outputs/total_runtime.pdf", bbox_inches="tight")
 
 #
 # RUN TIME BREAKDOWN
@@ -64,8 +65,9 @@ GROUP_OTHER = True
 # Uses exclusive times
 mhm_profiling_sections = {"Flux computation" : ["compute_HLLC_flux_LR()", "reconstruct_and_half_time_step()", "compute_MUSCL_hancock_flux()", "AmrLevelAdv::flux_computation"],
                           "Time step computation" : ["max_wave_speed()", "AmrLevelAdv::computeNewDt()", "AmrLevelAdv::estTimeStep()", "wave_wave_speed::ReduceRealMax"],
-                          "Boundary filling" : ["FabArray::setDomainBndry()", "FillBoundary_nowait()", "FabArray::FillBoundary()"],
-                          "Copies" : ["amrex::Copy()", "FabArray::ParallelCopy_nowait()", "FabArray::mult()", "AmrLevel::FillPatch()", "FillPatchIterator::FillFromLevel0()", "FillPatchSingleLevel", "FabArray::ParallelCopy()", "AmrLevel::FillPatcherFill()"]
+                          "Boundary filling" : ["FabArray::setDomainBndry()", "FillBoundary_nowait()", "FabArray::FillBoundary()", "StateData::FillBoundary(geom)", "AmrLevel::FillPatch()"],
+                          "Copies" : ["amrex::Copy()", "FabArray::ParallelCopy_nowait()", "FabArray::mult()", "AmrLevel::FillPatch()", "FillPatchIterator::FillFromLevel0()", "FillPatchSingleLevel", "FabArray::ParallelCopy()", "AmrLevel::FillPatcherFill()"],
+                          "Barriers" : ["FillBoundary_finish()", "FabArray::ParallelCopy_finish()"]
                           }
 # Uses inclusive times (bc the linear solver output is a nightmare)
 imex_profiling_sections = {"Explicit update" : ["advance_MUSCL_rusanov_adv()"],
@@ -126,6 +128,9 @@ for imethod, method in enumerate(METHODS):
 
     for section, runtimes in section_runtimes.items():
         ax[imethod, 0].plot(runtimes.keys(), runtimes.values(), label=section)
+        if runtimes[1] == 0:
+            ax[imethod, 1].plot([], [], label=section)
+            continue
         if 1 in runtimes.keys():
             speedups = [runtimes[1]/runtime for runtime in runtimes.values()]
             ax[imethod, 1].plot(runtimes.keys(), speedups, label=section)
@@ -137,7 +142,7 @@ for imethod, method in enumerate(METHODS):
     ax[imethod, 0].set_xscale("log")
     ax[imethod, 0].set_yscale("log")
     # ax[imethod, 0].legend(fontsize=6)
-    ax[imethod, 1].legend(fontsize=6)
+    ax[imethod, 1].legend(loc="upper left", fontsize=6)
 
     ax[imethod, 1].axline((1,1),slope=1,color="k",linestyle="-.", label="Ideal")
 
@@ -145,5 +150,7 @@ text_ys = [1, 0.668, 0.343]
 for imethod, method in enumerate(METHODS):
     fig.text(0.5, text_ys[imethod], "\\textbf{" + method + "}", horizontalalignment="center")
 fig.tight_layout(pad=0.8)
+
+fig.savefig("outputs/runtime_breakdown.pdf", bbox_inches="tight")
 
 plt.show()
