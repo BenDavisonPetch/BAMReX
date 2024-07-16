@@ -12,9 +12,11 @@ MPI_RANKS = [1,2,4,8,16,32]
 fastest_runs = {}
 fastest_data = {}
 
+
 for method in METHODS:
     fastest_runs[method] = {}
     fastest_data[method] = {}
+    total_cputime = 0
     for res in RESOLUTIONS:
         fastest_runs[method][res] = {}
         fastest_data[method][res] = {}
@@ -27,9 +29,13 @@ for method in METHODS:
             profiledata = [parse_output(infile) for infile in infiles]
             for data in profiledata:
                 assert(data.mpi_num_ranks == mpi_num_ranks)
-            iminrun = np.argmin([data.run_time for data in profiledata])
+            runtimes = [data.run_time for data in profiledata]
+            total_cputime += sum(runtimes)*mpi_num_ranks
+            iminrun = np.argmin(runtimes)
             fastest_runs[method][res][mpi_num_ranks] = profiledata[iminrun].run_time
             fastest_data[method][res][mpi_num_ranks] = profiledata[iminrun]
+    print(f"Total cpu time for {method}: ", total_cputime)
+
 
 fig, ax = plt.subplots(2, 2, figsize=(7,6))
 for method in METHODS:

@@ -6,9 +6,12 @@ import glob
 PROFILE_LOG_DIR = "/home/bendp/practicals/remote_results/cerberus3-profiling/"
 NAME_FMT = "M1-{METHOD}-1024.{MPI_NUM_RANKS}.1.?"
 METHODS = ["MHM", "PESK-MUSCL-SSP222", "FI-MUSCL-SSP222"]
-MPI_RANKS = [1,2,4,6,8,12,16,20,24,28,32]
+# MPI_RANKS = [1,2,4,6,8,12,16,20,24,28,32]
+MPI_RANKS = [1,2,4,8,16,32]
 
 fastest_runs = {}
+
+total_cputime = 0
 
 for method in METHODS:
     fastest_runs[method] = {}
@@ -21,8 +24,17 @@ for method in METHODS:
         profiledata = [parse_output(infile) for infile in infiles]
         for data in profiledata:
             assert(data.mpi_num_ranks == mpi_num_ranks)
-        iminrun = np.argmin([data.run_time for data in profiledata])
+        runtimes = [data.run_time for data in profiledata]
+        total_cputime += sum(runtimes) * mpi_num_ranks
+        print(f"CPU time for {mpi_num_ranks} = {sum(runtimes) * mpi_num_ranks}")
+        iminrun = np.argmin(runtimes)
+        if max(runtimes) - min(runtimes) > runtimes[iminrun]*0.05:
+            print(f"WARNING: HIGH VARIATION IN RUN TIMES FOR {infile_pattern}:")
+            print(runtimes)
+            print()
         fastest_runs[method][mpi_num_ranks] = profiledata[iminrun]
+
+print(f"Total CPU time: {total_cputime}")
 
 #
 # RUN TIME VS MPI NUM RANKS

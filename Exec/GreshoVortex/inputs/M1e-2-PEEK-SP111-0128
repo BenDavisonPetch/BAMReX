@@ -1,17 +1,36 @@
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
-max_step = {max_step}
+max_step = 100000000
 
 ## PROBLEM INPUT
-{problem_input}
+stop_time = 1
+
+prob.adiabatic  = 1.4
+init.M = 1e-2
+
+geometry.is_periodic =  0 0 0
+geometry.coord_sys   =  0       # 0 => cart
+geometry.prob_lo     =  -0.5  -0.5  -0.5
+geometry.prob_hi     =  0.5  0.5  0.5
+
+limiting.limiter = superbee
+limiting.density = energy
+limiting.mom     = energy energy energy
+limiting.energy  = energy
 
 # RESOLUTION
-amr.n_cell         =  {resolution} {resolution} {resolution}
+amr.n_cell         =  128 128 128
 
 # TIME STEP CONTROL
-adv.cfl            = {cfl}   # cfl number for hyperbolic system
+adv.cfl            = 0.8   # cfl number for hyperbolic system
 
 ## NUMERICAL METHOD SETTINGS
-{num_method_settings}
+adv.num_method = imex
+imex.linearise                  = true
+imex.enthalpy_method            = reuse_pressure
+imex.ke_method                  = ex
+# imex.compute_residual           = true
+# imex.picard_max_iter            = 100
+imex.butcher_tableau            = SP111
 
 # VERBOSITY
 adv.v              = 0       # verbosity in Adv
@@ -33,8 +52,8 @@ amr.check_int               = 10    # number of timesteps between checkpoints
 # PLOTFILES
 amr.plot_files_output = 1      # 0 will disable plot files
 amr.plot_file         = plt    # root name of plot file
-amr.plot_int          = {max_step} # number of timesteps between plot files
-amr.plot_file = output/{num_method}/{testcase}/{resolution_padded}/plt
+amr.plot_int          = 100000000 # number of timesteps between plot files
+amr.plot_file = output/PEEK-SP111/M1e-2/0128/plt
 
 # TRACER PARTICLES
 adv.do_tracers = 0
