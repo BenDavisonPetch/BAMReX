@@ -19,9 +19,13 @@ def parse_output(output_file):
     else:
         mpi_num_ranks = 1
     lines = strip_output(lines)
-    assert(lines[0].startswith("Run time = "))
-    run_time = float(lines[0][len("Run time = "):])
-    min_proc_rt, avg_proc_rt, max_proc_rt = [float(x) for x in lines[1][len("TinyProfiler total time across processes [min...avg...max]: "):].split("...")]
+    if lines[0].startswith("Run time = "):
+        run_time = float(lines[0][len("Run time = "):])
+        min_proc_rt, avg_proc_rt, max_proc_rt = [float(x) for x in lines[1][len("TinyProfiler total time across processes [min...avg...max]: "):].split("...")]
+    else:
+        assert(lines[0].startswith("TinyProfiler total time across processes [min...avg...max]: "))
+        min_proc_rt, avg_proc_rt, max_proc_rt = [float(x) for x in lines[0][len("TinyProfiler total time across processes [min...avg...max]: "):].split("...")]
+        run_time = max_proc_rt
     hline_indices = lines_starting_with("-------------------------------", lines)
     excl_data = construct_df(lines[hline_indices[1]+1:hline_indices[2]])
     incl_data = construct_df(lines[hline_indices[4]+1:hline_indices[5]])
@@ -47,8 +51,13 @@ def lines_starting_with(phrase, lines):
 def strip_output(lines):
     lines = [line.strip() for line in lines if not line.isspace()]
     rt_indices = lines_starting_with("Run time", lines)
-    assert(len(rt_indices) == 1)
-    lines = lines[rt_indices[0]:]
+    assert(len(rt_indices) <= 1)
+    if (len(rt_indices) == 1):
+        lines = lines[rt_indices[0]:]
+    else:
+        tp_firstline_indices = lines_starting_with("TinyProfiler total time across processes", lines)
+        assert(len(tp_firstline_indices) == 1)
+        lines = lines[tp_firstline_indices[0]:]
     hline_indices = lines_starting_with("-------------------------------", lines)
     assert(len(hline_indices) >= 6)
     lines = lines[:hline_indices[5]+1]
