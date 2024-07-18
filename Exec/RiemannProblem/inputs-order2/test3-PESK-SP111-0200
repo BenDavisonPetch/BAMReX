@@ -4,6 +4,8 @@ max_step = 10000
 ## PROBLEM INPUT
 stop_time = 0.012
 
+imex.acoustic_timestep_end_time = 0.001
+
 prob.adiabatic  = 1.4
 init.density_L  = 1.0
 init.velocity_L = 0.0
