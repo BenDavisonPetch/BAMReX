@@ -1,38 +1,35 @@
-if [[ $# < 1 ]]; then
-    echo "Usage: run.sh MPI_NUM_RANKS [input_dir] [log_dir] [executable]"
+#!/bin/bash
+MPI_COMMAND=mpirun
+
+if [[ $# < 5 ]]; then
+    echo "Usage: run.sh mpi_tasks_per_node np executable input_dir log_dir [working_dir] [log_ext]"
     exit 1
 fi
 
-MPI_NUM_RANKS=$1
-if [[ -z "$2" ]]; then
-    INDIR=`realpath ./inputs`
-else
-    INDIR=`realpath ${2}`
-fi
-
-if [[ ! -d ${INDIR} ]]; then
-    echo "Input directory ${INDIR} does not exist"
-    exit 1
-fi
-
-if [[ -z "$3" ]]; then
-    LOGDIR=`realpath ./logs`
-else
-    LOGDIR=`realpath ${3}`
-fi
-
-if [[ -z "$4" ]]; then
-    EXECUTABLE=`realpath ./gresho_2d`
-else
-    EXECUTABLE=`realpath ${4}`
-fi
-
+mpi_tasks_per_node=$1
+np=$2
+EXECUTABLE=`realpath ${3}`
 if [[ ! -x ${EXECUTABLE} ]]; then
     echo "Cannot find executable ${EXECUTABLE}"
     exit 1
 fi
+INDIR=`realpath ${4}`
+if [[ ! -d ${INDIR} ]]; then
+    echo "Input directory ${INDIR} does not exist"
+    exit 1
+fi
+LOGDIR=`realpath ${5}`
+
+if [[ ! -z $6 ]]; then
+    if [[ ! -d $6 ]]; then
+        echo "Working directory ${6} does not exist"
+        exit 1
+    fi
+    cd ${6}
+fi
+LOG_EXT=$7
 
 mkdir -p ${LOGDIR}
 
-find ${INDIR} -type f -exec bash -c 'echo "Starting test {}"; mpirun -np '${MPI_NUM_RANKS}' '${EXECUTABLE}' $0 amr.v=0 adv.v=0 > '${LOGDIR}'/$(basename $0).'${MPI_NUM_RANKS}'; echo "    Done"' {} \;
+find ${INDIR} -type f -exec bash -c 'echo "Running {}"; '${MPI_COMMAND}' -npernode '${mpi_tasks_per_node}' -np '${np}' '${EXECUTABLE}' $0 amr.v=0 adv.v=0 > '${LOGDIR}'/$(basename $0).'${np}${LOG_EXT} {} \;
 
