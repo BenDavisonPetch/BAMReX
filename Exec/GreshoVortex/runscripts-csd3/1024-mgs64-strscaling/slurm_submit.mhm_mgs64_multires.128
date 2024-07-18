@@ -1,4 +1,3 @@
-
 #!/bin/bash
 #!
 #! Example SLURM job script for Peta4-IceLake (Ice Lake CPUs, HDR200 IB)

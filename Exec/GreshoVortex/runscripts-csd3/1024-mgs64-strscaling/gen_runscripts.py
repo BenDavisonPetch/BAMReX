@@ -32,8 +32,7 @@ runtimes = ["01:00:00",
             "00:02:00",
             "00:01:30"]
 
-script = r"""
-#!/bin/bash
+script = r"""#!/bin/bash
 #!
 #! Example SLURM job script for Peta4-IceLake (Ice Lake CPUs, HDR200 IB)
 #! Last updated: Sat Jul 31 15:39:45 BST 2021
