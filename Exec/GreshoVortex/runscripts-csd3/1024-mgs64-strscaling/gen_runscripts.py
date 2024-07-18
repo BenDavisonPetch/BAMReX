@@ -5,8 +5,9 @@ runscript = BAMReX_DIR+"/Scripts/Runscripts/run.sh"
 
 input_dir = BAMReX_DIR+"/Exec/GreshoVortex/profiling/inputs-MHM-multires"
 log_dir = BAMReX_DIR+"/build/Exec/GreshoVortex/profiling/outputs-1024-mgs64-full"
+work_dir = BAMReX_DIR+"/build/Exec/GreshoVortex"
 
-project = ""
+project = "NIKIFORAKIS-SL3-CPU"
 
 file_fmt = "slurm_submit.mhm_mgs64_multires.{_N_MPI_TASKS}"
 jobname_fmt = "mhm_mgs64_multires.{_N_MPI_TASKS}"
@@ -46,7 +47,7 @@ script = r"""#!/bin/bash
 #! Name of the job:
 #SBATCH -J {_JOB_NAME}
 #! Which project should be charged:
-##SBATCH -A {_PROJECT}
+#SBATCH -A {_PROJECT}
 #SBATCH -p icelake
 #! How many whole nodes should be allocated?
 #SBATCH --nodes={_N_NODES}
@@ -96,8 +97,9 @@ application=""
 options=""
 
 #! Work directory (i.e. where the job will run):
-workdir="$SLURM_SUBMIT_DIR"  # The value of SLURM_SUBMIT_DIR sets workdir to the directory
+#workdir="$SLURM_SUBMIT_DIR"  # The value of SLURM_SUBMIT_DIR sets workdir to the directory
                              # in which sbatch is run.
+workdir={_WORK_DIR}
 
 #! Are you using OpenMP (NB this is unrelated to OpenMPI)? If so increase this
 #! safe value to no more than 76:
@@ -174,6 +176,7 @@ for i in range(len(sizes)):
                                  _EXECUTABLE=executable,
                                  _INPUT_DIR=input_dir,
                                  _LOG_DIR=log_dir,
+                                 _WORK_DIR=work_dir,
                                  _JOB_NAME=jobname,
                                  _PROJECT=project)
     with open(filename, "w") as outfile:

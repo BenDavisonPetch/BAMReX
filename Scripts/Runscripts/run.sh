@@ -31,5 +31,5 @@ LOG_EXT=$7
 
 mkdir -p ${LOGDIR}
 
-find ${INDIR} -type f -exec bash -c 'echo "Running {}"; '${MPI_COMMAND}' -npernode '${mpi_tasks_per_node}' -np '${np}' '${EXECUTABLE}' $0 amr.v=0 adv.v=0 > '${LOGDIR}'/$(basename $0).'${np}${LOG_EXT} {} \;
+find ${INDIR} -type f -exec bash -c 'echo "Running {}"; '${MPI_COMMAND}' -ppn '${mpi_tasks_per_node}' -np '${np}' '${EXECUTABLE}' $0 amr.v=0 adv.v=0 > '${LOGDIR}'/$(basename $0).'${np}${LOG_EXT} {} \;
 

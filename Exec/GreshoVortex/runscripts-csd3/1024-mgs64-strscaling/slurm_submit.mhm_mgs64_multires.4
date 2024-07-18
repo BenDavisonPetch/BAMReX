@@ -12,7 +12,7 @@
 #! Name of the job:
 #SBATCH -J mhm_mgs64_multires.4
 #! Which project should be charged:
-##SBATCH -A 
+#SBATCH -A NIKIFORAKIS-SL3-CPU
 #SBATCH -p icelake
 #! How many whole nodes should be allocated?
 #SBATCH --nodes=1
@@ -62,8 +62,9 @@ application=""
 options=""
 
 #! Work directory (i.e. where the job will run):
-workdir="$SLURM_SUBMIT_DIR"  # The value of SLURM_SUBMIT_DIR sets workdir to the directory
+#workdir="$SLURM_SUBMIT_DIR"  # The value of SLURM_SUBMIT_DIR sets workdir to the directory
                              # in which sbatch is run.
+workdir=/rds/user/bd431/hpc-work/BAMReX/build/Exec/GreshoVortex
 
 #! Are you using OpenMP (NB this is unrelated to OpenMPI)? If so increase this
 #! safe value to no more than 76:
