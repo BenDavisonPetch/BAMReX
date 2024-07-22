@@ -184,7 +184,7 @@ for itest in range(len(test_names)):
         run_time = run_times[test_names[itest]][nproc]
         nnodes = math.ceil(nproc / n_cpus_per_node)
         # Generate CMD
-        CMD_list = []
+        CMD_list = ["mkdir -p {log_dir}".format(log_dir=log_dir)]
         for method_class in runs[nproc].keys():
             if method_class == "IMEX":
                 for method in imex_methods:
