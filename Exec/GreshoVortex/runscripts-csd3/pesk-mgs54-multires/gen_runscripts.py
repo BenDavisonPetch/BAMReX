@@ -1,4 +1,37 @@
-#!/bin/bash
+BAMReX_DIR = "/rds/user/bd431/hpc-work/BAMReX"
+
+executable = BAMReX_DIR+"/build/Exec/GreshoVortex/gresho_2d"
+runscript = BAMReX_DIR+"/Scripts/Runscripts/run_openmpi.sh"
+
+input_dir = BAMReX_DIR+"/Exec/GreshoVortex/profiling/inputs-PESK-multires"
+log_dir = BAMReX_DIR+"/build/Exec/GreshoVortex/profiling/outputs-pesk-mgs64-multires"
+work_dir = BAMReX_DIR+"/build/Exec/GreshoVortex"
+
+project = "NIKIFORAKIS-SL3-CPU"
+
+file_fmt = "slurm_submit.pesk_mgs64_multires.{_N_MPI_TASKS}"
+jobname_fmt = "pesk.{_N_MPI_TASKS}"
+
+# Formatted as [[n_nodes, n_tasks]]
+sizes = [[1, 1],
+         [1, 2],
+         [1, 4],
+         [1, 8],
+         [1, 16],
+         [1, 32],
+         [1, 64],
+         [2, 128]]
+
+runtimes = ["03:00:00",
+            "02:00:00",
+            "01:30:00",
+            "01:00:00",
+            "00:45:00",
+            "00:30:00",
+            "00:15:00",
+            "00:15:00"]
+
+script = r"""#!/bin/bash
 #!
 #! Example SLURM job script for Peta4-IceLake (Ice Lake CPUs, HDR200 IB)
 #! Last updated: Sat Jul 31 15:39:45 BST 2021
@@ -10,18 +43,18 @@
 
 #! sbatch directives begin here ###############################
 #! Name of the job:
-#SBATCH -J mhm_mgs64_multires.128
+#SBATCH -J {_JOB_NAME}
 #! Which project should be charged:
-#SBATCH -A NIKIFORAKIS-SL3-CPU
+#SBATCH -A {_PROJECT}
 #SBATCH -p icelake
 #! How many whole nodes should be allocated?
-#SBATCH --nodes=2
+#SBATCH --nodes={_N_NODES}
 #! How many (MPI) tasks will there be in total? (<= nodes*76)
 #! The Ice Lake (icelake) nodes have 76 CPUs (cores) each and
 #! 3380 MiB of memory per CPU.
-#SBATCH --ntasks=128
+#SBATCH --ntasks={_N_MPI_TASKS}
 #! How much wallclock time will be required?
-#SBATCH --time=00:02:00
+#SBATCH --time={_RUNTIME}
 #! What types of email messages do you wish to receive?
 #SBATCH --mail-type=NONE
 #! Uncomment this to prevent the job from being requeued (e.g. if
@@ -51,7 +84,9 @@ mpi_tasks_per_node=$(echo "$SLURM_TASKS_PER_NODE" | sed -e  's/^\([0-9][0-9]*\).
 #! (note that SLURM reproduces the environment at submission irrespective of ~/.bashrc):
 . /etc/profile.d/modules.sh                # Leave this line (enables the module command)
 module purge                               # Removes all modules still loaded
-module load rhel8/default-icl              # REQUIRED - loads the basic environment
+#module load rhel8/default-icl              # REQUIRED - loads the basic environment
+module load openmpi-4.0.5-gcc-8.4.1-l7ihwk3
+module load rhel8/slurm
 
 #! Insert additional module load commands after this line if needed:
 
@@ -64,14 +99,14 @@ options=""
 #! Work directory (i.e. where the job will run):
 #workdir="$SLURM_SUBMIT_DIR"  # The value of SLURM_SUBMIT_DIR sets workdir to the directory
                              # in which sbatch is run.
-workdir=/rds/user/bd431/hpc-work/BAMReX/build/Exec/GreshoVortex
+workdir={_WORK_DIR}
 
 #! Are you using OpenMP (NB this is unrelated to OpenMPI)? If so increase this
 #! safe value to no more than 76:
 export OMP_NUM_THREADS=1
 
 #! Number of MPI tasks to be started by the application per node and in total (do not change):
-np=$[${numnodes}*${mpi_tasks_per_node}]
+np=$[${{numnodes}}*${{mpi_tasks_per_node}}]
 
 #! The following variables define a sensible pinning strategy for Intel MPI tasks -
 #! this should be suitable for both pure MPI and hybrid MPI/OpenMP jobs:
@@ -96,9 +131,9 @@ export I_MPI_PIN_ORDER=scatter # Adjacent domains have minimal sharing of caches
 #! Choose this for a MPI code (possibly using OpenMP) using OpenMPI:
 #CMD="mpirun -npernode $mpi_tasks_per_node -np $np $application $options"
 
-CMD="/rds/user/bd431/hpc-work/BAMReX/Scripts/Runscripts/run.sh $mpi_tasks_per_node $np /rds/user/bd431/hpc-work/BAMReX/build/Exec/GreshoVortex/gresho_2d /rds/user/bd431/hpc-work/BAMReX/Exec/GreshoVortex/profiling/inputs-MHM-multires /rds/user/bd431/hpc-work/BAMReX/build/Exec/GreshoVortex/profiling/outputs-1024-mgs64-full $workdir .0 \
-    && /rds/user/bd431/hpc-work/BAMReX/Scripts/Runscripts/run.sh $mpi_tasks_per_node $np /rds/user/bd431/hpc-work/BAMReX/build/Exec/GreshoVortex/gresho_2d /rds/user/bd431/hpc-work/BAMReX/Exec/GreshoVortex/profiling/inputs-MHM-multires /rds/user/bd431/hpc-work/BAMReX/build/Exec/GreshoVortex/profiling/outputs-1024-mgs64-full $workdir .1 \
-    && /rds/user/bd431/hpc-work/BAMReX/Scripts/Runscripts/run.sh $mpi_tasks_per_node $np /rds/user/bd431/hpc-work/BAMReX/build/Exec/GreshoVortex/gresho_2d /rds/user/bd431/hpc-work/BAMReX/Exec/GreshoVortex/profiling/inputs-MHM-multires /rds/user/bd431/hpc-work/BAMReX/build/Exec/GreshoVortex/profiling/outputs-1024-mgs64-full $workdir .2"
+CMD="{_RUNSCRIPT_LOC} {_EXECUTABLE} {_INPUT_DIR} {_LOG_DIR} $workdir .0 \
+    && {_RUNSCRIPT_LOC} {_EXECUTABLE} {_INPUT_DIR} {_LOG_DIR} $workdir .1 \
+    && {_RUNSCRIPT_LOC} {_EXECUTABLE} {_INPUT_DIR} {_LOG_DIR} $workdir .2"
 
 ###############################################################
 ### You should not have to change anything below this line ####
@@ -128,3 +163,21 @@ echo -e "\nExecuting command:\n==================\n$CMD\n"
 
 eval $CMD 
 
+"""
+
+assert(len(sizes) == len(runtimes))
+for i in range(len(sizes)):
+    filename = file_fmt.format(_N_MPI_TASKS=sizes[i][1])
+    jobname = jobname_fmt.format(_N_MPI_TASKS=sizes[i][1])
+    filecontents = script.format(_N_MPI_TASKS=sizes[i][1],
+                                 _N_NODES=sizes[i][0],
+                                 _RUNTIME=runtimes[i],
+                                 _RUNSCRIPT_LOC=runscript,
+                                 _EXECUTABLE=executable,
+                                 _INPUT_DIR=input_dir,
+                                 _LOG_DIR=log_dir,
+                                 _WORK_DIR=work_dir,
+                                 _JOB_NAME=jobname,
+                                 _PROJECT=project)
+    with open(filename, "w") as outfile:
+        outfile.write(filecontents)

@@ -1,7 +1,7 @@
 BAMReX_DIR = "/rds/user/bd431/hpc-work/BAMReX"
 
 executable = BAMReX_DIR+"/build/Exec/GreshoVortex/gresho_2d"
-runscript = BAMReX_DIR+"/Scripts/Runscripts/run.sh"
+runscript = BAMReX_DIR+"/Scripts/Runscripts/run_openmpi.sh"
 
 input_dir = BAMReX_DIR+"/Exec/GreshoVortex/profiling/inputs-MHM-multires"
 log_dir = BAMReX_DIR+"/build/Exec/GreshoVortex/profiling/outputs-1024-mgs64-full"
@@ -21,17 +21,19 @@ sizes = [[1, 1],
          [1, 32],
          [1, 64],
          [2, 128],
-         [3, 256]]
+         [4, 256],
+	 [6, 448]]
 
-runtimes = ["01:00:00",
+runtimes = ["01:30:00",
+            "01:00:00",
             "00:30:00",
+            "00:20:00",
             "00:15:00",
             "00:10:00",
-            "00:07:00",
             "00:05:00",
-            "00:03:00",
-            "00:02:00",
-            "00:01:30"]
+            "00:15:00",
+            "00:15:00",
+            "00:10:00"]
 
 script = r"""#!/bin/bash
 #!
@@ -86,7 +88,9 @@ mpi_tasks_per_node=$(echo "$SLURM_TASKS_PER_NODE" | sed -e  's/^\([0-9][0-9]*\).
 #! (note that SLURM reproduces the environment at submission irrespective of ~/.bashrc):
 . /etc/profile.d/modules.sh                # Leave this line (enables the module command)
 module purge                               # Removes all modules still loaded
-module load rhel8/default-icl              # REQUIRED - loads the basic environment
+#module load rhel8/default-icl              # REQUIRED - loads the basic environment
+module load openmpi-4.0.5-gcc-8.4.1-l7ihwk3
+module load rhel8/slurm
 
 #! Insert additional module load commands after this line if needed:
 
@@ -131,9 +135,9 @@ export I_MPI_PIN_ORDER=scatter # Adjacent domains have minimal sharing of caches
 #! Choose this for a MPI code (possibly using OpenMP) using OpenMPI:
 #CMD="mpirun -npernode $mpi_tasks_per_node -np $np $application $options"
 
-CMD="{_RUNSCRIPT_LOC} $mpi_tasks_per_node $np {_EXECUTABLE} {_INPUT_DIR} {_LOG_DIR} $workdir .0 \
-    && {_RUNSCRIPT_LOC} $mpi_tasks_per_node $np {_EXECUTABLE} {_INPUT_DIR} {_LOG_DIR} $workdir .1 \
-    && {_RUNSCRIPT_LOC} $mpi_tasks_per_node $np {_EXECUTABLE} {_INPUT_DIR} {_LOG_DIR} $workdir .2"
+CMD="{_RUNSCRIPT_LOC} {_EXECUTABLE} {_INPUT_DIR} {_LOG_DIR} $workdir .0 \
+    && {_RUNSCRIPT_LOC} {_EXECUTABLE} {_INPUT_DIR} {_LOG_DIR} $workdir .1 \
+    && {_RUNSCRIPT_LOC} {_EXECUTABLE} {_INPUT_DIR} {_LOG_DIR} $workdir .2"
 
 ###############################################################
 ### You should not have to change anything below this line ####
