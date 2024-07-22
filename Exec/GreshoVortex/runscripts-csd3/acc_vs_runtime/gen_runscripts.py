@@ -38,14 +38,14 @@ imex_methods = ["PESK-MUSCL-SSP222", "PEEK-MUSCL-SSP222",
                "PEEK-SP111", "FI-SP111"]
 exp_methods = ["MHM", "HLLC"]
 
-base_input_fmt = BAMReX_DIR+"Exec/GreshoVortex/input-bases/{method}"
+base_input_fmt = BAMReX_DIR+"/Exec/GreshoVortex/input-bases/{method}"
 
 log_dir = BAMReX_DIR+"/build/Exec/GreshoVortex/logs"
 work_dir = BAMReX_DIR+"/build/Exec/GreshoVortex"
 
 log_file_fmt = log_dir+"/{_TESTNAME}-{method}-{res}.{_N_MPI_TASKS}.0"
 
-cmd_fmt = "echo \'testcase={_TESTNAME} method={method} res={res}\' &&\\\nmpirun {_EXECUTABLE} {input_base} amr.v=0 adv.v=0 amr.n_cell=\\\"{res} {res} {res}\\\" {test_options} amr.plot_file=output/{method}/{_TESTNAME}/{res:04d}/plt > {log_file}"
+cmd_fmt = "echo \'testcase={_TESTNAME} method={method} res={res}\' &&\\\nmpirun {_EXECUTABLE} {input_base} amr.v=0 adv.v=0 amr.n_cell=\'{res} {res} {res}\' {test_options} amr.plot_file=output/{method}/{_TESTNAME}/{res:04d}/plt > {log_file}"
 
 project = "NIKIFORAKIS-SL3-CPU"
 
