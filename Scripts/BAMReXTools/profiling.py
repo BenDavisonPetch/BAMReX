@@ -13,23 +13,27 @@ class ProfileData:
         self.incl_data = incl_data
 
 def parse_output(output_file):
-    lines = open(output_file).readlines()
-    if (lines[1].startswith("MPI initialized with ")):
-        mpi_num_ranks = int(re.search(r"\d+", lines[1]).group())
-    else:
-        mpi_num_ranks = 1
-    lines = strip_output(lines)
-    if lines[0].startswith("Run time = "):
-        run_time = float(lines[0][len("Run time = "):])
-        min_proc_rt, avg_proc_rt, max_proc_rt = [float(x) for x in lines[1][len("TinyProfiler total time across processes [min...avg...max]: "):].split("...")]
-    else:
-        assert(lines[0].startswith("TinyProfiler total time across processes [min...avg...max]: "))
-        min_proc_rt, avg_proc_rt, max_proc_rt = [float(x) for x in lines[0][len("TinyProfiler total time across processes [min...avg...max]: "):].split("...")]
-        run_time = max_proc_rt
-    hline_indices = lines_starting_with("-------------------------------", lines)
-    excl_data = construct_df(lines[hline_indices[1]+1:hline_indices[2]])
-    incl_data = construct_df(lines[hline_indices[4]+1:hline_indices[5]])
-    return ProfileData(run_time, mpi_num_ranks, min_proc_rt, avg_proc_rt, max_proc_rt, excl_data, incl_data)
+    try:
+        lines = open(output_file).readlines()
+        if (lines[1].startswith("MPI initialized with ")):
+            mpi_num_ranks = int(re.search(r"\d+", lines[1]).group())
+        else:
+            mpi_num_ranks = 1
+        lines = strip_output(lines)
+        if lines[0].startswith("Run time = "):
+            run_time = float(lines[0][len("Run time = "):])
+            min_proc_rt, avg_proc_rt, max_proc_rt = [float(x) for x in lines[1][len("TinyProfiler total time across processes [min...avg...max]: "):].split("...")]
+        else:
+            assert(lines[0].startswith("TinyProfiler total time across processes [min...avg...max]: "))
+            min_proc_rt, avg_proc_rt, max_proc_rt = [float(x) for x in lines[0][len("TinyProfiler total time across processes [min...avg...max]: "):].split("...")]
+            run_time = max_proc_rt
+        hline_indices = lines_starting_with("-------------------------------", lines)
+        excl_data = construct_df(lines[hline_indices[1]+1:hline_indices[2]])
+        incl_data = construct_df(lines[hline_indices[4]+1:hline_indices[5]])
+        return ProfileData(run_time, mpi_num_ranks, min_proc_rt, avg_proc_rt, max_proc_rt, excl_data, incl_data)
+    except Exception as error:
+        print(f"Exception raised while processing file {output_file}")
+        raise error
 
 def construct_df(lines):
     lines = [line.split() for line in lines]

@@ -7,8 +7,8 @@ METHODS = ["MHM", "PESK-MUSCL-SSP222"]
 METHOD_NAMES = ["MHM", "PESK-SSP222"]
 MPI_RANKS = [1,2,4,8,16,32]
 MAX_GRID_SIZES = [128, 64]
-LOGS = ["/home/bendp/practicals/remote_results/cerberus3-profiling/M1-{METHOD}-1024.{MPI_NUM_RANKS}.1.?", # 128,
-        "/home/bendp/practicals/remote_results/cerberus3-multires/M1-{METHOD}-1024.{MPI_NUM_RANKS}.1.?" # 64
+LOGS = ["/home/bendp/practicals/remote_results/cerberus3-profiling/M1-{METHOD}-1024.{MPI_NUM_RANKS}.1.*", # 128,
+        "/home/bendp/practicals/remote_results/cerberus2-1024-full/M1-{METHOD}-1024.{MPI_NUM_RANKS}.1.*" # 64
         ]
 
 fastest_runs = {}
@@ -219,4 +219,4 @@ fig.savefig("outputs/profiling/total_runtime_mgscomp.pdf", bbox_inches="tight")
 
 # fig.savefig("outputs/runtime_exponly.pdf")
 
-# plt.show()
+plt.show()

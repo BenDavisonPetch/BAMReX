@@ -3,11 +3,14 @@ import matplotlib.pyplot as plt
 import BAMReXTools.plot_defaults
 import glob
 
-PROFILE_LOG_DIR = "/home/bendp/practicals/remote_results/cerberus3-profiling/"
-NAME_FMT = "M1-{METHOD}-1024.{MPI_NUM_RANKS}.1.?"
+# PROFILE_LOG_DIR = "/home/bendp/practicals/remote_results/cerberus3-profiling/"
+# PROFILE_LOG_DIR = "/home/bendp/practicals/remote_results/cerberus-1024-full-mgs64-consolidated/"
+PROFILE_LOG_DIR = "/home/bendp/practicals/remote_results/cerberus2-1024-full/"
+NAME_FMT = "M1-{METHOD}-1024.{MPI_NUM_RANKS}.1.*"
 METHODS = ["MHM", "PESK-MUSCL-SSP222", "FI-MUSCL-SSP222"]
-# MPI_RANKS = [1,2,4,6,8,12,16,20,24,28,32]
-MPI_RANKS = [1,2,4,8,16,32]
+METHOD_NAMES=["MUSCL-Hancock", "PESK-SSP222", "FI-SSP222"]
+MPI_RANKS = [1,2,4,6,8,12,16,20,24,28,32]
+# MPI_RANKS = [1,2,4,8,16,32]
 
 fastest_runs = {}
 
@@ -62,7 +65,7 @@ ax[1].axline((1,1),slope=1,color="k",linestyle="-.", label="Ideal")
 
 
 fig.tight_layout(pad=0.8)
-fig.savefig("outputs/total_runtime.pdf", bbox_inches="tight")
+fig.savefig("outputs/profiling/total_runtime.pdf", bbox_inches="tight")
 
 #
 # RUN TIME BREAKDOWN
@@ -81,8 +84,9 @@ mhm_profiling_sections = {"Flux computation" : ["compute_HLLC_flux_LR()", "recon
 imex_profiling_sections = {"Explicit update" : ["advance_MUSCL_rusanov_adv()"],
                            "Linear solve" : ["details::solve_pressure()"],
                            "RK operations" : ["conservative_update(geom, statein, fluxes, stateout1, stateout2, dt1, dt2, N)", "sum_fluxes()", "conservative_update(geom, statein, fluxes, stateout, dt)"],
+                        #    "Copies" : ["AmrLevel::FillPatcherFill()"],
                            "Solver construction" : ["details::setup_pressure_op()"],
-                           "Coefficient computation" : ["update_energy_flux()", "compute_ke()", "pressure_source_vector()", "compute_velocity()", "update_momentum_flux()", "compute_pressure()", "compute_enthalpy()"],
+                           "Coefficient computation" : ["update_energy_flux()", "compute_ke()", "pressure_source_vector()", "compute_velocity()", "update_momentum_flux()", "compute_pressure()", "compute_enthalpy()", "update_momentum()"],
                            "Time step computation" : ["AmrLevelAdv::computeNewDt()"]
                           }
 # imex_profiling_sections = {"Explicit update" : ["advance_MUSCL_rusanov_adv()"],
@@ -156,10 +160,10 @@ for imethod, method in enumerate(METHODS):
 
 text_ys = [1, 0.668, 0.343]
 for imethod, method in enumerate(METHODS):
-    fig.text(0.5, text_ys[imethod], "\\textbf{" + method + "}", horizontalalignment="center")
+    fig.text(0.5, text_ys[imethod], "\\textbf{" + METHOD_NAMES[imethod] + "}", horizontalalignment="center")
 fig.tight_layout(pad=0.8)
 
-fig.savefig("outputs/runtime_breakdown.pdf", bbox_inches="tight")
+fig.savefig("outputs/profiling/runtime_breakdown.pdf", bbox_inches="tight")
 
 #
 # EXPLICIT-ONLY CODE
