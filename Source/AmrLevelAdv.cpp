@@ -13,6 +13,8 @@
 #include "Euler/Euler.H"
 #include "Fluxes/Fluxes.H"
 #include "Fluxes/Update.H"
+#include "GFM/GFMFlag.H"
+#include "GFM/RigidBody.H"
 #include "IMEX/IMEXSettings.H"
 #include "IMEX/IMEX_RK.H"
 #include "MFIterLoop.H"
@@ -153,6 +155,11 @@ void AmrLevelAdv::variableSetUp()
                            &cell_cons_interp);
     desc_lst.addDescriptor(Pressure_Type, IndexType::TheCellType(),
                            StateDescriptor::Point, 2, 1, &cell_cons_interp);
+    // Type of interpolator shouldn't matter because level set should always be
+    // reinitialised on finest grid
+    desc_lst.addDescriptor(Levelset_Type, IndexType::TheCellType(),
+                           StateDescriptor::Point, NUM_GROW,
+                           1 + AMREX_SPACEDIM, &cell_bilinear_interp);
 
     Geometry const *gg = AMReX::top()->getDefaultGeometry();
 
@@ -201,6 +208,13 @@ void AmrLevelAdv::variableSetUp()
                               bndryfunc);
         desc_lst.setComponent(Pressure_Type, 0, "IMEX_pressure", bc,
                               bndryfunc);
+        // Boundary conditions unimportant because initialisation should set
+        // ghost cells properly
+        desc_lst.setComponent(Levelset_Type, 0, "level_set", bc, bndryfunc);
+        AMREX_D_TERM(
+            desc_lst.setComponent(Levelset_Type, 1, "n_x", bc, bndryfunc);
+            , desc_lst.setComponent(Levelset_Type, 2, "n_y", bc, bndryfunc);
+            , desc_lst.setComponent(Levelset_Type, 3, "n_z", bc, bndryfunc);)
     }
     else
     {
@@ -239,9 +253,13 @@ void AmrLevelAdv::initData()
 {
     if (verbose)
         Print() << "Initialising data at level " << level << std::endl;
-    MultiFab &S_new = get_new_data(Consv_Type);
-    MultiFab &P_new = get_new_data(Pressure_Type);
+    MultiFab &S_new  = get_new_data(Consv_Type);
+    MultiFab &P_new  = get_new_data(Pressure_Type);
+    MultiFab &LS_new = get_new_data(Levelset_Type);
 
+    init_levelset(LS_new, geom);
+    gfm_flags.define(LS_new.boxArray(), dmap, 1, LS_new.nGrow());
+    build_gfm_flags(gfm_flags, LS_new);
     initdata(S_new, geom);
     AMREX_ASSERT(!S_new.contains_nan());
 
@@ -344,6 +362,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
         Print() << "Starting advance:" << std::endl;
     // MultiFab &S_mm = get_new_data(Consv_Type);
     MultiFab &P_mm = get_new_data(Pressure_Type);
+    MultiFab &LS   = get_new_data(Levelset_Type);
 
     // Note that some useful commands exist - the maximum and minumum
     // values on the current level can be computed directly - here the
@@ -354,11 +373,11 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     //                << std::endl;
 
     // This ensures that all data computed last time step is moved from
-    // `new' data to `old data' - this should not need changing If more
-    // than one type of data were declared in variableSetUp(), then the
-    // loop ensures that all of it is updated appropriately
+    // `new' data to `old data' -
     for (int k = 0; k < NUM_STATE_TYPE; k++)
     {
+        if (k == Levelset_Type)
+            continue;
         state[k].allocOldData();
         state[k].swapTimeLevels(dt);
     }
@@ -422,6 +441,10 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     // This is similar to the FillPatch function documented in init(), but
     // takes care of boundary conditions too
     FillPatcherFill(Sborder, 0, NUM_STATE, NUM_GROW, time, Consv_Type, 0);
+
+    // fill rigid body ghost states
+    fill_ghost_rb(geom, Sborder, LS, gfm_flags);
+    fill_boundary(Sborder);
 
     if (verbose)
         AllPrint() << "\tFilled ghost states" << std::endl;

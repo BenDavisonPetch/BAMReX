@@ -29,6 +29,7 @@ add_executable(tests_1d
   IMEX_O1_01.cpp
   IMEXButcherTableaux01.cpp
   Limiters01.cpp
+  Interp01.cpp
 )
 
 add_executable(tests_2d
@@ -37,6 +38,8 @@ add_executable(tests_2d
   IMEX_O1_01.cpp
   Euler01.cpp
   MLABecLapGrad01.cpp
+  GFMFlag01.cpp
+  Interp01.cpp
 )
 
 add_executable(tests_3d
@@ -47,6 +50,7 @@ add_executable(tests_3d
   Euler01.cpp
   MLABecLapGrad01.cpp
   Update01.cpp
+  Interp01.cpp
 )
 
 if (AMReX_GPU_BACKEND STREQUAL "CUDA")

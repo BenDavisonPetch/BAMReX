@@ -28,6 +28,7 @@ enum StateType
 {
     Consv_Type    = 0,
     Pressure_Type = 1,
+    Levelset_Type = 2,
     NUM_STATE_TYPE
 };
 
@@ -235,11 +236,17 @@ class AmrLevelAdv : public amrex::AmrLevel
 
     void avgDown(int state_indx);
 
+    /**
+     * Initialises level set. Implemented in AmrLevelAdv_LSinit.cpp
+     */
+    void init_levelset(amrex::MultiFab& LS, const amrex::Geometry& geom);
+
     /*
      * The data.
      */
     std::unique_ptr<amrex::FluxRegister> flux_reg;
     PseudoRandom<>                       random; // used for RCM
+    amrex::iMultiFab gfm_flags;
 
     /*
      * Static data members.
