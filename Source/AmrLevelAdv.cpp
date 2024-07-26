@@ -22,6 +22,7 @@
 #include "Prob.H"
 #include "RCM/RCM.H"
 #include "SourceTerms/GeometricSource.H"
+#include "bc_jet.H"
 #include "tagging_K.H"
 //#include "Kernels.H"
 
@@ -185,7 +186,52 @@ void AmrLevelAdv::variableSetUp()
     // periodic and reflective conditions, but if Dirichlet or other
     // complex boundaries are required, this will be replaced with a
     // boundary condition function you have written
-    StateDescriptor::BndryFunc bndryfunc(nullfill);
+    ParmParse pp("bc");
+    bool      jet_bc = false;
+    pp.query("coaxjet", jet_bc);
+
+    StateDescriptor::BndryFunc bndryfunc;
+    if (!jet_bc)
+        bndryfunc = StateDescriptor::BndryFunc(nullfill);
+    else
+    {
+        bc.setLo(0, BCType::user_1);
+        // Construct jet BC function. Transmissive except for the jet
+        Real exit_v_ratio, primary_exit_M, ambient_p, ambient_T,
+            air_specific_gas_const, inner_radius, outer_radius, scale_factor;
+        ParmParse ppinit("init");
+        ppinit.get("exit_v_ratio", exit_v_ratio);
+        ppinit.get("primary_exit_M", primary_exit_M);
+        ppinit.get("ambient_p", ambient_p);
+        ppinit.get("ambient_T", ambient_T);
+        ppinit.get("air_specific_gas_const", air_specific_gas_const);
+
+        RealArray center;
+        ParmParse ppls("ls");
+        ppls.get("inner_radius", inner_radius);
+        ppls.get("outer_radius", outer_radius);
+        ppls.get("nozzle_center", center);
+        ppls.get("scale_factor", scale_factor);
+        inner_radius *= scale_factor;
+        outer_radius *= scale_factor;
+        // center doesn't get scaled
+
+        Real      adia, eps = 1;
+        ParmParse ppprob("prob");
+        ppprob.get("adiabatic", adia);
+        ppprob.query("epsilon", eps);
+
+        const Real dens = ambient_p / (air_specific_gas_const * ambient_T);
+        const Real c    = sqrt(ambient_p * adia / dens);
+        const Real v_p  = primary_exit_M * c;
+        const Real v_s  = exit_v_ratio;
+
+        // wall = 0 => on x lo face
+        bndryfunc = StateDescriptor::BndryFunc(
+            make_coax_jetfill_bcfunc(center, inner_radius, outer_radius, 0,
+                                     dens, v_p, v_s, ambient_p, adia, eps));
+    }
+
     // Make sure that the GPU is happy
     bndryfunc.setRunOnGPU(
         true); // I promise the bc function will launch gpu kernels.
