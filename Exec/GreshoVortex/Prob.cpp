@@ -71,7 +71,7 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
 
     // initial conditions
     const Real dens = 1;
-    const Real p_0  = dens / (adia * M);
+    const Real p_0  = dens / (adia * M * M);
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
