@@ -257,6 +257,8 @@ class AmrLevelAdv : public amrex::AmrLevel
     static amrex::Real              acoustic_timestep_end_time;
     static NumericalMethods::Method num_method;
     static IMEXSettings             imex_settings;
+    static bool jet_bc; // whether or not we are using coaxial jet BC
+    static int cyl_sym; // 0 -> no geometric terms, 1 -> cylindrical symmetry around y axis (1D or 2D), 2 -> cylindrical symmetry around x axis (2D only), 3 -> spherical symmetry (1D only)
 
 #ifdef AMREX_PARTICLES
     void                                                      init_particles();

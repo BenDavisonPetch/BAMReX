@@ -11,6 +11,14 @@ void advance_geometric(amrex::Real dt, amrex::Real dr, amrex::Real r_lo,
                        const amrex::FArrayBox &statein,
                        amrex::FArrayBox       &stateout);
 
+//! axis_loc = 0 -> x lo, = 1 -> y lo
+template <int axis_loc>
+AMREX_GPU_HOST void advance_geometric_2d(amrex::Real dt, amrex::Real dr,
+                                         amrex::Real r_lo, int alpha,
+                                         const amrex::Box       &bx,
+                                         const amrex::FArrayBox &statein,
+                                         amrex::FArrayBox       &stateout);
+
 //! Geometric source term for the Euler equations
 AMREX_GPU_DEVICE
 AMREX_FORCE_INLINE
@@ -28,6 +36,32 @@ geometric_source(amrex::Real r, int alpha, amrex::Real adia, amrex::Real eps,
     src[2] = prefactor * u
              * (adia * U(i, 0, 0, 2)
                 - (adia - 1) * 0.5 * eps * U(i, 0, 0, 1) * u); // (E + p)u
+
+    return src;
+}
+
+//! Geometric source term for the Euler equations in 2D
+//! \tparam axis_loc = 0 for lo x, 1 for lo y
+template <int axis_loc>
+AMREX_GPU_DEVICE AMREX_FORCE_INLINE amrex::GpuArray<amrex::Real, 4>
+geometric_source(amrex::Real r, int alpha, amrex::Real adia, amrex::Real eps,
+                 const amrex::Array4<const amrex::Real> &U, int i, int j)
+{
+    using namespace amrex;
+    AMREX_ASSERT(U.nComp() == 4);
+    GpuArray<amrex::Real, 4> src;
+    const Real               prefactor = -alpha / r;
+    constexpr int            u_r_idx   = (axis_loc == 0) ? 1 : 2;
+    const Real               u_r       = U(i, j, 0, u_r_idx) / U(i, j, 0, 0);
+    src[0] = prefactor * U(i, j, 0, u_r_idx); // rho u_r
+    src[1] = prefactor * U(i, j, 0, 1) * u_r; // rho u_r u_r
+    src[2] = prefactor * U(i, j, 0, 2) * u_r; // rho u_z u_r
+    src[3] = prefactor * u_r
+             * (adia * U(i, j, 0, 3)
+                - (adia - 1) * 0.5 * eps
+                      * (U(i, j, 0, 1) * U(i, j, 0, 1)
+                         + U(i, j, 0, 2) * U(i, j, 0, 2))
+                      / U(i, j, 0, 0)); // (E + p)u_r
 
     return src;
 }

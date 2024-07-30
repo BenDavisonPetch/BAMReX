@@ -2,6 +2,8 @@
 #include <AMReX_BCUtil.H>
 #include <AMReX_BC_TYPES.H>
 #include <AMReX_GpuMemory.H>
+#include <AMReX_MFIter.H>
+#include <AMReX_MFParallelFor.H>
 #include <AMReX_ParmParse.H>
 #include <AMReX_SPACE.H>
 #include <AMReX_StateDescriptor.H>
@@ -35,6 +37,7 @@ int                      AmrLevelAdv::do_reflux                  = 1;
 Real                     AmrLevelAdv::acoustic_timestep_end_time = 0;
 NumericalMethods::Method AmrLevelAdv::num_method;
 IMEXSettings             AmrLevelAdv::imex_settings;
+bool                     AmrLevelAdv::jet_bc = false;
 
 const int AmrLevelAdv::NUM_STATE = 2 + AMREX_SPACEDIM; // Euler eqns
 const int AmrLevelAdv::NUM_GROW  = 4;                  // number of ghost cells
@@ -186,9 +189,6 @@ void AmrLevelAdv::variableSetUp()
     // periodic and reflective conditions, but if Dirichlet or other
     // complex boundaries are required, this will be replaced with a
     // boundary condition function you have written
-    ParmParse pp("bc");
-    bool      jet_bc = false;
-    pp.query("coaxjet", jet_bc);
 
     StateDescriptor::BndryFunc bndryfunc;
     if (!jet_bc)
@@ -224,7 +224,7 @@ void AmrLevelAdv::variableSetUp()
         const Real dens = ambient_p / (air_specific_gas_const * ambient_T);
         const Real c    = sqrt(ambient_p * adia / dens);
         const Real v_p  = primary_exit_M * c;
-        const Real v_s  = exit_v_ratio;
+        const Real v_s  = exit_v_ratio * v_p;
 
         // wall = 0 => on x lo face
         bndryfunc = StateDescriptor::BndryFunc(
@@ -236,7 +236,8 @@ void AmrLevelAdv::variableSetUp()
     bndryfunc.setRunOnGPU(
         true); // I promise the bc function will launch gpu kernels.
 
-    if (num_method != NumericalMethods::rcm)
+    if (num_method != NumericalMethods::rcm
+        && (!jet_bc || AMREX_SPACEDIM == 3))
     {
         // Set up variable-specific information; needs to be done for each
         // variable in NUM_STATE Consv_Type: Enumerator for the variable type
@@ -261,6 +262,42 @@ void AmrLevelAdv::variableSetUp()
             desc_lst.setComponent(Levelset_Type, 1, "n_x", bc, bndryfunc);
             , desc_lst.setComponent(Levelset_Type, 2, "n_y", bc, bndryfunc);
             , desc_lst.setComponent(Levelset_Type, 3, "n_z", bc, bndryfunc);)
+    }
+    else if (num_method != NumericalMethods::rcm && jet_bc)
+    {
+        AMREX_ASSERT(AMREX_SPACEDIM == 2);
+        BCRec bc_mom;
+        BCRec bc_others;
+        bc_mom.setLo(1, BCType::reflect_odd);
+        bc_mom.setHi(1, BCType::foextrap);
+        bc_others.setLo(1, BCType::reflect_even);
+        bc_others.setHi(1, BCType::foextrap);
+
+        bc_mom.setLo(0, BCType::user_1);
+        bc_mom.setHi(0, BCType::foextrap);
+        bc_others.setLo(0, BCType::user_1);
+        bc_others.setHi(0, BCType::foextrap);
+        // Jet boundary conditions
+        desc_lst.setComponent(Consv_Type, 0, "density", bc_others, bndryfunc);
+        AMREX_D_TERM(
+            desc_lst.setComponent(Consv_Type, 1, "mom_x", bc_mom, bndryfunc);
+            , desc_lst.setComponent(Consv_Type, 2, "mom_y", bc_mom, bndryfunc);
+            ,
+            desc_lst.setComponent(Consv_Type, 3, "mom_z", bc_mom, bndryfunc);)
+        desc_lst.setComponent(Consv_Type, 1 + AMREX_SPACEDIM, "energy",
+                              bc_others, bndryfunc);
+        desc_lst.setComponent(Pressure_Type, 0, "IMEX_pressure", bc_others,
+                              bndryfunc);
+        // Boundary conditions unimportant because initialisation should set
+        // ghost cells properly
+        desc_lst.setComponent(Levelset_Type, 0, "level_set", bc_others,
+                              bndryfunc);
+        AMREX_D_TERM(desc_lst.setComponent(Levelset_Type, 1, "n_x", bc_others,
+                                           bndryfunc);
+                     , desc_lst.setComponent(Levelset_Type, 2, "n_y",
+                                             bc_others, bndryfunc);
+                     , desc_lst.setComponent(Levelset_Type, 3, "n_z",
+                                             bc_others, bndryfunc);)
     }
     else
     {
@@ -316,6 +353,7 @@ void AmrLevelAdv::initData()
     IMEXSettings settings; // can just pass default settings to
                            // compute_pressure, doesn't make a difference
     compute_pressure(Sborder, Sborder, P_new, geom, 0, settings);
+    AMREX_ASSERT(!Sborder.contains_nan());
     AMREX_ASSERT(!P_new.contains_nan());
 
     if (verbose)
@@ -517,7 +555,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
             // update Sborder in place nodal boxes aren't used
             MFIter_loop(
                 time, geom, S_new, Sborder, fluxes, dt,
-                [&](const amrex::MFIter & /*mfi*/, const amrex::Real time,
+                [&](const amrex::MFIter &mfi, const amrex::Real time,
                     const amrex::Box &bx,
                     amrex::GpuArray<amrex::Box, AMREX_SPACEDIM> /*nbx*/,
                     const amrex::FArrayBox & /*statein*/,
@@ -630,7 +668,25 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
         // Total number of variables being copied Sixth entry: Number of ghost
         // cells to be included in the copy (zero in this case, since only real
         //              data is needed for S_new)
-        MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, 0);
+        if (jet_bc && AMREX_SPACEDIM == 2)
+        {
+            Real dr = geom.CellSize(1);
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+            {
+                for (MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+                {
+                    const auto &bx = mfi.tilebox();
+                    advance_geometric_2d<1>(dt, dr, geom.ProbLo(1), 1, bx,
+                                            Sborder[mfi], S_new[mfi]);
+                }
+            }
+        }
+        else
+        {
+            MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, 0);
+        }
     }
     else if (num_method == NumericalMethods::imex)
     {
@@ -644,6 +700,8 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
         advance_imex_rk_stab(time, geom, Sborder, S_new, P_new, fluxes, dt,
                              get_state_data(Consv_Type).descriptor()->getBCs(),
                              imex_settings);
+        // TODO: add geometric source term here
+        AMREX_ASSERT(!jet_bc);
     }
     else if (num_method == NumericalMethods::rcm)
     {
@@ -1141,6 +1199,9 @@ void AmrLevelAdv::read_params()
         acoustic_timestep_end_time = 0.1 * stop_time;
         pp3.query("acoustic_timestep_end_time", acoustic_timestep_end_time);
     }
+
+    ParmParse ppbc("bc");
+    ppbc.query("coaxjet", jet_bc);
 
     // Vector variables can be read in; these require e.g.\ pp.queryarr
     // and pp.getarr, so that the ParmParse object knows to look for

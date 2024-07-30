@@ -1,3 +1,7 @@
+/**
+ * Boundary conditions for a co-axial jet
+ */
+
 #ifndef bc_jet_H_
 #define bc_jet_H_
 
