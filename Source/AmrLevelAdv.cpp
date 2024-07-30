@@ -10,6 +10,7 @@
 #include <stdexcept>
 
 #include "AmrLevelAdv.H"
+#include "BCs.H"
 #include "Euler/Euler.H"
 #include "Fluxes/Fluxes.H"
 #include "Fluxes/Update.H"
@@ -32,6 +33,7 @@ int                      AmrLevelAdv::do_reflux                  = 1;
 Real                     AmrLevelAdv::acoustic_timestep_end_time = 0;
 NumericalMethods::Method AmrLevelAdv::num_method;
 IMEXSettings             AmrLevelAdv::imex_settings;
+bamrexBCData             AmrLevelAdv::bc_data;
 
 const int AmrLevelAdv::NUM_STATE = 2 + AMREX_SPACEDIM; // Euler eqns
 const int AmrLevelAdv::NUM_GROW  = 4;                  // number of ghost cells
@@ -156,67 +158,34 @@ void AmrLevelAdv::variableSetUp()
 
     Geometry const *gg = AMReX::top()->getDefaultGeometry();
 
-    // Object for storing all the boundary conditions
-    BCRec bc;
-    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir)
-    {
-        if (gg->isPeriodic(dir))
-        {
-            bc.setHi(dir, BCType::int_dir);
-            bc.setLo(dir, BCType::int_dir);
-        }
-        else
-        {
-            bc.setHi(dir, BCType::foextrap);
-            bc.setLo(dir, BCType::foextrap);
-        }
-    }
+    // Custom class is very useful for putting all the boundary condition stuff
+    // in one place
+    bc_data.build(gg);
 
-    // BndryFunc: Function for setting boundary conditions.  For basic
-    // BCs, AMReX can handle these automatically; nullfill means that
-    // nothing unusual is happening, which is fine for transmissive,
-    // periodic and reflective conditions, but if Dirichlet or other
-    // complex boundaries are required, this will be replaced with a
-    // boundary condition function you have written
-    StateDescriptor::BndryFunc bndryfunc(nullfill);
-    // Make sure that the GPU is happy
-    bndryfunc.setRunOnGPU(
-        true); // I promise the bc function will launch gpu kernels.
-
-    if (num_method != NumericalMethods::rcm)
-    {
-        // Set up variable-specific information; needs to be done for each
-        // variable in NUM_STATE Consv_Type: Enumerator for the variable type
-        // being set 0: Position of the variable in the variable vector. Single
-        // variable for advection. phi: Name of the variable - appears in
-        // output to identify what is being plotted bc: Boundary condition
-        // object for this variable (defined above) bndryfunc: The boundary
-        // condition function set above
-        desc_lst.setComponent(Consv_Type, 0, "density", bc, bndryfunc);
-        AMREX_D_TERM(
-            desc_lst.setComponent(Consv_Type, 1, "mom_x", bc, bndryfunc);
-            , desc_lst.setComponent(Consv_Type, 2, "mom_y", bc, bndryfunc);
-            , desc_lst.setComponent(Consv_Type, 3, "mom_z", bc, bndryfunc);)
-        desc_lst.setComponent(Consv_Type, 1 + AMREX_SPACEDIM, "energy", bc,
-                              bndryfunc);
-        desc_lst.setComponent(Pressure_Type, 0, "IMEX_pressure", bc,
-                              bndryfunc);
-    }
-    else
-    {
-        // setup for RCM
-        AMREX_ASSERT(AMREX_SPACEDIM == 1);
-        BCRec bc_mom;
-        BCRec bc_others;
-        bc_mom.setLo(0, BCType::reflect_odd);
-        bc_mom.setHi(0, BCType::foextrap);
-        bc_others.setLo(0, BCType::reflect_even);
-        bc_others.setHi(0, BCType::foextrap);
-
-        desc_lst.setComponent(Consv_Type, 0, "density", bc_others, bndryfunc);
-        desc_lst.setComponent(Consv_Type, 1, "mom_x", bc_mom, bndryfunc);
-        desc_lst.setComponent(Consv_Type, 2, "energy", bc_others, bndryfunc);
-    }
+    // Set up variable-specific information; needs to be done for each
+    // variable in NUM_STATE Consv_Type: Enumerator for the variable type
+    // being set 0: Position of the variable in the variable vector. Single
+    // variable for advection. phi: Name of the variable - appears in
+    // output to identify what is being plotted bc: Boundary condition
+    // object for this variable (defined above) bndryfunc: The boundary
+    // condition function set above
+    desc_lst.setComponent(Consv_Type, 0, "density", bc_data.get_consv_bcrec(0),
+                          bc_data.get_consv_bndryfunc());
+    AMREX_D_TERM(desc_lst.setComponent(Consv_Type, 1, "mom_x",
+                                       bc_data.get_consv_bcrec(1),
+                                       bc_data.get_consv_bndryfunc());
+                 , desc_lst.setComponent(Consv_Type, 2, "mom_y",
+                                         bc_data.get_consv_bcrec(2),
+                                         bc_data.get_consv_bndryfunc());
+                 , desc_lst.setComponent(Consv_Type, 3, "mom_z",
+                                         bc_data.get_consv_bcrec(3),
+                                         bc_data.get_consv_bndryfunc());)
+    desc_lst.setComponent(Consv_Type, 1 + AMREX_SPACEDIM, "energy",
+                          bc_data.get_consv_bcrec(1 + AMREX_SPACEDIM),
+                          bc_data.get_consv_bndryfunc());
+    desc_lst.setComponent(Pressure_Type, 0, "IMEX_pressure",
+                          bc_data.get_pressure_bcrec(),
+                          bc_data.get_pressure_bndryfunc());
 }
 
 /**
@@ -573,8 +542,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
         MultiFab::Copy(P_new, P_mm, 0, 0, 1, 2);
         // TODO: check if ghost cells are actually filled in P_new and P_mm
         advance_imex_rk_stab(time, geom, Sborder, S_new, P_new, fluxes, dt,
-                             get_state_data(Consv_Type).descriptor()->getBCs(),
-                             imex_settings);
+                             bc_data, imex_settings);
     }
     else if (num_method == NumericalMethods::rcm)
     {
@@ -1087,15 +1055,6 @@ void AmrLevelAdv::read_params()
     {
         amrex::Abort("Please set geom.coord_sys = 0");
     }
-
-    // // This tutorial code only supports periodic boundaries.
-    // // The periodicity is read from the settings file in AMReX source code,
-    // but
-    // // can be accessed here
-    // if (!gg->isAllPeriodic())
-    // {
-    //     amrex::Abort("Please set geom.is_periodic = 1 1 1");
-    // }
 
     // Read tagging parameters from tagging block in the input file.
     // See Src_nd/Tagging_params.cpp for the function implementation.

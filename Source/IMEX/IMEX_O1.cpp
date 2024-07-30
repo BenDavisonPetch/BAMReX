@@ -21,7 +21,7 @@ void compute_flux_imex_o1(
     const amrex::MultiFab &statein_imp, const amrex::MultiFab &statein_exp,
     amrex::MultiFab                               &pressure,
     amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
-    const amrex::Real dt, const amrex::Vector<amrex::BCRec> &domainbcs,
+    const amrex::Real dt, const bamrexBCData &bc_data,
     const IMEXSettings &settings)
 {
     BL_PROFILE("compute_flux_imex_o1()");
@@ -117,7 +117,7 @@ void compute_flux_imex_o1(
     if (settings.linearise)
     {
         solve_pressure_eqn(geom, enthalpy, velocity, rhs, pressure, dt,
-                           domainbcs, settings);
+                           bc_data, settings);
     }
     else
     {
@@ -133,7 +133,7 @@ void compute_flux_imex_o1(
         details::picard_iterate(
             geom, statein_exp, stateex, velocity, stateout, enthalpy, ke, rhs,
             pressure, dt, AMREX_D_DECL(hdtdx, hdtdy, hdtdz),
-            AMREX_D_DECL(hdtdxe, hdtdye, hdtdze), domainbcs, settings);
+            AMREX_D_DECL(hdtdxe, hdtdye, hdtdze), bc_data, settings);
     }
 
     // Now pressure equation has been solved we can compute the fluxes
@@ -372,9 +372,8 @@ void solve_pressure_eqn(const amrex::Geometry &geom,
                         const amrex::MultiFab &enthalpy,
                         const amrex::MultiFab &velocity,
                         const amrex::MultiFab &rhs, amrex::MultiFab &pressure,
-                        const amrex::Real                  dt,
-                        const amrex::Vector<amrex::BCRec> &domainbcs,
-                        const IMEXSettings                &settings)
+                        const amrex::Real dt, const bamrexBCData &bc_data,
+                        const IMEXSettings &settings)
 {
     AMREX_ASSERT(rhs.nComp() == 1);
     AMREX_ASSERT(pressure.nComp() == 1);
@@ -382,12 +381,12 @@ void solve_pressure_eqn(const amrex::Geometry &geom,
     // (A * alpha(x) - B div (beta(x) grad) + C c . grad) phi = f
     MLABecLaplacianGrad pressure_op;
 
-    details::setup_pressure_op(geom, enthalpy, velocity, rhs, pressure_op, dt,
-                               domainbcs, settings);
+    details::setup_pressure_op(geom, enthalpy, velocity, rhs, pressure,
+                               pressure_op, dt, bc_data, settings);
 
     MLMG solver(pressure_op);
 
-    details::solve_pressure(geom, rhs, pressure, solver, domainbcs, settings);
+    details::solve_pressure(geom, rhs, pressure, solver, bc_data, settings);
 }
 
 AMREX_GPU_HOST
@@ -545,11 +544,14 @@ namespace details
 {
 
 AMREX_GPU_HOST
-void setup_pressure_op(
-    const amrex::Geometry &geom, const amrex::MultiFab &enthalpy,
-    const amrex::MultiFab &velocity, const amrex::MultiFab &rhs,
-    amrex::MLABecLaplacianGrad &pressure_op, const amrex::Real dt,
-    const amrex::Vector<amrex::BCRec> &domainbcs, const IMEXSettings &settings)
+void setup_pressure_op(const amrex::Geometry      &geom,
+                       const amrex::MultiFab      &enthalpy,
+                       const amrex::MultiFab      &velocity,
+                       const amrex::MultiFab      &rhs,
+                       amrex::MultiFab            &pressure_scratch,
+                       amrex::MLABecLaplacianGrad &pressure_op,
+                       const amrex::Real dt, const bamrexBCData &bc_data,
+                       const IMEXSettings &settings)
 {
     BL_PROFILE("details::setup_pressure_op()");
     const bool use_grad_term
@@ -561,13 +563,8 @@ void setup_pressure_op(
                        { rhs.DistributionMap() });
 
     // BCs
-    details::set_pressure_domain_BC(pressure_op, geom, domainbcs);
-
-    // if (level > 0)
-    //     pressure_op.setCoarseFineBC(&crse_pressure, crse_ratio[0]);
-
-    // pure homogeneous Neumann BC so we pass nullptr
-    pressure_op.setLevelBC(0, nullptr);
+    details::set_pressure_domain_BC(pressure_op, geom, pressure_scratch,
+                                    bc_data);
 
     // set coefficients
     const amrex::Real eps        = AmrLevelAdv::h_prob_parm->epsilon;
@@ -597,8 +594,7 @@ void setup_pressure_op(
 AMREX_GPU_HOST
 void solve_pressure(const amrex::Geometry &geom, const amrex::MultiFab &rhs,
                     amrex::MultiFab &pressure, amrex::MLMG &solver,
-                    const amrex::Vector<amrex::BCRec> &domainbcs,
-                    const IMEXSettings                &settings)
+                    const bamrexBCData &bc_data, const IMEXSettings &settings)
 {
     BL_PROFILE("details::solve_pressure()");
     AMREX_ASSERT(pressure.nComp() == 1);
@@ -618,8 +614,7 @@ void solve_pressure(const amrex::Geometry &geom, const amrex::MultiFab &rhs,
     AMREX_ASSERT(!pressure.contains_nan());
 
     // TODO: fill course fine boundary cells for pressure!
-    pressure.FillBoundary(geom.periodicity());
-    FillDomainBoundary(pressure, geom, { domainbcs[1 + AMREX_SPACEDIM] });
+    bc_data.fill_pressure_boundary(geom, pressure, 0);
 }
 
 AMREX_GPU_HOST
@@ -641,46 +636,28 @@ void copy_pressure(const amrex::MultiFab &statesrc, amrex::MultiFab &dst)
     }
 }
 
-LinOpBCType linop_from_BCType(int bc)
-{
-    using namespace BCType;
-    switch (bc)
-    {
-    case (reflect_odd): return LinOpBCType::reflect_odd;
-    case (foextrap): return LinOpBCType::Neumann;
-    default:
-        Print() << "Invalid boundary type: " << bc
-                << ". Implemented for periodic, reflective and transmissive "
-                   "boundaries"
-                << std::endl;
-        Abort();
-        return LinOpBCType::bogus;
-    }
-}
-
 AMREX_GPU_HOST
-void set_pressure_domain_BC(amrex::MLLinOp                    &pressure_op,
-                            const amrex::Geometry             &geom,
-                            const amrex::Vector<amrex::BCRec> &bcs)
+void set_pressure_domain_BC(amrex::MLLinOp        &pressure_op,
+                            const amrex::Geometry &geom,
+                            amrex::MultiFab       &pressure_scratch,
+                            const bamrexBCData    &bc_data)
 {
-    AMREX_ASSERT(bcs.size() == EULER_NCOMP);
-    Array<LinOpBCType, AMREX_SPACEDIM> lobc, hibc;
-
-    for (int d = 0; d < AMREX_SPACEDIM; ++d)
-    {
-        if (geom.isPeriodic(d))
-        {
-            lobc[d] = LinOpBCType::Periodic;
-            hibc[d] = LinOpBCType::Periodic;
-        }
-        else
-        {
-            lobc[d] = linop_from_BCType(bcs[1 + AMREX_SPACEDIM].lo(d));
-            hibc[d] = linop_from_BCType(bcs[1 + AMREX_SPACEDIM].hi(d));
-        }
-    }
-
+    const auto &lobc = bc_data.get_p_linop_lobc();
+    const auto &hibc = bc_data.get_p_linop_hibc();
     pressure_op.setDomainBC(lobc, hibc);
+
+    // if (level > 0)
+    //     pressure_op.setCoarseFineBC(&crse_pressure, crse_ratio[0]);
+
+    if (!bc_data.domain_has_dirichlet())
+        // pure homogeneous Neumann BC so we pass nullptr
+        pressure_op.setLevelBC(0, nullptr);
+    else
+    {
+        // Fill dirichlet conditions
+        bc_data.fill_pressure_boundary(geom, pressure_scratch, 0);
+        pressure_op.setLevelBC(0, &pressure_scratch);
+    }
 }
 
 AMREX_GPU_HOST
@@ -691,7 +668,7 @@ void picard_iterate(
     amrex::MultiFab &rhs, amrex::MultiFab &pressure, amrex::Real dt,
     AMREX_D_DECL(amrex::Real hdtdx, amrex::Real hdtdy, amrex::Real hdtdz),
     AMREX_D_DECL(amrex::Real hdtdxe, amrex::Real hdtdye, amrex::Real hdtdze),
-    const amrex::Vector<amrex::BCRec> &domainbcs, const IMEXSettings &settings)
+    const bamrexBCData &bc_data, const IMEXSettings &settings)
 {
     BL_PROFILE("picard_iterate()");
     MultiFab residual;
@@ -709,8 +686,8 @@ void picard_iterate(
         {
             MLABecLaplacianGrad pressure_op;
 
-            details::setup_pressure_op(geom, enthalpy, velocity, rhs,
-                                       pressure_op, dt, domainbcs, settings);
+            details::setup_pressure_op(geom, enthalpy, velocity, rhs, pressure,
+                                       pressure_op, dt, bc_data, settings);
 
             // solver can only be constructed once the operator is initialised
             MLMG residual_solver(pressure_op);
@@ -735,7 +712,7 @@ void picard_iterate(
                 }
             }
 
-            details::solve_pressure(geom, rhs, pressure, solver, domainbcs,
+            details::solve_pressure(geom, rhs, pressure, solver, bc_data,
                                     settings);
         }
 

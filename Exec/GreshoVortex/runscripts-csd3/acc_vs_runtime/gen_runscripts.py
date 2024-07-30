@@ -18,8 +18,8 @@ runs = {8 : {"IMEX" : [128]},
 n_cpus_per_node = 76
 
 # Testcases to use (produces new runscripts for each)
-test_names = ["M1", "M1e-2"]
-test_options = ["init.M=1", "init.M=1e-2"]
+test_names = ["M1", "M1e-1"]
+test_options = ["init.M=1", "init.M=1e-1"]
 
 run_times = {"M1"    : { 8 : "00:01:00", 
                          32 : "00:05:00",
@@ -27,7 +27,7 @@ run_times = {"M1"    : { 8 : "00:01:00",
                          256 : "00:01:00",
                          512 : "00:05:00",
                          1024 : "00:15:00"},
-             "M1e-2" : { 8 : "00:05:00", 
+             "M1e-1" : { 8 : "00:05:00", 
                          32 : "00:10:00",
                          128 : "00:10:00",
                          256 : "00:10:00",

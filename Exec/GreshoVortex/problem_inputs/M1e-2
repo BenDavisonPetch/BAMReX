@@ -14,3 +14,14 @@ limiting.limiter = superbee
 limiting.density = energy
 limiting.mom     = energy energy energy
 limiting.energy  = energy
+
+# ---
+# BCs
+# ---
+
+# Options are transmissive, dirichlet, reflective, gresho
+# Directions specify lo and hi
+# Default is transmissive
+bc.x = gresho gresho
+bc.y = gresho gresho
+bc.z = gresho gresho

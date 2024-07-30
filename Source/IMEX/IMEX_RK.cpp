@@ -24,9 +24,8 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
                      const amrex::MultiFab &statein, amrex::MultiFab &stateout,
                      amrex::MultiFab                               &pressure,
                      amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
-                     const amrex::Real                              dt,
-                     const amrex::Vector<amrex::BCRec>             &domainbcs,
-                     const IMEXSettings                             settings)
+                     const amrex::Real dt, const bamrexBCData &bc_data,
+                     const IMEXSettings settings)
 {
     BL_PROFILE_REGION("advance_imex_rk()");
     BL_PROFILE("advance_imex_rk()");
@@ -65,12 +64,8 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
         const auto dt_exp = tableau.get_A_exp_row(stage, dt);
         conservative_update(geom, statein, stage_fluxes, statein_imp,
                             statein_exp[stage % 2], dt_imp, dt_exp, stage);
-        statein_exp[stage % 2].FillBoundary_nowait(geom.periodicity());
-        statein_imp.FillBoundary_nowait(geom.periodicity());
-        statein_exp[stage % 2].FillBoundary_finish();
-        FillDomainBoundary(statein_exp[stage % 2], geom, domainbcs);
-        statein_imp.FillBoundary_finish();
-        FillDomainBoundary(statein_imp, geom, domainbcs);
+        bc_data.fill_consv_boundary(geom, statein_exp[stage % 2], time);
+        bc_data.fill_consv_boundary(geom, statein_imp, time);
 
         const Real adt = tableau.get_A_imp()[stage][stage] * dt;
 
@@ -84,7 +79,7 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
 
         // Compute stage flux for this step
         compute_flux_imex_o1(time, geom, statein_imp, statein_exp[stage % 2],
-                             pressure, stage_fluxes[stage], adt, domainbcs,
+                             pressure, stage_fluxes[stage], adt, bc_data,
                              settings);
 
         if (settings.verbose)
@@ -103,14 +98,14 @@ void advance_imex_rk_stab(
     const amrex::MultiFab &statein, amrex::MultiFab &stateout,
     amrex::MultiFab                               &pressure,
     amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
-    const amrex::Real dt, const amrex::Vector<amrex::BCRec> &domainbcs,
+    const amrex::Real dt, const bamrexBCData &bc_data,
     const IMEXSettings settings)
 {
     BL_PROFILE("advance_imex_rk_stab()");
     if (!settings.stabilize)
     {
         advance_imex_rk(time, geom, statein, stateout, pressure, fluxes, dt,
-                        domainbcs, settings);
+                        bc_data, settings);
         return;
     }
 
@@ -121,7 +116,7 @@ void advance_imex_rk_stab(
                              pressure.nGrow(), pressure.nGrow());
 
     advance_imex_rk(time, geom, statein, stateout, pressure, fluxes, dt,
-                    domainbcs, settings);
+                    bc_data, settings);
 
     const IMEXButcherTableau tableau(settings.butcher_tableau);
     if (tableau.order() <= 1)
@@ -132,7 +127,7 @@ void advance_imex_rk_stab(
                            0);
 
     Real indicator_max = compute_shock_indicator(
-        geom, shock_indicator, stateout, domainbcs, settings.k1);
+        geom, shock_indicator, stateout, bc_data, settings.k1);
 
     if (indicator_max <= 0)
         return;
@@ -153,7 +148,7 @@ void advance_imex_rk_stab(
     settings_o1.advection_flux  = IMEXSettings::rusanov;
     settings_o1.butcher_tableau = IMEXButcherTableau::SP111;
     advance_imex_rk(time, geom, statein, stateout_o1, pressure_o1, fluxes_o1,
-                    dt, domainbcs, settings_o1);
+                    dt, bc_data, settings_o1);
 
     // Convex combo
 #ifdef AMREX_USE_OMP
@@ -235,11 +230,11 @@ void sum_fluxes(
 }
 
 AMREX_GPU_HOST
-amrex::Real
-compute_shock_indicator(const amrex::Geometry &geom, amrex::MultiFab &dst,
-                        const amrex::MultiFab             &state,
-                        const amrex::Vector<amrex::BCRec> &domainbcs,
-                        const amrex::Real                  k1)
+amrex::Real compute_shock_indicator(const amrex::Geometry &geom,
+                                    amrex::MultiFab       &dst,
+                                    const amrex::MultiFab &state,
+                                    const bamrexBCData    &bc_data,
+                                    const amrex::Real      k1)
 {
     BL_PROFILE("compute_shock_indicator()");
 #ifdef DEBUG
@@ -254,8 +249,7 @@ compute_shock_indicator(const amrex::Geometry &geom, amrex::MultiFab &dst,
     MultiFab state_grow(state.boxArray(), state.DistributionMap(),
                         state.nComp(), 2);
     state_grow.ParallelCopy(state, 0, 0, state.nComp(), 0, 0);
-    FillDomainBoundary(state_grow, geom, domainbcs);
-    state_grow.FillBoundary(geom.periodicity());
+    bc_data.fill_consv_boundary(geom, state_grow, 0);
 
     const Real eps  = AmrLevelAdv::h_prob_parm->epsilon;
     const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;

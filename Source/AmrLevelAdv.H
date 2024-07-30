@@ -6,6 +6,7 @@
 #include <AMReX_FluxRegister.H>
 #include <AMReX_PhysBCFunct.H>
 
+#include "BCs.H"
 #include "IMEX/IMEXSettings.H"
 #include "NumericalMethods.H"
 #include "RCM/PseudoRandom.H"
@@ -250,6 +251,7 @@ class AmrLevelAdv : public amrex::AmrLevel
     static amrex::Real              acoustic_timestep_end_time;
     static NumericalMethods::Method num_method;
     static IMEXSettings             imex_settings;
+    static bamrexBCData             bc_data;
 
 #ifdef AMREX_PARTICLES
     void                                                      init_particles();
@@ -257,14 +259,6 @@ class AmrLevelAdv : public amrex::AmrLevel
     static std::unique_ptr<amrex::AmrTracerParticleContainer> TracerPC;
 #endif
 };
-
-/**
- * Boundary condition function that does nothing.
- * See bc_nullfill.cpp for implementation.
- */
-void nullfill(amrex::Box const &bx, amrex::FArrayBox &data, int dcomp,
-              int numcomp, amrex::Geometry const &geom, amrex::Real time,
-              const amrex::Vector<amrex::BCRec> &bcr, int bcomp, int scomp);
 
 /*
  * Inlines.

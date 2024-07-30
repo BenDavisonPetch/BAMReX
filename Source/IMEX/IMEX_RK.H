@@ -13,9 +13,8 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
                      const amrex::MultiFab &statein, amrex::MultiFab &stateout,
                      amrex::MultiFab                               &pressure,
                      amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
-                     const amrex::Real                              dt,
-                     const amrex::Vector<amrex::BCRec>             &domainbcs,
-                     const IMEXSettings                             settings);
+                     const amrex::Real dt, const bamrexBCData &bc_data,
+                     const IMEXSettings settings);
 
 /**
  * \brief Same as above but implements high-Mach number stabilisation for high
@@ -28,7 +27,7 @@ void advance_imex_rk_stab(
     const amrex::MultiFab &statein, amrex::MultiFab &stateout,
     amrex::MultiFab                               &pressure,
     amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
-    const amrex::Real dt, const amrex::Vector<amrex::BCRec> &domainbcs,
+    const amrex::Real dt, const bamrexBCData &bc_data,
     const IMEXSettings settings);
 
 /**
@@ -46,10 +45,10 @@ void sum_fluxes(
  * value
  */
 AMREX_GPU_HOST
-amrex::Real
-compute_shock_indicator(const amrex::Geometry &geom, amrex::MultiFab &dst,
-                        const amrex::MultiFab             &state,
-                        const amrex::Vector<amrex::BCRec> &domainbcs,
-                        const amrex::Real                  k1);
+amrex::Real compute_shock_indicator(const amrex::Geometry &geom,
+                                    amrex::MultiFab       &dst,
+                                    const amrex::MultiFab &state,
+                                    const bamrexBCData    &bc_data,
+                                    const amrex::Real      k1);
 
 #endif

@@ -1,5 +1,5 @@
-#include <AMReX_FArrayBox.H>
-#include <AMReX_Geometry.H>
+#include "bc_nullfill.H"
+
 #include <AMReX_PhysBCFunct.H>
 
 using namespace amrex;

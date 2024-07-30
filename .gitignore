@@ -8,3 +8,4 @@ Exec/GreshoVortex/runscripts-csd3/*/slurm_submit*
 machine.file*
 Exec/IsentropicVortex/inputs
 Exec/IsentropicVortex/inputs_stat
+__*

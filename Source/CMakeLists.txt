@@ -20,6 +20,7 @@ set (SRC_NO_MAIN ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/LinearSolver/MLALaplacianGrad.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/SourceTerms/GeometricSource.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/RCM/RCM.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/BCs.cpp
 )
 
 set (SRC_NO_MAIN ${SRC_NO_MAIN} PARENT_SCOPE)
