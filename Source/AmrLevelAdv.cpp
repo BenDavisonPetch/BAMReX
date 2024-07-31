@@ -947,7 +947,12 @@ void AmrLevelAdv::post_regrid(int lbase, int /*new_finest*/)
 /**
  * Do work after a restart().
  */
-void AmrLevelAdv::post_restart() {}
+void AmrLevelAdv::post_restart()
+{
+    const MultiFab &LS_new = get_new_data(Levelset_Type);
+    gfm_flags.define(LS_new.boxArray(), dmap, 1, LS_new.nGrow());
+    build_gfm_flags(gfm_flags, LS_new);
+}
 
 /**
  * Do work after init().
