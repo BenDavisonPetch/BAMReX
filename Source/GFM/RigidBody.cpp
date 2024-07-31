@@ -1,4 +1,5 @@
 #include "RigidBody.H"
+#include "BCs.H"
 #include "Euler/NComp.H"
 #include "GFM/GFMFlag.H"
 #include "GFM/Interp_K.H"
@@ -13,11 +14,13 @@ using namespace amrex;
  * \param LS >0 -> body, =0 -> interface, <0 -> fluid. Components
  * 1:AMREX_SPACEDIM are the normal vectors (point into fluid, i.e. grad(LS))
  * \param gfm_flags constructed using build_gfm_flags
+ * \param rb_bc
  */
-AMREX_GPU_HOST void fill_ghost_rb(const amrex::Geometry  &geom,
-                                  amrex::MultiFab        &U,
-                                  const amrex::MultiFab  &LS,
-                                  const amrex::iMultiFab &gfm_flags)
+AMREX_GPU_HOST void fill_ghost_rb(const amrex::Geometry           &geom,
+                                  amrex::MultiFab                 &U,
+                                  const amrex::MultiFab           &LS,
+                                  const amrex::iMultiFab          &gfm_flags,
+                                  RigidBodyBCType::rigidbodybctype rb_bc)
 {
     AMREX_ASSERT_WITH_MESSAGE(
         LS.nComp() == AMREX_SPACEDIM + 1,
@@ -65,16 +68,26 @@ AMREX_GPU_HOST void fill_ghost_rb(const amrex::Geometry  &geom,
                         bilinear_interp(x_refl, arr, arr, i, j, k, dx,
                                         EULER_NCOMP);
 
-                        // Now we reflect the momentum in the normal direction
-                        // q -> q - 2 (q.n)n
-                        const Real tdot
-                            = 2
-                              * (AMREX_D_TERM(arr(i, j, k, 1) * norm[0],
-                                              +arr(i, j, k, 2) * norm[1],
-                                              +arr(i, j, k, 3) * norm[2]));
-                        for (int n = 0; n < AMREX_SPACEDIM; ++n)
+                        if (rb_bc == RigidBodyBCType::reflective)
                         {
-                            arr(i, j, k, n + 1) -= tdot * norm[n];
+                            // Now we reflect the momentum in the normal
+                            // direction q -> q - 2 (q.n)n
+                            const Real tdot
+                                = 2
+                                  * (AMREX_D_TERM(arr(i, j, k, 1) * norm[0],
+                                                  +arr(i, j, k, 2) * norm[1],
+                                                  +arr(i, j, k, 3) * norm[2]));
+                            for (int n = 0; n < AMREX_SPACEDIM; ++n)
+                            {
+                                arr(i, j, k, n + 1) -= tdot * norm[n];
+                            }
+                        }
+                        else if (rb_bc == RigidBodyBCType::no_slip)
+                        {
+                            for (int n = 0; n < AMREX_SPACEDIM; ++n)
+                            {
+                                arr(i, j, k, n + 1) *= -1;
+                            }
                         }
                     }
                 });

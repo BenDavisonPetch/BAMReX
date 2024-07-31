@@ -11,47 +11,72 @@
 
 #include <string>
 
+/**
+ * BC type definitions
+ */
+namespace BAMReXBCType
+{
+enum bctype
+{
+    transmissive,
+    reflective,
+    periodic,
+    gresho,
+    pressure_outlet,
+    coaxial_jet
+};
+
+/**
+ * Helper functions
+ */
+inline bctype enum_from_string(const std::string &name)
+{
+    if (name == "transmissive")
+        return transmissive;
+    else if (name == "reflective")
+        return reflective;
+    else if (name == "periodic")
+        return periodic;
+    else if (name == "gresho")
+        return gresho;
+    else if (name == "pressure_outlet")
+        return pressure_outlet;
+    else if (name == "coaxial_jet")
+        return coaxial_jet;
+    else
+    {
+        amrex::Abort("Invalid BC type specified");
+        return transmissive;
+    }
+}
+}
+
+namespace RigidBodyBCType
+{
+enum rigidbodybctype
+{
+    reflective,
+    no_slip
+};
+
+inline rigidbodybctype enum_from_string(const std::string &name)
+{
+    if (name == "reflective")
+        return reflective;
+    else if (name == "no_slip")
+        return no_slip;
+    else
+    {
+        amrex::Abort("Invalid rigid body BC type specified");
+        return reflective;
+    }
+}
+}
+
 class bamrexBCData
 {
   public:
-    /**
-     * BC type definitions
-     */
-    enum BCType
-    {
-        transmissive,
-        reflective,
-        periodic,
-        gresho,
-        pressure_outlet,
-        coaxial_jet
-    };
-
     static constexpr int CONSV_NCOMP = EULER_NCOMP;
-
-    /**
-     * Helper functions
-     */
-    static inline BCType enum_from_string(const std::string &name)
-    {
-        if (name == "transmissive")
-            return transmissive;
-        else if (name == "reflective")
-            return reflective;
-        else if (name == "periodic")
-            return periodic;
-        else if (name == "gresho")
-            return gresho;
-        else if (name == "pressure_outlet")
-            return pressure_outlet;
-        else if (name == "coaxial_jet")
-            return coaxial_jet;
-        else
-        {
-            amrex::Abort("Invalid BC type specified");
-            return transmissive;
-        }
-    }
 
     /**
      * Default constructor. Builds an invalid object
@@ -124,8 +149,11 @@ class bamrexBCData
 
     inline bool jet() const { return m_jet; }
 
+    inline RigidBodyBCType::rigidbodybctype rigidbody_bc() { return rb_bc; }
+
   protected:
-    amrex::Array<BCType, 2 * AMREX_SPACEDIM> bcs;
+    amrex::Array<BAMReXBCType::bctype, 2 * AMREX_SPACEDIM> bcs;
+    RigidBodyBCType::rigidbodybctype                       rb_bc;
 
     // Boundary functions
     amrex::BndryFuncFabDefault        bndryfunc_consv, bndryfunc_p;

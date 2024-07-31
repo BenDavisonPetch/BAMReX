@@ -28,26 +28,26 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
     {
         std::array<std::string, 2> bc_in;
         pp.get("x", bc_in);
-        bcs[0] = bamrexBCData::enum_from_string(bc_in[0]);
-        bcs[1] = bamrexBCData::enum_from_string(bc_in[1]);
+        bcs[0] = BAMReXBCType::enum_from_string(bc_in[0]);
+        bcs[1] = BAMReXBCType::enum_from_string(bc_in[1]);
     }
     else
     {
-        bcs[0] = bamrexBCData::transmissive;
-        bcs[1] = bamrexBCData::transmissive;
+        bcs[0] = BAMReXBCType::transmissive;
+        bcs[1] = BAMReXBCType::transmissive;
     }
 #if AMREX_SPACEDIM >= 2
     if (pp.contains("y"))
     {
         std::array<std::string, 2> bc_in;
         pp.get("y", bc_in);
-        bcs[2] = bamrexBCData::enum_from_string(bc_in[0]);
-        bcs[3] = bamrexBCData::enum_from_string(bc_in[1]);
+        bcs[2] = BAMReXBCType::enum_from_string(bc_in[0]);
+        bcs[3] = BAMReXBCType::enum_from_string(bc_in[1]);
     }
     else
     {
-        bcs[2] = bamrexBCData::transmissive;
-        bcs[3] = bamrexBCData::transmissive;
+        bcs[2] = BAMReXBCType::transmissive;
+        bcs[3] = BAMReXBCType::transmissive;
     }
 #endif
 #if AMREX_SPACEDIM == 3
@@ -55,23 +55,36 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
     {
         std::array<std::string, 2> bc_in;
         pp.get("z", bc_in);
-        bcs[4] = bamrexBCData::enum_from_string(bc_in[0]);
-        bcs[5] = bamrexBCData::enum_from_string(bc_in[1]);
+        bcs[4] = BAMReXBCType::enum_from_string(bc_in[0]);
+        bcs[5] = BAMReXBCType::enum_from_string(bc_in[1]);
     }
     else
     {
-        bcs[4] = bamrexBCData::transmissive;
-        bcs[5] = bamrexBCData::transmissive;
+        bcs[4] = BAMReXBCType::transmissive;
+        bcs[5] = BAMReXBCType::transmissive;
     }
 #endif
+    if (pp.contains("rb"))
+    {
+        std::string rb_bc_in;
+        pp.get("rb", rb_bc_in);
+        rb_bc = RigidBodyBCType::enum_from_string(rb_bc_in);
+        if (rb_bc == RigidBodyBCType::no_slip)
+            amrex::Abort(
+                "No slip boundary conditions don't work without viscosity!");
+    }
+    else
+    {
+        rb_bc = RigidBodyBCType::reflective;
+    }
 
     // Check if we need to use a non-null boundary fill function
     m_jet    = false;
     m_gresho = false;
     for (int id = 0; id < 2 * AMREX_SPACEDIM; ++id)
     {
-        m_jet    = m_jet || bcs[id] == bamrexBCData::coaxial_jet;
-        m_gresho = m_gresho || bcs[id] == bamrexBCData::gresho;
+        m_jet    = m_jet || bcs[id] == BAMReXBCType::coaxial_jet;
+        m_gresho = m_gresho || bcs[id] == BAMReXBCType::gresho;
     }
     AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
         !(m_jet && m_gresho),
@@ -164,18 +177,18 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
     //
     for (int dir = 0; dir < AMREX_SPACEDIM; ++dir)
     {
-        bamrexBCData::BCType lo_type = bcs[2 * dir];
-        bamrexBCData::BCType hi_type = bcs[2 * dir + 1];
+        BAMReXBCType::bctype lo_type = bcs[2 * dir];
+        BAMReXBCType::bctype hi_type = bcs[2 * dir + 1];
 
         if (top_geom->isPeriodic(dir))
         {
-            lo_type = bamrexBCData::periodic;
-            hi_type = bamrexBCData::periodic;
+            lo_type = BAMReXBCType::periodic;
+            hi_type = BAMReXBCType::periodic;
         }
 
         switch (lo_type)
         {
-        case bamrexBCData::transmissive:
+        case BAMReXBCType::transmissive:
         {
             for (int n = 0; n < CONSV_NCOMP; ++n)
             {
@@ -188,7 +201,7 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
             p_linop_lobc[dir] = LinOpBCType::Neumann;
             break;
         }
-        case bamrexBCData::periodic:
+        case BAMReXBCType::periodic:
         {
             for (int n = 0; n < CONSV_NCOMP; ++n)
             {
@@ -199,7 +212,7 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
             p_linop_lobc[dir] = LinOpBCType::Periodic;
             break;
         }
-        case bamrexBCData::reflective:
+        case BAMReXBCType::reflective:
         {
             AMREX_ASSERT(CONSV_NCOMP == EULER_NCOMP);
             for (int n = 0; n < CONSV_NCOMP; ++n)
@@ -213,7 +226,7 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
             p_linop_lobc[dir] = LinOpBCType::Neumann;
             break;
         }
-        case bamrexBCData::gresho:
+        case BAMReXBCType::gresho:
         {
             AMREX_ASSERT(CONSV_NCOMP == EULER_NCOMP);
             for (int n = 0; n < CONSV_NCOMP; ++n)
@@ -225,7 +238,7 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
             p_linop_lobc[dir] = LinOpBCType::Dirichlet;
             break;
         }
-        case bamrexBCData::coaxial_jet:
+        case BAMReXBCType::coaxial_jet:
         {
             for (int n = 0; n < CONSV_NCOMP; ++n)
             {
@@ -244,7 +257,7 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
         }
         switch (hi_type)
         {
-        case bamrexBCData::transmissive:
+        case BAMReXBCType::transmissive:
         {
             for (int n = 0; n < CONSV_NCOMP; ++n)
             {
@@ -257,7 +270,7 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
             p_linop_hibc[dir] = LinOpBCType::Neumann;
             break;
         }
-        case bamrexBCData::periodic:
+        case BAMReXBCType::periodic:
         {
             for (int n = 0; n < CONSV_NCOMP; ++n)
             {
@@ -268,7 +281,7 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
             p_linop_hibc[dir] = LinOpBCType::Periodic;
             break;
         }
-        case bamrexBCData::reflective:
+        case BAMReXBCType::reflective:
         {
             AMREX_ASSERT(CONSV_NCOMP == EULER_NCOMP);
             for (int n = 0; n < CONSV_NCOMP; ++n)
@@ -282,7 +295,7 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
             p_linop_hibc[dir] = LinOpBCType::Neumann;
             break;
         }
-        case bamrexBCData::gresho:
+        case BAMReXBCType::gresho:
         {
             AMREX_ASSERT(CONSV_NCOMP == EULER_NCOMP);
             for (int n = 0; n < CONSV_NCOMP; ++n)
@@ -294,7 +307,7 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
             p_linop_hibc[dir] = LinOpBCType::Dirichlet;
             break;
         }
-        case bamrexBCData::coaxial_jet:
+        case BAMReXBCType::coaxial_jet:
         {
             for (int n = 0; n < CONSV_NCOMP; ++n)
             {

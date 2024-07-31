@@ -21,6 +21,7 @@ geometry.prob_hi     =  0.3  0.1  0.0
 
 bc.x = coaxial_jet coaxial_jet
 bc.y = reflective coaxial_jet
+# bc.rb = no_slip
 
 sym.rot_axis = 1
 sym.alpha = 1

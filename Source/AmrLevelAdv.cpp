@@ -418,7 +418,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     FillPatcherFill(Sborder, 0, NUM_STATE, NUM_GROW, time, Consv_Type, 0);
 
     // fill rigid body ghost states
-    fill_ghost_rb(geom, Sborder, LS, gfm_flags);
+    fill_ghost_rb(geom, Sborder, LS, gfm_flags, bc_data.rigidbody_bc());
     fill_boundary(Sborder);
 
     if (verbose)
