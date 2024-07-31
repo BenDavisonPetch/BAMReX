@@ -3,7 +3,9 @@ max_step = 1000000
 stop_time = 0.25
 
 adv.num_method = rcm
-rcm.coord_sys = 1
+
+sym.rot_axis = 0
+sym.alpha = 1 # 1 for cylindrical, 2 for spherical
 
 # PROBLEM-SPECIFIC PARAMETERS
 prob.adiabatic  = 1.4

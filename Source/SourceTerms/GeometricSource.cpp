@@ -2,11 +2,59 @@
 #include "AmrLevelAdv.H"
 #include <AMReX_Extension.H>
 
+using namespace amrex;
+
+//! Convenience function, will call the correct routine below.
+//! In 2D, axis_loc = 0 -> x lo, = 1 -> y lo
 AMREX_GPU_HOST
-void advance_geometric(amrex::Real dt, amrex::Real dr, amrex::Real r_lo,
-                       int alpha, const amrex::Box &bx,
-                       const amrex::FArrayBox &statein,
-                       amrex::FArrayBox       &stateout)
+void advance_geometric([[maybe_unused]] const amrex::Geometry &geom,
+                       [[maybe_unused]] amrex::Real            dt,
+                       [[maybe_unused]] int                    alpha,
+                       [[maybe_unused]] int                    rot_axis,
+                       [[maybe_unused]] const amrex::MultiFab &Uin,
+                       [[maybe_unused]] amrex::MultiFab       &Uout)
+{
+#if AMREX_SPACEDIM == 1 || AMREX_SPACEDIM == 2
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    {
+        for (MFIter mfi(Uout, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
+            const auto &bx = mfi.tilebox();
+#if AMREX_SPACEDIM == 1
+            AMREX_ASSERT(rot_axis == 0);
+            const Real dr   = geom.CellSize(0);
+            const Real r_lo = geom.ProbLo(0);
+            advance_geometric_1d(dt, dr, r_lo, alpha, bx, Uin[mfi], Uout[mfi]);
+#elif AMREX_SPACEDIM == 2
+            AMREX_ASSERT(rot_axis == 0 || rot_axis == 1);
+            const Real dr   = geom.CellSize(rot_axis);
+            const Real r_lo = geom.ProbLo(rot_axis);
+            switch (rot_axis)
+            {
+            case 0:
+                advance_geometric_2d<0>(dt, dr, r_lo, alpha, bx, Uin[mfi],
+                                        Uout[mfi]);
+                break;
+            case 1:
+                advance_geometric_2d<1>(dt, dr, r_lo, alpha, bx, Uin[mfi],
+                                        Uout[mfi]);
+                break;
+            }
+#endif
+        }
+    }
+
+#endif
+}
+
+AMREX_GPU_HOST
+void advance_geometric_1d(amrex::Real dt, amrex::Real dr, amrex::Real r_lo,
+                          int alpha, const amrex::Box &bx,
+                          const amrex::FArrayBox &statein,
+                          amrex::FArrayBox       &stateout)
 {
     using namespace amrex;
     constexpr int NCOMP = 3;
@@ -101,7 +149,7 @@ void advance_geometric(amrex::Real dt, amrex::Real dr, amrex::Real r_lo,
                 });
 }
 
-template <int axis_loc>
+template <int rot_axis>
 AMREX_GPU_HOST void advance_geometric_2d(amrex::Real dt, amrex::Real dr,
                                          amrex::Real r_lo, int alpha,
                                          const amrex::Box       &bx,
@@ -134,9 +182,9 @@ AMREX_GPU_HOST void advance_geometric_2d(amrex::Real dt, amrex::Real dr,
     ParallelFor(bx,
                 [=] AMREX_GPU_DEVICE(int i, int j, int k)
                 {
-                    const Real  r     = (axis_loc == 0) ? (i + 0.5) * dr + r_lo
+                    const Real  r     = (rot_axis == 0) ? (i + 0.5) * dr + r_lo
                                                         : (j + 0.5) * dr + r_lo;
-                    const auto &k1arr = geometric_source<axis_loc>(
+                    const auto &k1arr = geometric_source<rot_axis>(
                         r, alpha, adia, eps, out, i, j);
                     AMREX_PRAGMA_SIMD
                     for (int n = 0; n < NCOMP; ++n)
@@ -151,9 +199,9 @@ AMREX_GPU_HOST void advance_geometric_2d(amrex::Real dt, amrex::Real dr,
     ParallelFor(bx,
                 [=] AMREX_GPU_DEVICE(int i, int j, int k)
                 {
-                    const Real  r     = (axis_loc == 0) ? (i + 0.5) * dr + r_lo
+                    const Real  r     = (rot_axis == 0) ? (i + 0.5) * dr + r_lo
                                                         : (j + 0.5) * dr + r_lo;
-                    const auto &k2arr = geometric_source<axis_loc>(
+                    const auto &k2arr = geometric_source<rot_axis>(
                         r, alpha, adia, eps, out, i, j);
                     AMREX_PRAGMA_SIMD
                     for (int n = 0; n < NCOMP; ++n)
@@ -168,9 +216,9 @@ AMREX_GPU_HOST void advance_geometric_2d(amrex::Real dt, amrex::Real dr,
     ParallelFor(bx,
                 [=] AMREX_GPU_DEVICE(int i, int j, int k)
                 {
-                    const Real  r     = (axis_loc == 0) ? (i + 0.5) * dr + r_lo
+                    const Real  r     = (rot_axis == 0) ? (i + 0.5) * dr + r_lo
                                                         : (j + 0.5) * dr + r_lo;
-                    const auto &k3arr = geometric_source<axis_loc>(
+                    const auto &k3arr = geometric_source<rot_axis>(
                         r, alpha, adia, eps, out, i, j);
                     AMREX_PRAGMA_SIMD
                     for (int n = 0; n < NCOMP; ++n)
@@ -185,9 +233,9 @@ AMREX_GPU_HOST void advance_geometric_2d(amrex::Real dt, amrex::Real dr,
     ParallelFor(bx,
                 [=] AMREX_GPU_DEVICE(int i, int j, int k)
                 {
-                    const Real  r     = (axis_loc == 0) ? (i + 0.5) * dr + r_lo
+                    const Real  r     = (rot_axis == 0) ? (i + 0.5) * dr + r_lo
                                                         : (j + 0.5) * dr + r_lo;
-                    const auto &k4arr = geometric_source<axis_loc>(
+                    const auto &k4arr = geometric_source<rot_axis>(
                         r, alpha, adia, eps, out, i, j);
                     AMREX_PRAGMA_SIMD
                     for (int n = 0; n < NCOMP; ++n)

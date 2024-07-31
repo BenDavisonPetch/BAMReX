@@ -240,14 +240,14 @@ class AmrLevelAdv : public amrex::AmrLevel
     /**
      * Initialises level set. Implemented in AmrLevelAdv_LSinit.cpp
      */
-    void init_levelset(amrex::MultiFab& LS, const amrex::Geometry& geom);
+    void init_levelset(amrex::MultiFab &LS, const amrex::Geometry &geom);
 
     /*
      * The data.
      */
     std::unique_ptr<amrex::FluxRegister> flux_reg;
     PseudoRandom<>                       random; // used for RCM
-    amrex::iMultiFab gfm_flags;
+    amrex::iMultiFab                     gfm_flags;
 
     /*
      * Static data members.
@@ -259,6 +259,7 @@ class AmrLevelAdv : public amrex::AmrLevel
     static NumericalMethods::Method num_method;
     static IMEXSettings             imex_settings;
     static bamrexBCData             bc_data;
+    static int rot_axis, alpha; // data for geometric source term
 
 #ifdef AMREX_PARTICLES
     void                                                      init_particles();

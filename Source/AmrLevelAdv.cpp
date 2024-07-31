@@ -40,6 +40,9 @@ NumericalMethods::Method AmrLevelAdv::num_method;
 IMEXSettings             AmrLevelAdv::imex_settings;
 bamrexBCData             AmrLevelAdv::bc_data;
 
+int AmrLevelAdv::rot_axis = -1;
+int AmrLevelAdv::alpha    = 0;
+
 const int AmrLevelAdv::NUM_STATE = 2 + AMREX_SPACEDIM; // Euler eqns
 const int AmrLevelAdv::NUM_GROW  = 4;                  // number of ghost cells
 // (Pressure needs 2 ghost cells, and we need 2 more ghost cells than pressure
@@ -451,7 +454,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
             // update Sborder in place nodal boxes aren't used
             MFIter_loop(
                 time, geom, S_new, Sborder, fluxes, dt,
-                [&](const amrex::MFIter &/*mfi*/, const amrex::Real time,
+                [&](const amrex::MFIter & /*mfi*/, const amrex::Real time,
                     const amrex::Box &bx,
                     amrex::GpuArray<amrex::Box, AMREX_SPACEDIM> /*nbx*/,
                     const amrex::FArrayBox & /*statein*/,
@@ -553,34 +556,23 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
                 Print() << "\tDirection update complete" << std::endl;
         }
 
-        // The updated data is now copied to the S_new multifab.  This means
-        // it is now accessible through the get_new_data command, and AMReX
-        // can automatically interpolate or extrapolate between layers etc.
-        // S_new: Destination
-        // Sborder: Source
-        // Third entry: Starting variable in the source array to be copied (the
-        // zeroth variable in this case) Fourth entry: Starting variable in the
-        // destination array to receive the copy (again zeroth here) NUM_STATE:
-        // Total number of variables being copied Sixth entry: Number of ghost
-        // cells to be included in the copy (zero in this case, since only real
-        //              data is needed for S_new)
-        if (bc_data.jet() && AMREX_SPACEDIM == 2)
+        if (rot_axis != -1 && alpha != 0)
         {
-            Real dr = geom.CellSize(1);
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-            {
-                for (MFIter mfi(S_new, TilingIfNotGPU()); mfi.isValid(); ++mfi)
-                {
-                    const auto &bx = mfi.tilebox();
-                    advance_geometric_2d<1>(dt, dr, geom.ProbLo(1), 1, bx,
-                                            Sborder[mfi], S_new[mfi]);
-                }
-            }
+            advance_geometric(geom, dt, alpha, rot_axis, Sborder, S_new);
         }
         else
         {
+            // The updated data is now copied to the S_new multifab.  This
+            // means it is now accessible through the get_new_data command, and
+            // AMReX can automatically interpolate or extrapolate between
+            // layers etc. S_new: Destination Sborder: Source Third entry:
+            // Starting variable in the source array to be copied (the zeroth
+            // variable in this case) Fourth entry: Starting variable in the
+            // destination array to receive the copy (again zeroth here)
+            // NUM_STATE: Total number of variables being copied Sixth entry:
+            // Number of ghost cells to be included in the copy (zero in this
+            // case, since only real
+            //              data is needed for S_new)
             MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, 0);
         }
     }
@@ -600,9 +592,6 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     }
     else if (num_method == NumericalMethods::rcm)
     {
-        ParmParse pp("rcm");
-        int       alpha;
-        pp.get("coord_sys", alpha);
         Real rand = random.random();
         Real dr   = geom.CellSize(0);
         AMREX_ASSERT(fabs(geom.ProbLo(0)) < 1e-12);
@@ -611,9 +600,12 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
             const auto &bx = mfi.validbox();
             advance_RCM(dt, dr, rand, h_prob_parm->adiabatic,
                         h_prob_parm->epsilon, bx, Sborder[mfi], S_new[mfi]);
-            advance_geometric(dt, dr, 0, alpha, bx, S_new[mfi], Sborder[mfi]);
         }
-        MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, 0);
+        if (rot_axis != -1 && alpha != 0)
+        {
+            advance_geometric(geom, dt, alpha, rot_axis, S_new, Sborder);
+            MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, 0);
+        }
     }
     else
     {
@@ -1093,6 +1085,13 @@ void AmrLevelAdv::read_params()
         ParmParse pp3("imex");
         acoustic_timestep_end_time = 0.1 * stop_time;
         pp3.query("acoustic_timestep_end_time", acoustic_timestep_end_time);
+    }
+
+    // Geometric source term info
+    {
+        ParmParse pp2("sym");
+        pp2.query("rot_axis", rot_axis);
+        pp2.query("alpha", alpha); // 1 for cylindrical, 2 for spherical
     }
 
     // Vector variables can be read in; these require e.g.\ pp.queryarr

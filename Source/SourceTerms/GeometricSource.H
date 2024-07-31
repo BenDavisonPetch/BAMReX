@@ -5,14 +5,21 @@
 #include <AMReX_Array4.H>
 #include <AMReX_FArrayBox.H>
 
+//! Convenience function, will call the correct routine below.
+//! In 2D, rot_axis = 0 -> x lo, = 1 -> y lo
 AMREX_GPU_HOST
-void advance_geometric(amrex::Real dt, amrex::Real dr, amrex::Real r_lo,
-                       int alpha, const amrex::Box &bx,
-                       const amrex::FArrayBox &statein,
-                       amrex::FArrayBox       &stateout);
+void advance_geometric(const amrex::Geometry &geom, amrex::Real dt, int alpha,
+                       int rot_axis, const amrex::MultiFab &statein,
+                       amrex::MultiFab &stateout);
 
-//! axis_loc = 0 -> x lo, = 1 -> y lo
-template <int axis_loc>
+AMREX_GPU_HOST
+void advance_geometric_1d(amrex::Real dt, amrex::Real dr, amrex::Real r_lo,
+                          int alpha, const amrex::Box &bx,
+                          const amrex::FArrayBox &statein,
+                          amrex::FArrayBox       &stateout);
+
+//! rot_axis = 0 -> x lo, = 1 -> y lo
+template <int rot_axis>
 AMREX_GPU_HOST void advance_geometric_2d(amrex::Real dt, amrex::Real dr,
                                          amrex::Real r_lo, int alpha,
                                          const amrex::Box       &bx,
