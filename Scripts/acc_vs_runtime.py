@@ -132,9 +132,9 @@ except FileNotFoundError:
 plot_combos = [{m : ["M1", "M1e-2"] for m in ["PEEK-SP111", "PESK-SP111", "FI-SP111", "PEEK-MUSCL-SSP222", "PESK-MUSCL-SSP222", "FI-MUSCL-SSP222"]},
                {m : ["M1", "M1e-2"] for m in ["MHM", "HLLC"]},
                {m : ["M1", "M1e-2"] for m in ["MHM", "PEEK-MUSCL-SSP222"]}]
-file_names = ["output/accuracy_runtime/acc_rt_IMEX.pdf",
-              "output/accuracy_runtime/acc_rt_exp.pdf",
-              "output/accuracy_runtime/acc_rt_comp.pdf"]
+file_names = ["outputs/accuracy_runtime/acc_rt_IMEX.pdf",
+              "outputs/accuracy_runtime/acc_rt_exp.pdf",
+              "outputs/accuracy_runtime/acc_rt_comp.pdf"]
 for i, plot_combo in enumerate(plot_combos):
     # fig, ax = plt.subplots(1, 1, figsize=(7*0.75,4*0.75))
     fig, ax = plt.subplots(1, 2, figsize=(6*5/6,2.5*5/6*1.2))
@@ -147,12 +147,12 @@ for i, plot_combo in enumerate(plot_combos):
             errors = [res.pressure_L1 for res in results[testcase][method]]
             ax[itest].plot(errors, run_times, label=label)
 
-    for i in range(2):
-        ax[i].set_xlabel(r"$L_{rel}^1(p)$")
-        ax[i].set_ylabel("Run time / s")
-        ax[i].set_xscale("log")
-        ax[i].set_yscale("log")
-        ax[i].yaxis.set_major_formatter(ScalarFormatter())
+    for j in range(2):
+        ax[j].set_xlabel(r"$L_{rel}^1(p)$")
+        ax[j].set_ylabel("Run time / s")
+        ax[j].set_xscale("log")
+        ax[j].set_yscale("log")
+        ax[j].yaxis.set_major_formatter(ScalarFormatter())
     ax[0].set_title("$M = 1$")
     ax[1].set_title("$M = 0.1$")
     ax[1].legend(fontsize=6)
