@@ -18,6 +18,17 @@ limiting.density = density
 limiting.mom     = mom_x mom_y mom_z
 limiting.energy  = energy
 
+# ---
+# BCs
+# ---
+
+# Options are transmissive, dirichlet, reflective, gresho
+# Directions specify lo and hi
+# Default is transmissive
+bc.x = gresho gresho
+bc.y = gresho gresho
+bc.z = gresho gresho
+
 # RESOLUTION
 # specify by command line
 

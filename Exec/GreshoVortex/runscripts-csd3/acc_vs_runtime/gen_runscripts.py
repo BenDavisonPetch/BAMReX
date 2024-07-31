@@ -10,24 +10,29 @@ import math
 runs = {8 : {"IMEX" : [128]},
         32 : {"IMEX" : [256]},
         128 : {"IMEX" : [512]},
-        448 : {"exp" : [128, 256, 512, 1024],
-               "IMEX" : [1024]}}
+        256 : {"exp" : [128]},
+        512 : {"IMEX" : [1024]},
+        1024 : {"exp" : [256, 512, 1024]}}
 
 # change if not using CSD3-icelake
 n_cpus_per_node = 76
 
 # Testcases to use (produces new runscripts for each)
-test_names = ["M1", "M1e-2"]
-test_options = ["init.M=1", "init.M=1e-2"]
+test_names = ["M1", "M1e-1"]
+test_options = ["init.M=1", "init.M=1e-1"]
 
 run_times = {"M1"    : { 8 : "00:01:00", 
                          32 : "00:05:00",
                          128 : "00:05:00",
-                         448 : "00:15:00"},
-             "M1e-2" : { 8 : "00:05:00", 
+                         256 : "00:01:00",
+                         512 : "00:05:00",
+                         1024 : "00:15:00"},
+             "M1e-1" : { 8 : "00:05:00", 
                          32 : "00:10:00",
                          128 : "00:10:00",
-                         448 : "01:00:00"}}
+                         256 : "00:10:00",
+                         512 : "00:10:00",
+                         1024 : "01:00:00"}}
 
 # BAMReX dir
 BAMReX_DIR = "/rds/user/bd431/hpc-work/BAMReX"
@@ -65,7 +70,7 @@ script = r"""#!/bin/bash
 #! Name of the job:
 #SBATCH -J {_JOB_NAME}
 #! Which project should be charged:
-#SBATCH -A {_PROJECT}
+##SBATCH -A {_PROJECT}
 #SBATCH -p icelake
 #! How many whole nodes should be allocated?
 #SBATCH --nodes={_N_NODES}

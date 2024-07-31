@@ -19,6 +19,9 @@ geometry.coord_sys   =  0       # 0 => cart
 geometry.prob_lo     =  0.0  0.0  0.0 
 geometry.prob_hi     =  0.3  0.1  0.0
 
+bc.x = coaxial_jet transmissive
+bc.y = reflective transmissive
+
 limiting.limiter = minbee
 limiting.density = energy
 limiting.mom     = energy energy energy

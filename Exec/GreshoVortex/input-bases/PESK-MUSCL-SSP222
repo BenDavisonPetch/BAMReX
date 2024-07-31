@@ -13,6 +13,17 @@ geometry.coord_sys   =  0       # 0 => cart
 geometry.prob_lo     =  -0.5  -0.5  -0.5
 geometry.prob_hi     =  0.5  0.5  0.5
 
+# ---
+# BCs
+# ---
+
+# Options are transmissive, dirichlet, reflective, gresho
+# Directions specify lo and hi
+# Default is transmissive
+bc.x = gresho gresho
+bc.y = gresho gresho
+bc.z = gresho gresho
+
 # RESOLUTION
 
 # TIME STEP CONTROL

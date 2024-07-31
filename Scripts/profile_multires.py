@@ -4,18 +4,18 @@ import BAMReXTools.plot_defaults
 import glob
 
 # MHM inputs
-# PROFILE_LOG_DIR = "/home/bendp/practicals/remote_results/csd3-mhm-multires/"
-# NAME_FMT = "M1-{METHOD}-{RESOLUTION}.{MPI_NUM_RANKS}.?"
-# METHODS = ["MHM"]
-# METHOD_NAMES = ["MHM"]
-# MPI_RANKS = [1,2,4,8,16,32,64,128,256]
+PROFILE_LOG_DIR = "/home/bendp/practicals/remote_results/csd3-mhm-multires/"
+NAME_FMT = "M1-{METHOD}-{RESOLUTION}.{MPI_NUM_RANKS}.?"
+METHODS = ["MHM"]
+METHOD_NAMES = ["MHM"]
+MPI_RANKS = [1,2,4,8,16,32,64,128,256,512,1024]
 
 # PESK inputs
-PROFILE_LOG_DIR = "/home/bendp/practicals/remote_results/csd3-pesk-multires/"
-NAME_FMT = "M1-{METHOD}-{RESOLUTION}.{MPI_NUM_RANKS}.?"
-METHODS = ["PESK-MUSCL-SSP222"]
-METHOD_NAMES = ["PESK-SSP222"]
-MPI_RANKS = [1,2,4,8,16,32,64,128,256]
+# PROFILE_LOG_DIR = "/home/bendp/practicals/remote_results/csd3-pesk-multires/"
+# NAME_FMT = "M1-{METHOD}-{RESOLUTION}.{MPI_NUM_RANKS}.?"
+# METHODS = ["PESK-MUSCL-SSP222"]
+# METHOD_NAMES = ["PESK-SSP222"]
+# MPI_RANKS = [1,2,4,8,16,32,64,128,256,512]
 
 RESOLUTIONS = [128, 256, 512, 1024]
 
@@ -146,6 +146,6 @@ ax[1].set_ylim(ylim)
 
 fig.tight_layout(pad=0.8)
 
-# fig.savefig("outputs/profiling/pesk_multires.pdf", bbox_inches="tight")
+# fig.savefig("outputs/profiling/mhm_multires.pdf", bbox_inches="tight")
 
 plt.show()

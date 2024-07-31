@@ -23,7 +23,7 @@ target_link_libraries(cyl_exp_3d AMReX::amrex_3d)
 
 add_custom_target(run_ref
     COMMAND
-        $<TARGET_FILE:cyl_exp_ref> ${CMAKE_CURRENT_SOURCE_DIR}/inputs-ref/cyl-RCM-1000
+        $<TARGET_FILE:cyl_exp_ref> ${CMAKE_CURRENT_SOURCE_DIR}/inputs-ref/cyl-RCM-5000
     COMMAND
         $<TARGET_FILE:cyl_exp_ref> ${CMAKE_CURRENT_SOURCE_DIR}/inputs-ref/sph-RCM-1000
     COMMENT "Running reference solutions"
