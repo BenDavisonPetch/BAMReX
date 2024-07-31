@@ -85,14 +85,17 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
     if (m_jet)
     {
         // Construct jet BC function. Transmissive except for the jet
-        Real exit_v_ratio, primary_exit_M, ambient_p, ambient_T,
-            air_specific_gas_const, inner_radius, outer_radius, scale_factor;
+        Real exit_v_ratio, primary_exit_M, p_amb, T_amb, T_p, T_s, R_spec,
+            inner_radius, outer_radius, scale_factor;
         ParmParse ppinit("init");
         ppinit.get("exit_v_ratio", exit_v_ratio);
         ppinit.get("primary_exit_M", primary_exit_M);
-        ppinit.get("ambient_p", ambient_p);
-        ppinit.get("ambient_T", ambient_T);
-        ppinit.get("air_specific_gas_const", air_specific_gas_const);
+        ppinit.get("p_ambient", p_amb);
+        ppinit.get("T_ambient", T_amb);
+        ppinit.get("T_p", T_p);
+        ppinit.get("T_s", T_s);
+
+        ppinit.get("R_spec", R_spec);
 
         RealArray center;
         ParmParse ppls("ls");
@@ -109,15 +112,15 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
         ppprob.get("adiabatic", adia);
         ppprob.query("epsilon", eps);
 
-        const Real dens = ambient_p / (air_specific_gas_const * ambient_T);
-        const Real c    = sqrt(ambient_p * adia / dens);
-        const Real v_p  = primary_exit_M * c;
-        const Real v_s  = exit_v_ratio * v_p;
+        const Real dens_amb = p_amb / (R_spec * T_amb);
+        const Real c        = sqrt(p_amb * adia / dens_amb);
+        const Real v_p      = primary_exit_M * c;
+        const Real v_s      = exit_v_ratio * v_p;
 
         // wall = 0 => on x lo face
-        bndryfunc_consv
-            = make_coax_jetfill_bcfunc(center, inner_radius, outer_radius, 0,
-                                       dens, v_p, v_s, ambient_p, adia, eps);
+        bndryfunc_consv = make_coax_jetfill_bcfunc(
+            center, inner_radius, outer_radius, 0, v_p, v_s, T_p, T_s, R_spec,
+            p_amb, adia, eps);
         bndryfunc_consv_sd = StateDescriptor::BndryFunc(bndryfunc_consv);
     }
     else if (m_gresho)

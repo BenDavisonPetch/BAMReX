@@ -92,10 +92,9 @@ class bamrexBCData
         return bndryfunc_ls_sd;
     }
 
-    inline const amrex::BCRec &get_consv_bcrec(int comp) const
+    inline const amrex::Vector<amrex::BCRec> &get_consv_bcrecs() const
     {
-        AMREX_ASSERT(comp >= 0 && comp < CONSV_NCOMP);
-        return consv_bcrecs[comp];
+        return consv_bcrecs;
     }
 
     inline const amrex::BCRec &get_pressure_bcrec() const

@@ -6,18 +6,24 @@ stop_time = 1
 
 prob.adiabatic  = 1.4
 
-bc.coaxjet = true
-
 init.exit_v_ratio = 0.3 # U_s / U_p
 init.primary_exit_M = 0.5 
-init.ambient_p = 101325
-init.ambient_T = 293 # K
-init.air_specific_gas_const = 287.052874 # J / kg / K
+init.p_ambient = 101325
+init.T_ambient = 293 # K
+init.T_p = 293
+init.T_s = 293
+init.R_spec = 287.052874 # J / kg / K
 
 geometry.is_periodic =  0  0  0
 geometry.coord_sys   =  0       # 0 => cart
 geometry.prob_lo     =  0.0  0.0  0.0 
-geometry.prob_hi     =  558  1.5  0.25 # 40 D_s + L by 15 D_s 
+geometry.prob_hi     =  558  1.5  0.0 # 40 D_s + L by 15 D_s 
+
+bc.x = coaxial_jet coaxial_jet
+bc.y = reflective coaxial_jet
+
+sym.rot_axis = 1
+sym.alpha = 1
 
 limiting.limiter = minbee
 limiting.density = energy

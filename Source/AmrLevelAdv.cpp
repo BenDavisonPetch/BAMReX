@@ -182,19 +182,11 @@ void AmrLevelAdv::variableSetUp()
     // output to identify what is being plotted bc: Boundary condition
     // object for this variable (defined above) bndryfunc: The boundary
     // condition function set above
-    desc_lst.setComponent(Consv_Type, 0, "density", bc_data.get_consv_bcrec(0),
-                          bc_data.get_consv_bndryfunc());
-    AMREX_D_TERM(desc_lst.setComponent(Consv_Type, 1, "mom_x",
-                                       bc_data.get_consv_bcrec(1),
-                                       bc_data.get_consv_bndryfunc());
-                 , desc_lst.setComponent(Consv_Type, 2, "mom_y",
-                                         bc_data.get_consv_bcrec(2),
-                                         bc_data.get_consv_bndryfunc());
-                 , desc_lst.setComponent(Consv_Type, 3, "mom_z",
-                                         bc_data.get_consv_bcrec(3),
-                                         bc_data.get_consv_bndryfunc());)
-    desc_lst.setComponent(Consv_Type, 1 + AMREX_SPACEDIM, "energy",
-                          bc_data.get_consv_bcrec(1 + AMREX_SPACEDIM),
+    Vector<std::string> consv_names{ "density",
+                                     AMREX_D_DECL("mom_x", "mom_y", "mom_z"),
+                                     "energy" };
+    desc_lst.setComponent(Consv_Type, 0, consv_names,
+                          bc_data.get_consv_bcrecs(),
                           bc_data.get_consv_bndryfunc());
     desc_lst.setComponent(Pressure_Type, 0, "IMEX_pressure",
                           bc_data.get_pressure_bcrec(),
