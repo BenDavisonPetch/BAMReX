@@ -94,3 +94,71 @@ AMREX_GPU_HOST void fill_ghost_rb(const amrex::Geometry           &geom,
         }
     }
 }
+
+/**
+ * \brief Fills pressure ghost cells for a rigid body defined by level set \c
+ * LS
+ *
+ * \param geom
+ * \param p
+ * \param LS >0 -> body, =0 -> interface, <0 -> fluid. Components
+ * 1:AMREX_SPACEDIM are the normal vectors (point into fluid, i.e. grad(LS))
+ * \param gfm_flags constructed using build_gfm_flags
+ * \param rb_bc
+ */
+AMREX_GPU_HOST void fill_ghost_p_rb(const amrex::Geometry           &geom,
+                                    amrex::MultiFab                 &p,
+                                    const amrex::MultiFab           &LS,
+                                    const amrex::iMultiFab          &gfm_flags,
+                                    RigidBodyBCType::rigidbodybctype rb_bc)
+{
+    AMREX_ASSERT_WITH_MESSAGE(
+        LS.nComp() == AMREX_SPACEDIM + 1,
+        "LS should store the level set and the normal vectors");
+    AMREX_ASSERT(rb_bc == RigidBodyBCType::reflective
+                 || rb_bc == RigidBodyBCType::no_slip);
+
+    AMREX_ASSERT(p.nComp() == 1);
+
+    constexpr Real delta = 1.5; // we always look delta*dx into the fluid from
+                                // the boundary to interpolate
+
+    const auto &dx = geom.CellSizeArray();
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+    {
+        for (MFIter mfi(p, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        {
+            // Fill on real box only (and assume that U has enough ghost
+            // cells that the real cells needed to determine the ghost state
+            // are always contained within the FAB)
+
+            // TODO: skip FABs with no ghost cells
+            const auto &bx    = mfi.tilebox();
+            const auto &arr   = p.array(mfi);
+            const auto &ls    = LS.const_array(mfi);
+            const auto &flags = gfm_flags.const_array(mfi);
+            ParallelFor(
+                bx,
+                [=] AMREX_GPU_DEVICE(int i, int j, int k)
+                {
+                    if (needs_fill(flags(i, j, k)))
+                    {
+                        // don't need prob_lo here because of how
+                        // bilinear_interp works
+                        const RealVect x_gh(AMREX_D_DECL((i + 0.5) * dx[0],
+                                                         (j + 0.5) * dx[1],
+                                                         (k + 0.5) * dx[2]));
+                        const RealVect norm(AMREX_D_DECL(
+                            ls(i, j, k, 1), ls(i, j, k, 2), ls(i, j, k, 3)));
+                        // normals point into fluid and ls >0 in body
+                        const RealVect x_refl(
+                            x_gh + (ls(i, j, k) + delta * dx[0]) * norm);
+
+                        bilinear_interp(x_refl, arr, arr, i, j, k, dx, 1);
+                    }
+                });
+        }
+    }
+}

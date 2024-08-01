@@ -1,9 +1,11 @@
 #include "IMEX_O1.H"
 #include "AmrLevelAdv.H"
+#include "GFM/RigidBody.H"
 #include "IMEX/ButcherTableau.H"
 #include "IMEX/IMEXSettings.H"
 #include "IMEX_Fluxes.H"
 #include "IMEX_K/euler_K.H"
+#include "IMEX_O1_RB.H"
 #include "LinearSolver/MLALaplacianGrad.H"
 #include "MFIterLoop.H"
 
@@ -12,6 +14,7 @@
 #include <AMReX_BC_TYPES.H>
 #include <AMReX_Box.H>
 #include <AMReX_MFIter.H>
+#include <AMReX_MLEBABecLap.H>
 
 using namespace amrex;
 
@@ -21,6 +24,7 @@ void compute_flux_imex_o1(
     const amrex::MultiFab &statein_imp, const amrex::MultiFab &statein_exp,
     amrex::MultiFab                               &pressure,
     amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
+    const amrex::MultiFab &LS, const amrex::iMultiFab &gfm_flags,
     const amrex::Real dt, const bamrexBCData &bc_data,
     const IMEXSettings &settings)
 {
@@ -116,8 +120,8 @@ void compute_flux_imex_o1(
 
     if (settings.linearise)
     {
-        solve_pressure_eqn(geom, enthalpy, velocity, rhs, pressure, dt,
-                           bc_data, settings);
+        solve_pressure_eqn(geom, enthalpy, velocity, rhs, pressure, stateex,
+                           LS, gfm_flags, dt, bc_data, settings);
     }
     else
     {
@@ -132,7 +136,7 @@ void compute_flux_imex_o1(
 
         details::picard_iterate(
             geom, statein_exp, stateex, velocity, stateout, enthalpy, ke, rhs,
-            pressure, dt, AMREX_D_DECL(hdtdx, hdtdy, hdtdz),
+            pressure, LS, gfm_flags, dt, AMREX_D_DECL(hdtdx, hdtdy, hdtdz),
             AMREX_D_DECL(hdtdxe, hdtdye, hdtdze), bc_data, settings);
     }
 
@@ -372,21 +376,38 @@ void solve_pressure_eqn(const amrex::Geometry &geom,
                         const amrex::MultiFab &enthalpy,
                         const amrex::MultiFab &velocity,
                         const amrex::MultiFab &rhs, amrex::MultiFab &pressure,
+                        const amrex::MultiFab &U, const amrex::MultiFab &LS,
+                        const amrex::iMultiFab &gfm_flags,
                         const amrex::Real dt, const bamrexBCData &bc_data,
                         const IMEXSettings &settings)
 {
     AMREX_ASSERT(rhs.nComp() == 1);
     AMREX_ASSERT(pressure.nComp() == 1);
+    // If rigid bodies are disabled
     // An operator representing an equation of the form
     // (A * alpha(x) - B div (beta(x) grad) + C c . grad) phi = f
-    MLABecLaplacianGrad pressure_op;
+    // If rigid bodies enabled
+    // An operator representing an equation of the form
+    // (A * alpha(x) - B div (beta(x) grad)) phi = f
+    //  (with support for embedded boundaries)
 
-    details::setup_pressure_op(geom, enthalpy, velocity, rhs, pressure,
-                               pressure_op, dt, bc_data, settings);
+    // Ownership belongs to this scope
+    auto pressure_op = details::get_p_linop(bc_data.rb_enabled());
 
-    MLMG solver(pressure_op);
+    if (!bc_data.rb_enabled())
+        details::setup_pressure_op(
+            geom, enthalpy, velocity, rhs, pressure,
+            dynamic_cast<MLABecLaplacianGrad &>(*pressure_op), U, dt, bc_data,
+            settings);
+    else
+        IMEXEB::setup_pressure_op_rb(geom, enthalpy, rhs, pressure,
+                                     dynamic_cast<MLEBABecLap &>(*pressure_op),
+                                     U, dt, bc_data);
 
-    details::solve_pressure(geom, rhs, pressure, solver, bc_data, settings);
+    MLMG solver(*pressure_op);
+
+    details::solve_pressure(geom, rhs, pressure, U, LS, gfm_flags, solver,
+                            bc_data, settings);
 }
 
 AMREX_GPU_HOST
@@ -544,14 +565,12 @@ namespace details
 {
 
 AMREX_GPU_HOST
-void setup_pressure_op(const amrex::Geometry      &geom,
-                       const amrex::MultiFab      &enthalpy,
-                       const amrex::MultiFab      &velocity,
-                       const amrex::MultiFab      &rhs,
-                       amrex::MultiFab            &pressure_scratch,
-                       amrex::MLABecLaplacianGrad &pressure_op,
-                       const amrex::Real dt, const bamrexBCData &bc_data,
-                       const IMEXSettings &settings)
+void setup_pressure_op(
+    const amrex::Geometry &geom, const amrex::MultiFab &enthalpy,
+    const amrex::MultiFab &velocity, const amrex::MultiFab &rhs,
+    amrex::MultiFab &pressure_scratch, amrex::MLABecLaplacianGrad &pressure_op,
+    const amrex::MultiFab &U, const amrex::Real dt,
+    const bamrexBCData &bc_data, const IMEXSettings &settings)
 {
     BL_PROFILE("details::setup_pressure_op()");
     const bool use_grad_term
@@ -563,7 +582,7 @@ void setup_pressure_op(const amrex::Geometry      &geom,
                        { rhs.DistributionMap() });
 
     // BCs
-    details::set_pressure_domain_BC(pressure_op, geom, pressure_scratch,
+    details::set_pressure_domain_BC(pressure_op, geom, pressure_scratch, U,
                                     bc_data);
 
     // set coefficients
@@ -593,7 +612,9 @@ void setup_pressure_op(const amrex::Geometry      &geom,
 
 AMREX_GPU_HOST
 void solve_pressure(const amrex::Geometry &geom, const amrex::MultiFab &rhs,
-                    amrex::MultiFab &pressure, amrex::MLMG &solver,
+                    amrex::MultiFab &pressure, const amrex::MultiFab &U,
+                    const amrex::MultiFab  &LS,
+                    const amrex::iMultiFab &gfm_flags, amrex::MLMG &solver,
                     const bamrexBCData &bc_data, const IMEXSettings &settings)
 {
     BL_PROFILE("details::solve_pressure()");
@@ -608,13 +629,21 @@ void solve_pressure(const amrex::Geometry &geom, const amrex::MultiFab &rhs,
     const Real TOL_RES = 1e-12;
     const Real TOL_ABS = 1e-15;
 
+    AMREX_ASSERT(!pressure.contains_nan());
+
     // TODO: use hypre here
     solver.solve({ &pressure }, { &rhs }, TOL_RES, TOL_ABS);
 
-    AMREX_ASSERT(!pressure.contains_nan());
+    bc_data.fill_pressure_boundary(geom, pressure, U, 0);
+    // Extrapolate pressure into the ghost cells
+    if (bc_data.rb_enabled())
+    {
+        AMREX_ASSERT(bc_data.rigidbody_bc() == RigidBodyBCType::reflective
+                     || bc_data.rigidbody_bc() == RigidBodyBCType::no_slip);
+        fill_ghost_p_rb(geom, pressure, LS, gfm_flags, bc_data.rigidbody_bc());
+    }
 
-    // TODO: fill course fine boundary cells for pressure!
-    bc_data.fill_pressure_boundary(geom, pressure, 0);
+    AMREX_ASSERT(!pressure.contains_nan());
 }
 
 AMREX_GPU_HOST
@@ -640,22 +669,37 @@ AMREX_GPU_HOST
 void set_pressure_domain_BC(amrex::MLLinOp        &pressure_op,
                             const amrex::Geometry &geom,
                             amrex::MultiFab       &pressure_scratch,
+                            const amrex::MultiFab &U,
                             const bamrexBCData    &bc_data)
 {
     const auto &lobc = bc_data.get_p_linop_lobc();
     const auto &hibc = bc_data.get_p_linop_hibc();
     pressure_op.setDomainBC(lobc, hibc);
 
+    bool dirichlet = false;
+    for (int dir = 0; dir < AMREX_SPACEDIM; ++dir)
+    {
+        if (lobc[dir] == LinOpBCType::Dirichlet
+            || hibc[dir] == LinOpBCType::Dirichlet)
+            dirichlet = true;
+        if (lobc[dir] == LinOpBCType::Robin || hibc[dir] == LinOpBCType::Robin)
+            Abort("Robin BCs for pressure linear solve not implemented");
+        if (lobc[dir] == LinOpBCType::inhomogNeumann
+            || hibc[dir] == LinOpBCType::inhomogNeumann)
+            Abort("Inhomogenous Neumann BCs for pressure linear solve not "
+                  "implemented");
+    }
+
     // if (level > 0)
     //     pressure_op.setCoarseFineBC(&crse_pressure, crse_ratio[0]);
 
-    if (!bc_data.domain_has_dirichlet())
+    if (!dirichlet)
         // pure homogeneous Neumann BC so we pass nullptr
         pressure_op.setLevelBC(0, nullptr);
     else
     {
         // Fill dirichlet conditions
-        bc_data.fill_pressure_boundary(geom, pressure_scratch, 0);
+        bc_data.fill_pressure_boundary(geom, pressure_scratch, U, 0);
         pressure_op.setLevelBC(0, &pressure_scratch);
     }
 }
@@ -665,7 +709,8 @@ void picard_iterate(
     const amrex::Geometry &geom, const amrex::MultiFab &statein,
     const amrex::MultiFab &stateex, const amrex::MultiFab &velocity,
     amrex::MultiFab &stateout, amrex::MultiFab &enthalpy, amrex::MultiFab &ke,
-    amrex::MultiFab &rhs, amrex::MultiFab &pressure, amrex::Real dt,
+    amrex::MultiFab &rhs, amrex::MultiFab &pressure, const amrex::MultiFab &LS,
+    const amrex::iMultiFab &gfm_flags, amrex::Real dt,
     AMREX_D_DECL(amrex::Real hdtdx, amrex::Real hdtdy, amrex::Real hdtdz),
     AMREX_D_DECL(amrex::Real hdtdxe, amrex::Real hdtdye, amrex::Real hdtdze),
     const bamrexBCData &bc_data, const IMEXSettings &settings)
@@ -684,14 +729,22 @@ void picard_iterate(
         // here we call the other functions in details:: so that we can compute
         // the residual
         {
-            MLABecLaplacianGrad pressure_op;
+            auto pressure_op = details::get_p_linop(bc_data.rb_enabled());
 
-            details::setup_pressure_op(geom, enthalpy, velocity, rhs, pressure,
-                                       pressure_op, dt, bc_data, settings);
+            if (!bc_data.rb_enabled())
+                details::setup_pressure_op(
+                    geom, enthalpy, velocity, rhs, pressure,
+                    dynamic_cast<MLABecLaplacianGrad &>(*pressure_op), stateex,
+                    dt, bc_data, settings);
+            else
+                IMEXEB::setup_pressure_op_rb(
+                    geom, enthalpy, rhs, pressure,
+                    dynamic_cast<MLEBABecLap &>(*pressure_op), stateex, dt,
+                    bc_data);
 
             // solver can only be constructed once the operator is initialised
-            MLMG residual_solver(pressure_op);
-            MLMG solver(pressure_op);
+            MLMG residual_solver(*pressure_op);
+            MLMG solver(*pressure_op);
 
             if (settings.compute_residual)
             {
@@ -712,8 +765,8 @@ void picard_iterate(
                 }
             }
 
-            details::solve_pressure(geom, rhs, pressure, solver, bc_data,
-                                    settings);
+            details::solve_pressure(geom, rhs, pressure, stateex, LS,
+                                    gfm_flags, solver, bc_data, settings);
         }
 
 #ifdef AMREX_USE_OMP

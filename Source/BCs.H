@@ -2,6 +2,8 @@
 #define BCs_H_
 
 #include "Euler/NComp.H"
+#include "bc_jet.H"
+
 #include <AMReX.H>
 #include <AMReX_Array.H>
 #include <AMReX_BCRec.H>
@@ -90,9 +92,15 @@ class bamrexBCData
 
     /**
      * Used to fill boundaries on pressure
+     * \param geom
+     * \param pressure
+     * \param U conservative variables used by some boundary conditions to
+     * calculate pressure
+     * \param time
      */
     void fill_pressure_boundary(const amrex::Geometry &geom,
                                 amrex::MultiFab       &pressure,
+                                const amrex::MultiFab &U,
                                 amrex::Real            time) const;
 
     /**
@@ -143,10 +151,6 @@ class bamrexBCData
         return p_linop_hibc;
     }
 
-    //! Whether or not there are dirichlet conditions anywhere on the domain
-    //! boundary
-    inline bool domain_has_dirichlet() const { return m_gresho; }
-
     inline bool jet() const { return m_jet; }
 
     inline RigidBodyBCType::rigidbodybctype rigidbody_bc() const
@@ -166,6 +170,10 @@ class bamrexBCData
     amrex::BndryFuncFabDefault        bndryfunc_consv, bndryfunc_p;
     amrex::StateDescriptor::BndryFunc bndryfunc_consv_sd, bndryfunc_p_sd,
         bndryfunc_ls_sd;
+
+    // Cursed object used to fill pressure boundaries when using the jet
+    // testcase
+    bamrex::MultiCCBndryFuncFabDefault bndryfunc_jet_p;
 
     // BCRecs
     amrex::Vector<amrex::BCRec> consv_bcrecs;

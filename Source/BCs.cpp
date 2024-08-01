@@ -2,6 +2,7 @@
 #include "AmrLevelAdv.H"
 #include "Euler/Euler.H"
 #include "Euler/NComp.H"
+#include "MultiBCFunct.H"
 #include "bc_extfill.H"
 #include "bc_jet.H"
 #include "bc_nullfill.H"
@@ -136,6 +137,12 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
             center, inner_radius, outer_radius, 0, v_p, v_s, T_p, T_s, R_spec,
             p_amb, adia, eps);
         bndryfunc_consv_sd = StateDescriptor::BndryFunc(bndryfunc_consv);
+        // Nullfill for pressure - all boundary filling must be done by
+        // fill_pressure_boundary, using the below object since we have to use
+        // the conservative variables
+        bndryfunc_jet_p
+            = make_coax_jetfill_bcfunc_p(center, inner_radius, outer_radius, 0,
+                                         T_p, T_s, R_spec, p_amb, adia, eps);
     }
     else if (m_gresho)
     {
@@ -245,10 +252,14 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
             {
                 consv_bcrecs[n].setLo(dir, amrex::BCType::user_1);
             }
-            // not implemented for IMEX yet
-            pressure_bcrec.setLo(dir, amrex::BCType::foextrap);
+            // For IMEX, we fill the boundary conditions after the linear solve
+            // using the new density
+            pressure_bcrec.setLo(dir, amrex::BCType::user_1);
 
-            p_linop_lobc[dir] = LinOpBCType::Robin;
+            // pressure outlet is trivially dirichlet
+            // inlet with known u & T is dirichlet, *calculated from density
+            // and T*
+            p_linop_lobc[dir] = LinOpBCType::Dirichlet;
             break;
         }
         default:
@@ -314,10 +325,14 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
             {
                 consv_bcrecs[n].setHi(dir, amrex::BCType::user_1);
             }
-            // not implemented for IMEX yet
-            pressure_bcrec.setHi(dir, amrex::BCType::foextrap);
+            // For IMEX, we fill the boundary conditions after the linear solve
+            // using the new density
+            pressure_bcrec.setHi(dir, amrex::BCType::user_1);
 
-            p_linop_hibc[dir] = LinOpBCType::Robin;
+            // pressure outlet is trivially dirichlet
+            // inlet with known u & T is dirichlet, *calculated from density
+            // and T*
+            p_linop_hibc[dir] = LinOpBCType::Dirichlet;
             break;
         }
         default:
@@ -336,14 +351,31 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
 
 void bamrexBCData::fill_pressure_boundary(const amrex::Geometry &geom,
                                           amrex::MultiFab       &pressure,
+                                          const amrex::MultiFab &U,
                                           Real                   time) const
 {
     // internal and periodic boundaries
     pressure.FillBoundary(geom.periodicity());
-    // foextrap, reflect_even, reflect_odd, hoextrap, and external boundareis
-    PhysBCFunct<BndryFuncFabDefault> physbcf(geom, { pressure_bcrec },
-                                             bndryfunc_p);
-    physbcf(pressure, 0, pressure.nComp(), pressure.nGrowVect(), time, 0);
+    if (!geom.isAllPeriodic())
+    {
+        if (m_jet)
+        {
+            // cursed re-implementation of AMReX's boundary filling routines so
+            // that the pressure can be filled with knowledge of the density
+            bamrex::MultiBCFunct<bamrex::MultiCCBndryFuncFabDefault> physbcf(
+                geom, { pressure_bcrec }, bndryfunc_jet_p);
+            physbcf(pressure, U, 0, 1, pressure.nGrowVect(), time, 0);
+        }
+        else
+        {
+            // foextrap, reflect_even, reflect_odd, hoextrap, and external
+            // boundaries
+            PhysBCFunct<BndryFuncFabDefault> physbcf(geom, { pressure_bcrec },
+                                                     bndryfunc_p);
+            physbcf(pressure, 0, pressure.nComp(), pressure.nGrowVect(), time,
+                    0);
+        }
+    }
 }
 
 void bamrexBCData::fill_consv_boundary(const amrex::Geometry &geom,

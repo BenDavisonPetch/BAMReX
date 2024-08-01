@@ -98,12 +98,14 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
             compute_pressure(statein_exp[stage % 2],
                              statein_exp[(stage - 1) % 2], pressure, geom, adt,
                              settings);
+            bc_data.fill_pressure_boundary(geom, pressure,
+                                           statein_exp[stage % 2], 0);
         }
 
         // Compute stage flux for this step
         compute_flux_imex_o1(time, geom, statein_imp, statein_exp[stage % 2],
-                             pressure, stage_fluxes[stage], adt, bc_data,
-                             settings);
+                             pressure, stage_fluxes[stage], LS, gfm_flags, adt,
+                             bc_data, settings);
 
         if (settings.verbose)
             Print() << "Computed flux for RK stage " << stage << std::endl;
