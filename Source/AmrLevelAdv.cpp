@@ -419,7 +419,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
 
     // fill rigid body ghost states
     fill_ghost_rb(geom, Sborder, LS, gfm_flags, bc_data.rigidbody_bc());
-    fill_boundary(Sborder);
+    bc_data.fill_consv_boundary(geom, Sborder, time);
 
     if (verbose)
         AllPrint() << "\tFilled ghost states" << std::endl;
@@ -542,7 +542,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
                 0, { d });
 
             // We need to compute boundary conditions again after each update
-            fill_boundary(Sborder);
+            bc_data.fill_consv_boundary(geom, Sborder, time);
 
             if (verbose)
                 Print() << "\tDirection update complete" << std::endl;
@@ -676,18 +676,6 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     if (verbose)
         Print() << "Advance complete!" << std::endl;
     return dt;
-}
-
-/**
- * Fill boundary conditions for a MultiFab on this level
- */
-void AmrLevelAdv::fill_boundary(amrex::MultiFab &fab)
-{
-    // FillBoundary does periodic conditions
-    fab.FillBoundary(geom.periodicity());
-    // This one does non-periodic conditions
-    FillDomainBoundary(fab, geom,
-                       get_state_data(Consv_Type).descriptor()->getBCs());
 }
 
 /**

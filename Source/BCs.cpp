@@ -350,8 +350,12 @@ void bamrexBCData::fill_consv_boundary(const amrex::Geometry &geom,
 {
     // internal and periodic boundaries
     U.FillBoundary(geom.periodicity());
-    // foextrap, reflect_even, reflect_odd, hoextrap, and external boundareis
-    PhysBCFunct<BndryFuncFabDefault> physbcf(geom, consv_bcrecs,
-                                             bndryfunc_consv);
-    physbcf(U, 0, U.nComp(), U.nGrowVect(), time, 0);
+    if (!geom.isAllPeriodic())
+    {
+        // foextrap, reflect_even, reflect_odd, hoextrap, and external
+        // boundareis
+        PhysBCFunct<BndryFuncFabDefault> physbcf(geom, consv_bcrecs,
+                                                 bndryfunc_consv);
+        physbcf(U, 0, U.nComp(), U.nGrowVect(), time, 0);
+    }
 }
