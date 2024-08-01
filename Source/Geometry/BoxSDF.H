@@ -48,6 +48,12 @@ class BoxSDF
         return r * m_sign;
     }
 
+    [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real
+    operator()(const amrex::RealArray &p) const noexcept
+    {
+        return this->operator()(AMREX_D_DECL(p[0], p[1], p[2]));
+    }
+
   protected:
     XDim3 m_lo, m_hi;
     int   m_sign;

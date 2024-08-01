@@ -231,7 +231,7 @@ void AmrLevelAdv::initData()
     MultiFab &P_new  = get_new_data(Pressure_Type);
     MultiFab &LS_new = get_new_data(Levelset_Type);
 
-    init_levelset(LS_new, geom);
+    init_levelset(LS_new, geom, bc_data);
     gfm_flags.define(LS_new.boxArray(), dmap, 1, LS_new.nGrow());
     build_gfm_flags(gfm_flags, LS_new);
     initdata(S_new, geom);
@@ -417,10 +417,6 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     // takes care of boundary conditions too
     FillPatcherFill(Sborder, 0, NUM_STATE, NUM_GROW, time, Consv_Type, 0);
 
-    // fill rigid body ghost states
-    fill_ghost_rb(geom, Sborder, LS, gfm_flags, bc_data.rigidbody_bc());
-    bc_data.fill_consv_boundary(geom, Sborder, time);
-
     if (verbose)
         AllPrint() << "\tFilled ghost states" << std::endl;
 
@@ -429,6 +425,14 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     if (num_method == NumericalMethods::muscl_hancock
         || num_method == NumericalMethods::hllc)
     {
+        // fill rigid body ghost states
+        if (bc_data.rb_enabled())
+        {
+            fill_ghost_rb(geom, Sborder, LS, gfm_flags,
+                          bc_data.rigidbody_bc());
+            bc_data.fill_consv_boundary(geom, Sborder, time);
+        }
+
         for (int d = 0; d < amrex::SpaceDim; d++)
         {
             if (verbose)
@@ -570,17 +574,25 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     }
     else if (num_method == NumericalMethods::imex)
     {
-        if (imex_settings.stabilize && do_reflux
-            && this->parent->maxLevel() > 0)
-            amrex::Abort("Refluxing with high-Mach number stabilisation not "
-                         "supported!");
+        AMREX_ASSERT_WITH_MESSAGE(
+            !(imex_settings.stabilize && do_reflux
+              && this->parent->maxLevel() > 0),
+            "Refluxing with high-Mach number stabilisation not "
+            "supported!");
+
+        // Ghost cells are filled at the start of each RK step, so they're
+        // filled witihin advance_imex_rk
 
         MultiFab::Copy(P_new, P_mm, 0, 0, 1, 2);
         // TODO: check if ghost cells are actually filled in P_new and P_mm
-        advance_imex_rk_stab(time, geom, Sborder, S_new, P_new, fluxes, dt,
-                             bc_data, imex_settings);
-        // TODO: add geometric source term here
-        AMREX_ASSERT(!bc_data.jet());
+        advance_imex_rk_stab(time, geom, Sborder, S_new, P_new, fluxes, LS,
+                             gfm_flags, dt, bc_data, imex_settings);
+
+        if (rot_axis != -1 && alpha != 0)
+        {
+            advance_geometric(geom, dt, alpha, rot_axis, S_new, Sborder);
+            MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, 0);
+        }
     }
     else if (num_method == NumericalMethods::rcm)
     {

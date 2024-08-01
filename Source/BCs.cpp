@@ -18,6 +18,7 @@ bamrexBCData::bamrexBCData()
     , bndryfunc_p_sd(nullfill)
     , bndryfunc_ls_sd(nullfill)
     , consv_bcrecs(CONSV_NCOMP)
+    , m_rb_enabled(false)
 {
 }
 

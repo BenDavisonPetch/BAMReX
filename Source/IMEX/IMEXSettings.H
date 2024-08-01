@@ -43,6 +43,8 @@ struct IMEXSettings
      * \c ex uses the explicitly updated conservative variables
      * \c split uses (eps / 2) u^n . q^{n+1} which results in an
      * additional term in the pressure equation of form u^n . grad p^{n+1}
+     * \c conservative_kinetic does not preserve contact discontinuities, so is
+     * best avoided
      */
     enum KineticEnergyMethod
     {
@@ -68,8 +70,8 @@ struct IMEXSettings
     /**
      * Whether or not to use high-Mach number stabilisation
      */
-    bool stabilize = false;
-    amrex::Real k1 = 1e-3;
+    bool        stabilize = false;
+    amrex::Real k1        = 1e-3;
 
     bool verbose               = false;
     bool solver_verbose        = false;

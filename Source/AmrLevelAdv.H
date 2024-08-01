@@ -235,7 +235,8 @@ class AmrLevelAdv : public amrex::AmrLevel
     /**
      * Initialises level set. Implemented in AmrLevelAdv_LSinit.cpp
      */
-    void init_levelset(amrex::MultiFab &LS, const amrex::Geometry &geom);
+    void init_levelset(amrex::MultiFab &LS, const amrex::Geometry &geom,
+                       bamrexBCData &bc_data);
 
     /*
      * The data.

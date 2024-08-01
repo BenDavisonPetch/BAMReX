@@ -149,7 +149,14 @@ class bamrexBCData
 
     inline bool jet() const { return m_jet; }
 
-    inline RigidBodyBCType::rigidbodybctype rigidbody_bc() { return rb_bc; }
+    inline RigidBodyBCType::rigidbodybctype rigidbody_bc() const
+    {
+        return rb_bc;
+    }
+
+    inline void set_rb_enabled(bool val) { m_rb_enabled = val; }
+
+    inline bool rb_enabled() const { return m_rb_enabled; }
 
   protected:
     amrex::Array<BAMReXBCType::bctype, 2 * AMREX_SPACEDIM> bcs;
@@ -169,6 +176,7 @@ class bamrexBCData
         p_linop_hibc;
 
     bool m_jet, m_gresho;
+    bool m_rb_enabled;
 };
 
 #endif

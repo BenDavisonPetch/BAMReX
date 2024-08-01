@@ -55,6 +55,12 @@ class ConeSDF
         // return crossmag * m_cos + dot * m_sin;
     }
 
+    [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real
+    operator()(const amrex::RealArray &p) const noexcept
+    {
+        return this->operator()(AMREX_D_DECL(p[0], p[1], p[2]));
+    }
+
   protected:
     XDim3 m_tip, m_ax;
     Real  m_cos, m_sin;
