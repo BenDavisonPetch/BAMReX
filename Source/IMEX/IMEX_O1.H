@@ -58,22 +58,12 @@ void solve_pressure_eqn(const amrex::Geometry &geom,
  * \brief Computes the enthalpy on cell-centres. Will update the pressure
  * accordingly with an initial guess if the settings determine we are not
  * reusing it
- *
- * \c statenew is used during Picard iterations when settings.linearise = false
  */
 AMREX_GPU_HOST
 void compute_enthalpy(const amrex::Box &bx, const amrex::FArrayBox &statein,
                       const amrex::FArrayBox &stateexp,
-                      const amrex::FArrayBox &statenew,
                       amrex::FArrayBox &pressure, amrex::FArrayBox &enthalpy,
                       const IMEXSettings &settings);
-
-/**
- * Computes enthalpy from the pressure and the density in \c state
- */
-AMREX_GPU_HOST
-void compute_enthalpy(const amrex::Box &bx, const amrex::FArrayBox &state,
-                      amrex::FArrayBox &pressure, amrex::FArrayBox &enthalpy);
 
 /**
  * \brief Computes the (epsilon scaled) kinetic energy on cell-centres.

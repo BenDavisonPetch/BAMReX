@@ -43,8 +43,9 @@ bamrexBCData             AmrLevelAdv::bc_data;
 int AmrLevelAdv::rot_axis = -1;
 int AmrLevelAdv::alpha    = 0;
 
-const int AmrLevelAdv::NUM_STATE = 2 + AMREX_SPACEDIM; // Euler eqns
-const int AmrLevelAdv::NUM_GROW  = 4;                  // number of ghost cells
+const int AmrLevelAdv::NUM_STATE  = 2 + AMREX_SPACEDIM; // Euler eqns
+const int AmrLevelAdv::NUM_GROW   = 3; // number of ghost cells
+const int AmrLevelAdv::NUM_GROW_P = 1;
 // (Pressure needs 2 ghost cells, and we need 2 more ghost cells than pressure
 //  bc of the explicit update for the EK formulations)
 
@@ -162,7 +163,8 @@ void AmrLevelAdv::variableSetUp()
                            StateDescriptor::Point, storedGhostZones, NUM_STATE,
                            &cell_cons_interp);
     desc_lst.addDescriptor(Pressure_Type, IndexType::TheCellType(),
-                           StateDescriptor::Point, 2, 1, &cell_cons_interp);
+                           StateDescriptor::Point, NUM_GROW_P, 1,
+                           &cell_cons_interp);
     // Type of interpolator shouldn't matter because level set should always be
     // reinitialised on finest grid
     desc_lst.addDescriptor(Levelset_Type, IndexType::TheCellType(),
@@ -583,7 +585,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
         // Ghost cells are filled at the start of each RK step, so they're
         // filled witihin advance_imex_rk
 
-        MultiFab::Copy(P_new, P_mm, 0, 0, 1, 2);
+        MultiFab::Copy(P_new, P_mm, 0, 0, 1, NUM_GROW_P);
         // TODO: check if ghost cells are actually filled in P_new and P_mm
         advance_imex_rk_stab(time, geom, Sborder, S_new, P_new, fluxes, LS,
                              gfm_flags, dt, bc_data, imex_settings);

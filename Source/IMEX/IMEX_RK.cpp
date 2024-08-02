@@ -32,7 +32,7 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
     BL_PROFILE_REGION("advance_imex_rk()");
     BL_PROFILE("advance_imex_rk()");
     AMREX_ASSERT(!pressure.contains_nan()); // pressure must be initialised!
-    AMREX_ASSERT(pressure.nGrow() >= 2);
+    AMREX_ASSERT(pressure.nGrow() >= 1);
 
 #ifndef AMREX_USE_EB
     AMREX_ASSERT_WITH_MESSAGE(!bc_data.rb_enabled(),

@@ -29,10 +29,13 @@ void compute_flux_imex_o1(
     const IMEXSettings &settings)
 {
     BL_PROFILE("compute_flux_imex_o1()");
-    AMREX_ASSERT(statein_imp.nGrow() >= 2);
-    AMREX_ASSERT(statein_exp.nGrow() >= 2);
-    AMREX_ASSERT(pressure.nGrow() >= 2);
+    AMREX_ASSERT(statein_imp.nGrow() >= 3);
+    AMREX_ASSERT(statein_exp.nGrow() >= 3);
+    AMREX_ASSERT(pressure.nGrow() >= 1);
     AMREX_ASSERT(pressure.isDefined());
+    AMREX_ASSERT(!pressure.contains_nan(0, 1, 1));
+    AMREX_ASSERT(!statein_imp.contains_nan(0, EULER_NCOMP, 3));
+    AMREX_ASSERT(!statein_exp.contains_nan(0, EULER_NCOMP, 3));
 
     // Define temporary MultiFabs
 
@@ -95,8 +98,7 @@ void compute_flux_imex_o1(
                 Abort("Not implemented");
 
             compute_enthalpy(gbx, statein_exp[mfi], stateex[mfi],
-                             statein_imp[mfi], pressure[mfi], enthalpy[mfi],
-                             settings);
+                             pressure[mfi], enthalpy[mfi], settings);
             compute_ke(bx, statein_exp[mfi], stateex[mfi], statein_imp[mfi],
                        ke[mfi], settings);
             if (settings.linearise
@@ -129,10 +131,13 @@ void compute_flux_imex_o1(
         // Stores result of picard iteration for momentum and density (doesn't
         // store energy) We only need enthalpy and pressure for calculating
         // fluxes so it's only defined at this scope
+        // We only have an index for density so that indexing isn't confusing
+        // later on - we don't actually *use* the density stored here
         MultiFab stateout(statein_imp.boxArray(),
-                          statein_imp.DistributionMap(), EULER_NCOMP - 1, 1);
+                          statein_imp.DistributionMap(), EULER_NCOMP - 1, 0);
         // Copy explicitly updated density to out state
-        stateout.ParallelCopy(stateex, 0, 0, 1, 1, 1);
+        stateout.ParallelCopy(stateex, 0, 0, 1, stateex.nGrow(),
+                              stateout.nGrow());
 
         details::picard_iterate(
             geom, statein_exp, stateex, velocity, stateout, enthalpy, ke, rhs,
@@ -166,7 +171,6 @@ void compute_flux_imex_o1(
 AMREX_GPU_HOST
 void compute_enthalpy(const amrex::Box &bx, const amrex::FArrayBox &statein,
                       const amrex::FArrayBox &stateexp,
-                      const amrex::FArrayBox &statenew,
                       amrex::FArrayBox &a_pressure, amrex::FArrayBox &enthalpy,
                       const IMEXSettings &settings)
 {
@@ -178,12 +182,11 @@ void compute_enthalpy(const amrex::Box &bx, const amrex::FArrayBox &statein,
     const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
     if (!settings.linearise)
     {
-        const Array4<const Real> newarr = statenew.const_array();
-        const Array4<const Real> p      = a_pressure.const_array();
+        const Array4<const Real> p = a_pressure.const_array();
         ParallelFor(bx,
                     [=] AMREX_GPU_DEVICE(int i, int j, int k) {
                         enth(i, j, k) = p(i, j, k) * adia
-                                        / ((adia - 1) * newarr(i, j, k, 0));
+                                        / ((adia - 1) * exp(i, j, k, 0));
                     });
     }
     else if (settings.enthalpy_method == IMEXSettings::reuse_pressure)
@@ -392,6 +395,7 @@ void solve_pressure_eqn(const amrex::Geometry &geom,
     //  (with support for embedded boundaries)
 
     // Ownership belongs to this scope
+    // There are probably ASync issues with using this if on GPU
     auto pressure_op = details::get_p_linop(bc_data.rb_enabled());
 
     if (!bc_data.rb_enabled())
@@ -629,8 +633,6 @@ void solve_pressure(const amrex::Geometry &geom, const amrex::MultiFab &rhs,
     const Real TOL_RES = 1e-12;
     const Real TOL_ABS = 1e-15;
 
-    AMREX_ASSERT(!pressure.contains_nan());
-
     // TODO: use hypre here
     solver.solve({ &pressure }, { &rhs }, TOL_RES, TOL_ABS);
 
@@ -777,12 +779,13 @@ void picard_iterate(
             {
                 const Box &bx  = mfi.tilebox();
                 const Box  gbx = mfi.growntilebox(1);
-                update_momentum(gbx, stateex[mfi], pressure[mfi],
-                                stateout[mfi],
+                update_momentum(bx, stateex[mfi], pressure[mfi], stateout[mfi],
                                 AMREX_D_DECL(hdtdxe, hdtdye, hdtdze));
+                // we don't need to pass the new state, because the density in
+                // stateex is the new density already, and we use the pressure
+                // and density to calculate enthalpy
                 compute_enthalpy(gbx, statein[mfi], stateex[mfi],
-                                 stateout[mfi], pressure[mfi], enthalpy[mfi],
-                                 settings);
+                                 pressure[mfi], enthalpy[mfi], settings);
                 compute_ke(bx, statein[mfi], stateex[mfi], stateout[mfi],
                            ke[mfi], settings);
             } // sync
