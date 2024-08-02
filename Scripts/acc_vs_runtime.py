@@ -18,7 +18,7 @@ runs = {8 : {"IMEX" : [128]},
 
 adiabatic = 1.4
 
-test_names = ["M1", "M1e-2"]
+test_names = ["M1", "M1e-1", "M5e-1"]
 
 log_dir = "/home/bendp/practicals/remote_results/csd3-accres-logs/"
 extra_log_dir = "/home/bendp/practicals/remote_results/csd3-accres-logs-extra/"
@@ -129,9 +129,9 @@ except FileNotFoundError:
 #
 # PLOTS of M=1 and M=0.1
 #
-plot_combos = [{m : ["M1", "M1e-2"] for m in ["PEEK-SP111", "PESK-SP111", "FI-SP111", "PEEK-MUSCL-SSP222", "PESK-MUSCL-SSP222", "FI-MUSCL-SSP222"]},
-               {m : ["M1", "M1e-2"] for m in ["MHM", "HLLC"]},
-               {m : ["M1", "M1e-2"] for m in ["MHM", "PEEK-MUSCL-SSP222"]}]
+plot_combos = [{m : ["M1", "M1e-1"] for m in ["PEEK-SP111", "PESK-SP111", "FI-SP111", "PEEK-MUSCL-SSP222", "PESK-MUSCL-SSP222", "FI-MUSCL-SSP222"]},
+               {m : ["M1", "M1e-1"] for m in ["MHM", "HLLC"]},
+               {m : ["M1", "M1e-1"] for m in ["MHM", "PEEK-MUSCL-SSP222"]}]
 file_names = ["outputs/accuracy_runtime/acc_rt_IMEX.pdf",
               "outputs/accuracy_runtime/acc_rt_exp.pdf",
               "outputs/accuracy_runtime/acc_rt_comp.pdf"]
@@ -158,5 +158,34 @@ for i, plot_combo in enumerate(plot_combos):
     ax[1].legend(fontsize=6)
     fig.tight_layout(pad=0.8)
     fig.savefig(file_names[i], bbox_inches="tight")
+
+#
+# Plots of M=1 M=0.1 and M=0.5
+#
+file_name = "outputs/accuracy_runtime/acc_rt_comp_big.pdf"
+fig, ax = plt.subplots(2, 2, figsize=(6*5/6,2.5*5/6*1.2*2))
+
+for method in ["MHM", "PEEK-MUSCL-SSP222"]:
+    for itest, testcase in enumerate(["M1", "M5e-1", "M1e-1"]):
+        label = f"{method_names[method]}"
+        profile_datas = [res.profile_data for res in results[testcase][method]]
+        run_times = [data.run_time for data in profile_datas]
+        errors = [res.pressure_L1 for res in results[testcase][method]]
+        ax[itest // 2, itest % 2].plot(errors, run_times, label=label)
+
+for i in range(2):
+    for j in range(2):
+        ax[i, j].set_xlabel(r"$L_{rel}^1(p)$")
+        ax[i, j].set_ylabel("Run time / s")
+        ax[i, j].set_xscale("log")
+        ax[i, j].set_yscale("log")
+        ax[i, j].yaxis.set_major_formatter(ScalarFormatter())
+ax[0,0].set_title("$M = 1$")
+ax[0,1].set_title("$M = 0.5$")
+ax[1,0].set_title("$M = 0.1$")
+ax[0,1].legend(fontsize=6)
+fig.tight_layout(pad=0.8)
+fig.savefig(file_name, bbox_inches="tight")
+
 
 plt.show()
