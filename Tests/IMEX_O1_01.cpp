@@ -2,6 +2,7 @@
 #include <AMReX_MFIter.H>
 #include <gtest/gtest.h>
 
+#include "BCs.H"
 #include "BoxTest.H"
 #include "Fluxes/Update.H"
 #include "IMEX/IMEXSettings.H"
@@ -25,6 +26,7 @@ class IMEXO1 : public BoxTest
     {
         BoxTest::setup(split_grid);
         m_pressure.define(ba, dm, 1, 2);
+        bc_data.build(&geom);
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -44,6 +46,8 @@ class IMEXO1 : public BoxTest
             }
         }
     }
+
+    bamrexBCData bc_data;
 };
 
 TEST_F(IMEXO1, SplitKEEnergyMatch)
@@ -70,8 +74,8 @@ TEST_F(IMEXO1, SplitKEEnergyMatch)
             << "Testing for enthalpy_method = reuse_pressure..." << std::endl
             << std::endl;
 
-    compute_flux_imex_o1(0, geom, statein, statein, m_pressure, fluxes, dt,
-                         bcs, settings);
+    compute_flux_imex_o1(0, geom, statein, statein, m_pressure, fluxes,
+                         MultiFab(), iMultiFab(), dt, bc_data, settings);
 
     ASSERT_FALSE(fluxes[0].contains_nan());
     ASSERT_FALSE(fluxes[1].contains_nan());
@@ -213,8 +217,8 @@ TEST_F(IMEXO1, ExplicitKEEnergyMatch)
             << "Testing for enthalpy_method = reuse_pressure..." << std::endl
             << std::endl;
 
-    compute_flux_imex_o1(0, geom, statein, statein, m_pressure, fluxes, dt,
-                         bcs, settings);
+    compute_flux_imex_o1(0, geom, statein, statein, m_pressure, fluxes,
+                         MultiFab(), iMultiFab(), dt, bc_data, settings);
 
     ASSERT_FALSE(fluxes[0].contains_nan());
     ASSERT_FALSE(fluxes[1].contains_nan());
@@ -268,8 +272,8 @@ TEST_F(IMEXO1, GridSplitting)
 
     // compute first without grid splitting
     setup(false);
-    compute_flux_imex_o1(0, geom, statein, statein, m_pressure, fluxes, dt,
-                         bcs, settings);
+    compute_flux_imex_o1(0, geom, statein, statein, m_pressure, fluxes,
+                         MultiFab(), iMultiFab(), dt, bc_data, settings);
 
     Array<MultiFab, AMREX_SPACEDIM> nonsplit_fluxes;
     for (int d = 0; d < AMREX_SPACEDIM; ++d)
@@ -282,8 +286,8 @@ TEST_F(IMEXO1, GridSplitting)
     TearDown();
     // compute with grid splitting
     setup(true);
-    compute_flux_imex_o1(0, geom, statein, statein, m_pressure, fluxes, dt,
-                         bcs, settings);
+    compute_flux_imex_o1(0, geom, statein, statein, m_pressure, fluxes,
+                         MultiFab(), iMultiFab(), dt, bc_data, settings);
 
     // compare solutions
     MFIter::allowMultipleMFIters(true);

@@ -14,7 +14,6 @@
 #include <AMReX_BC_TYPES.H>
 #include <AMReX_Box.H>
 #include <AMReX_MFIter.H>
-#include <AMReX_MLEBABecLap.H>
 
 using namespace amrex;
 
@@ -29,13 +28,23 @@ void compute_flux_imex_o1(
     const IMEXSettings &settings)
 {
     BL_PROFILE("compute_flux_imex_o1()");
-    AMREX_ASSERT(statein_imp.nGrow() >= 3);
-    AMREX_ASSERT(statein_exp.nGrow() >= 3);
     AMREX_ASSERT(pressure.nGrow() >= 1);
     AMREX_ASSERT(pressure.isDefined());
     AMREX_ASSERT(!pressure.contains_nan(0, 1, 1));
-    AMREX_ASSERT(!statein_imp.contains_nan(0, EULER_NCOMP, 3));
-    AMREX_ASSERT(!statein_exp.contains_nan(0, EULER_NCOMP, 3));
+    if (settings.advection_flux == IMEXSettings::muscl_rusanov)
+    {
+        AMREX_ASSERT(statein_imp.nGrow() >= 3);
+        AMREX_ASSERT(statein_exp.nGrow() >= 3);
+        AMREX_ASSERT(!statein_imp.contains_nan(0, EULER_NCOMP, 3));
+        AMREX_ASSERT(!statein_exp.contains_nan(0, EULER_NCOMP, 3));
+    }
+    else
+    {
+        AMREX_ASSERT(statein_imp.nGrow() >= 2);
+        AMREX_ASSERT(statein_exp.nGrow() >= 2);
+        AMREX_ASSERT(!statein_imp.contains_nan(0, EULER_NCOMP, 2));
+        AMREX_ASSERT(!statein_exp.contains_nan(0, EULER_NCOMP, 2));
+    }
 
     // Define temporary MultiFabs
 
@@ -404,9 +413,13 @@ void solve_pressure_eqn(const amrex::Geometry &geom,
             dynamic_cast<MLABecLaplacianGrad &>(*pressure_op), U, dt, bc_data,
             settings);
     else
+    {
+#ifdef AMREX_USE_EB
         IMEXEB::setup_pressure_op_rb(geom, enthalpy, rhs, pressure,
                                      dynamic_cast<MLEBABecLap &>(*pressure_op),
                                      U, dt, bc_data);
+#endif
+    }
 
     MLMG solver(*pressure_op);
 
@@ -739,10 +752,14 @@ void picard_iterate(
                     dynamic_cast<MLABecLaplacianGrad &>(*pressure_op), stateex,
                     dt, bc_data, settings);
             else
+            {
+#ifdef AMREX_USE_EB
                 IMEXEB::setup_pressure_op_rb(
                     geom, enthalpy, rhs, pressure,
                     dynamic_cast<MLEBABecLap &>(*pressure_op), stateex, dt,
                     bc_data);
+#endif
+            }
 
             // solver can only be constructed once the operator is initialised
             MLMG residual_solver(*pressure_op);

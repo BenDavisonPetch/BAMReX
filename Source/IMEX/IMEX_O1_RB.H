@@ -4,9 +4,12 @@
 #ifndef IMEX_O1_RB_H_
 #define IMEX_O1_RB_H_
 
-#include <AMReX_MLEBABecLap.H>
+#include <AMReX.H>
+
+#ifdef AMREX_USE_EB
 #include <AMReX_MLMG.H>
 #include <AMReX_MultiFab.H>
+#include <AMReX_MLEBABecLap.H>
 
 #include "BCs.H"
 #include "IMEXSettings.H"
@@ -40,4 +43,5 @@ void setup_pressure_op_rb(const amrex::Geometry &geom,
 
 } // namespace IMEXEB
 
+#endif
 #endif

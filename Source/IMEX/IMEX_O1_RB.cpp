@@ -2,6 +2,7 @@
  * Linear solver setup for rigid body calculations
  */
 #include "IMEX_O1_RB.H"
+#ifdef AMREX_USE_EB
 #include "BCs.H"
 #include "IMEX_O1.H"
 
@@ -76,3 +77,5 @@ void setup_pressure_op_rb(const amrex::Geometry &geom,
 }
 
 } // namespace IMEXEB
+
+#endif

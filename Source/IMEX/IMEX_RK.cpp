@@ -82,6 +82,8 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
         // fill rigid body ghost states
         if (bc_data.rb_enabled())
         {
+            bc_data.fill_consv_boundary(geom, statein_imp, time);
+            bc_data.fill_consv_boundary(geom, statein_exp[stage % 2], time);
             fill_ghost_rb(geom, statein_exp[stage % 2], LS, gfm_flags,
                           bc_data.rigidbody_bc());
             fill_ghost_rb(geom, statein_imp, LS, gfm_flags,
