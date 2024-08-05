@@ -15,25 +15,46 @@ on_interface(const Array4<const Real> &ls, int i, int j, int k)
 }
 
 AMREX_FORCE_INLINE AMREX_GPU_DEVICE bool
-close_to_interface(const Array4<const Real> &ls, int i, int j, int k)
+close_to_interface(const Array4<const Real> &ls, int i, int j, int k,
+                   const GFMFillInfo &fill_info)
 {
     bool close = false;
-    for (int dist = 1; dist <= GFM_GROW; ++dist)
+
+    if (!fill_info.fill_diagonals)
     {
-        close
-            = close
-              || AMREX_D_TERM((ls(i, j, k) * ls(i + dist, j, k) <= 0)
-                                  || (ls(i, j, k) * ls(i - dist, j, k) <= 0),
-                              || (ls(i, j, k) * ls(i, j + dist, k) <= 0)
-                                  || (ls(i, j, k) * ls(i, j - dist, k) <= 0),
-                              || (ls(i, j, k) * ls(i, j, k + dist) <= 0)
-                                  || (ls(i, j, k) * ls(i, j, k - dist) <= 0));
+        for (int dist = -fill_info.stencil; dist <= fill_info.stencil; ++dist)
+        {
+            close
+                = close
+                  || AMREX_D_TERM((ls(i, j, k) * ls(i + dist, j, k) <= 0),
+                                  || (ls(i, j, k) * ls(i, j + dist, k) <= 0),
+                                  || (ls(i, j, k) * ls(i, j, k + dist) <= 0));
+        }
+    }
+    else
+    {
+        for (int ii = -fill_info.stencil; ii <= fill_info.stencil; ++ii)
+        {
+            const int jrange
+                = (AMREX_SPACEDIM >= 2) ? fill_info.stencil - std::abs(ii) : 0;
+            for (int jj = -jrange; jj <= jrange; ++jj)
+            {
+                const int krange
+                    = (AMREX_SPACEDIM == 3) ? jrange - std::abs(jj) : 0;
+                for (int kk = -krange; kk <= krange; ++kk)
+                {
+                    close = close
+                            || ls(i, j, k) * ls(i + ii, j + jj, k + kk) <= 0;
+                }
+            }
+        }
     }
     return close;
 }
 
 AMREX_GPU_HOST
-void build_gfm_flags(amrex::iMultiFab &flags, const amrex::MultiFab &LS)
+void build_gfm_flags(amrex::iMultiFab &flags, const amrex::MultiFab &LS,
+                     const GFMFillInfo &fill_info)
 {
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -54,7 +75,7 @@ void build_gfm_flags(amrex::iMultiFab &flags, const amrex::MultiFab &LS)
                             if (on_interface(ls, i, j, k))
                                 flagarr(i, j, k) |= GFMFlag::interface;
                             if (ls(i, j, k) >= 0
-                                && close_to_interface(ls, i, j, k))
+                                && close_to_interface(ls, i, j, k, fill_info))
                                 flagarr(i, j, k) |= GFMFlag::fill;
                         });
         }

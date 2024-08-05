@@ -39,6 +39,7 @@ add_executable(tests_2d
   Euler01.cpp
   MLABecLapGrad01.cpp
   GFMFlag01.cpp
+  GFMFlag02.cpp
   Interp01.cpp
 )
 

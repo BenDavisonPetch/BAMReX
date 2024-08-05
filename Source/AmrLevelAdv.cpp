@@ -43,11 +43,15 @@ bamrexBCData             AmrLevelAdv::bc_data;
 int AmrLevelAdv::rot_axis = -1;
 int AmrLevelAdv::alpha    = 0;
 
-const int AmrLevelAdv::NUM_STATE  = 2 + AMREX_SPACEDIM; // Euler eqns
-const int AmrLevelAdv::NUM_GROW   = 3; // number of ghost cells
-const int AmrLevelAdv::NUM_GROW_P = 1;
-// (Pressure needs 2 ghost cells, and we need 2 more ghost cells than pressure
-//  bc of the explicit update for the EK formulations)
+const int AmrLevelAdv::NUM_STATE = 2 + AMREX_SPACEDIM; // Euler eqns
+// The second-order IMEX methods have the largest stencil.
+// They need 3 ghost cells for conservative variables and 1 for pressure.
+// This gets larger when using rigid bodies, since we fill 3 layers of ghost
+// cells.
+const int AmrLevelAdv::NUM_GROW = 6; // number of ghost cells.
+const int AmrLevelAdv::NUM_GROW_P
+    = 4; // IMEX with no rigid bodies needs 1 ghost cell for pressure, we use 3
+         // for GFM
 
 // Mechanism for getting code to work on GPU
 ProbParm *AmrLevelAdv::h_prob_parm = nullptr;
@@ -235,7 +239,16 @@ void AmrLevelAdv::initData()
 
     init_levelset(LS_new, geom, bc_data);
     gfm_flags.define(LS_new.boxArray(), dmap, 1, LS_new.nGrow());
-    build_gfm_flags(gfm_flags, LS_new);
+
+    // Default filling scheme is fine for MHM and HLLC
+    GFMFillInfo fill_info;
+    if (num_method == NumericalMethods::imex)
+    {
+        fill_info.fill_diagonals = true;
+        if (imex_settings.advection_flux == IMEXSettings::muscl_rusanov)
+            fill_info.stencil = 3;
+    }
+    build_gfm_flags(gfm_flags, LS_new, fill_info);
     initdata(S_new, geom);
     AMREX_ASSERT(!S_new.contains_nan());
 
@@ -419,6 +432,13 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     // takes care of boundary conditions too
     FillPatcherFill(Sborder, 0, NUM_STATE, NUM_GROW, time, Consv_Type, 0);
 
+    // fill rigid body ghost states
+    if (bc_data.rb_enabled())
+    {
+        fill_ghost_rb(geom, Sborder, LS, gfm_flags, bc_data.rigidbody_bc());
+        bc_data.fill_consv_boundary(geom, Sborder, time);
+    }
+
     if (verbose)
         AllPrint() << "\tFilled ghost states" << std::endl;
 
@@ -427,14 +447,6 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     if (num_method == NumericalMethods::muscl_hancock
         || num_method == NumericalMethods::hllc)
     {
-        // fill rigid body ghost states
-        if (bc_data.rb_enabled())
-        {
-            fill_ghost_rb(geom, Sborder, LS, gfm_flags,
-                          bc_data.rigidbody_bc());
-            bc_data.fill_consv_boundary(geom, Sborder, time);
-        }
-
         for (int d = 0; d < amrex::SpaceDim; d++)
         {
             if (verbose)
@@ -586,7 +598,12 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
         // filled witihin advance_imex_rk
 
         MultiFab::Copy(P_new, P_mm, 0, 0, 1, NUM_GROW_P);
-        // TODO: check if ghost cells are actually filled in P_new and P_mm
+        bc_data.fill_pressure_boundary(geom, P_new, Sborder, time);
+        if (bc_data.rb_enabled())
+        {
+            fill_ghost_p_rb(geom, P_new, LS, gfm_flags,
+                            bc_data.rigidbody_bc());
+        }
         advance_imex_rk_stab(time, geom, Sborder, S_new, P_new, fluxes, LS,
                              gfm_flags, dt, bc_data, imex_settings);
 

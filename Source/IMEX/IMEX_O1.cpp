@@ -656,6 +656,7 @@ void solve_pressure(const amrex::Geometry &geom, const amrex::MultiFab &rhs,
         AMREX_ASSERT(bc_data.rigidbody_bc() == RigidBodyBCType::reflective
                      || bc_data.rigidbody_bc() == RigidBodyBCType::no_slip);
         fill_ghost_p_rb(geom, pressure, LS, gfm_flags, bc_data.rigidbody_bc());
+        bc_data.fill_pressure_boundary(geom, pressure, U, 0);
     }
 
     AMREX_ASSERT(!pressure.contains_nan());
