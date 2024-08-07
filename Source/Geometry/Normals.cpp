@@ -22,8 +22,8 @@ void fill_ls_normals(const amrex::Geometry &geom, amrex::MultiFab &LS)
     {
         for (MFIter mfi(LS, TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
-            // const auto &bx = mfi.growntilebox(LS.nGrowVect() - 1);
-            const auto &bx = mfi.tilebox();
+            const auto &bx = mfi.growntilebox(LS.nGrowVect() - 1);
+            // const auto &bx = mfi.tilebox();
             const auto &ls = LS.array(mfi);
             ParallelFor(
                 bx,

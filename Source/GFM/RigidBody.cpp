@@ -1,8 +1,11 @@
 #include "RigidBody.H"
 #include "BCs.H"
+#include "Euler/Euler.H"
 #include "Euler/NComp.H"
+#include "Euler/RiemannSolver.H"
 #include "GFM/GFMFlag.H"
 #include "GFM/Interp_K.H"
+#include <AMReX_RealVect.H>
 
 using namespace amrex;
 
@@ -28,10 +31,15 @@ AMREX_GPU_HOST void fill_ghost_rb(const amrex::Geometry           &geom,
 
     AMREX_ASSERT(U.nComp() == EULER_NCOMP);
 
+    const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Real eps  = AmrLevelAdv::h_prob_parm->epsilon;
+
     constexpr Real delta = 1.5; // we always look delta*dx into the fluid from
                                 // the boundary to interpolate
 
-    const auto &dx = geom.CellSizeArray();
+    const auto &dx  = geom.CellSizeArray();
+    const auto &rdx = geom.InvCellSizeArray();
+
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -70,20 +78,65 @@ AMREX_GPU_HOST void fill_ghost_rb(const amrex::Geometry           &geom,
 
                         if (rb_bc == RigidBodyBCType::reflective)
                         {
-                            // Now we reflect the momentum in the normal
-                            // direction q -> q - 2 (q.n)n
-                            const Real tdot
-                                = 2
-                                  * (AMREX_D_TERM(arr(i, j, k, 1) * norm[0],
-                                                  +arr(i, j, k, 2) * norm[1],
-                                                  +arr(i, j, k, 3) * norm[2]));
-                            for (int n = 0; n < AMREX_SPACEDIM; ++n)
-                            {
-                                arr(i, j, k, n + 1) -= tdot * norm[n];
-                            }
+                            const auto primv_L_Nd
+                                = primv_from_consv(arr, adia, eps, i, j, k);
+                            const Real u_n
+                                = (AMREX_D_TERM(primv_L_Nd[1] * norm[0],
+                                                +primv_L_Nd[2] * norm[1],
+                                                +primv_L_Nd[3] * norm[2]));
+                            const RealVect u_t(
+                                AMREX_D_DECL(primv_L_Nd[1] - u_n * norm[0],
+                                             primv_L_Nd[2] - u_n * norm[1],
+                                             primv_L_Nd[3] - u_n * norm[2]));
+
+                            // TODO: precompute this
+                            const Real curvature = AMREX_D_TERM(
+                                -(0.5 * rdx[0]
+                                  * (ls(i + 1, j, k, 1) - ls(i - 1, j, k, 1))),
+                                -(0.5 * rdx[1]
+                                  * (ls(i, j + 1, k, 2) - ls(i, j - 1, k, 2))),
+                                -(0.5 * rdx[2]
+                                  * (ls(i, j, k + 1, 3)
+                                     - ls(i, j, k - 1, 3))));
+
+                            const GpuArray<Real, EULER_NCOMP> primv_L{
+                                primv_L_Nd[0], AMREX_D_DECL(-u_n, 0, 0),
+                                primv_L_Nd[1 + AMREX_SPACEDIM]
+                            };
+                            // Account for pressure gradient
+
+                            // dp/dn = density * tangential_vel^2 * curvature -
+                            //     density * rigidbody_acceleration
+                            const Real p_R = primv_L_Nd[1 + AMREX_SPACEDIM]
+                                             + primv_L_Nd[0] *
+                                             u_t.radSquared()
+                                                   * curvature * 2 * delta
+                                                   * dx[0];
+                            // Print() << "p_R = " << p_R << std::endl;
+                            // Print() << "u_t.radSquared() = " <<
+                            // u_t.radSquared() << std::endl; Print() <<
+                            // "curvature = " << curvature << std::endl;
+
+                            const GpuArray<Real, EULER_NCOMP> primv_R{
+                                primv_L_Nd[0], AMREX_D_DECL(u_n, 0, 0), p_R
+                            };
+
+                            EulerExactRiemannSolver<0> riem(primv_L, primv_R,
+                                                            adia, adia, eps);
+                            const auto consv_int_L = riem.get_interm_consv_L();
+                            RealVect   q_int_L     = -consv_int_L[1] * norm
+                                               + u_t * consv_int_L[0];
+
+                            arr(i, j, k, 0) = consv_int_L[0];
+                            for (int d = 0; d < AMREX_SPACEDIM; ++d)
+                                arr(i, j, k, d + 1) = q_int_L[d];
+                            arr(i, j, k, 1 + AMREX_SPACEDIM)
+                                = consv_int_L[1 + AMREX_SPACEDIM];
                         }
                         else if (rb_bc == RigidBodyBCType::no_slip)
                         {
+                            // this is currently wrong.
+                            Abort("No slip boundaries not supported!");
                             for (int n = 0; n < AMREX_SPACEDIM; ++n)
                             {
                                 arr(i, j, k, n + 1) *= -1;

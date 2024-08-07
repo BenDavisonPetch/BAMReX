@@ -47,6 +47,28 @@ class EulerExactRiemannSolver
         return p_interm;
     }
 
+    AMREX_GPU_HOST_DEVICE
+    AMREX_FORCE_INLINE
+    const amrex::GpuArray<amrex::Real, NCOMP> &get_interm_consv_L()
+    {
+        if (!interm_states_computed)
+        {
+            compute_soln();
+        }
+        return consv_interm_L;
+    }
+
+    AMREX_GPU_HOST_DEVICE
+    AMREX_FORCE_INLINE
+    const amrex::GpuArray<amrex::Real, NCOMP> &get_interm_consv_R()
+    {
+        if (!interm_states_computed)
+        {
+            compute_soln();
+        }
+        return consv_interm_R;
+    }
+
   protected:
     /**
      * @brief Uses the Newton-Raphson root finding method to find the
