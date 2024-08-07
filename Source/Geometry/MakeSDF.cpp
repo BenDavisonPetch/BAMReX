@@ -121,6 +121,28 @@ SDF make_sdf()
         PlaneSDF pf(point, normal);
         return pf;
     }
+    else if (geom_type == "equilateral_wedge")
+    {
+        Array<Real, 3> vorientation, vtip;
+        Real           sidelength;
+        ppls.get("wedge_tip", vtip);
+        ppls.get("wedge_orientation", vorientation);
+        ppls.get("wedge_side_length", sidelength);
+        const Real h = sidelength * sqrt((Real)3) / 2;
+        XDim3      orientation(
+                 { vorientation[0], vorientation[1], vorientation[2] });
+        XDim3      tip({ vtip[0], vtip[1], vtip[2] });
+        XDim3      pn({ -orientation.x, -orientation.y, -orientation.z });
+        const Real pnn = sqrt(pn.x * pn.x + pn.y * pn.y + pn.z * pn.z);
+        pn.x /= pnn;
+        pn.y /= pnn;
+        pn.z /= pnn;
+        XDim3    pp({ tip.x + pn.x * h, tip.y + pn.y * h, tip.z + pn.z * h });
+        ConeSDF  cf(tip, orientation, 30, false);
+        PlaneSDF pf(pp, pn);
+        auto     wf = make_intersection(std::move(cf), std::move(pf));
+        return wf;
+    }
     else if (geom_type == "guitton_nozzle")
     {
         Real scale_factor, wall_thickness, inner_radius, outer_radius, length,
