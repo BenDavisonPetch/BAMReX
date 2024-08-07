@@ -100,7 +100,8 @@ AMREX_GPU_HOST void fill_ghost_rb(const amrex::Geometry           &geom,
                                      - ls(i, j, k - 1, 3))));
 
                             const GpuArray<Real, EULER_NCOMP> primv_L{
-                                primv_L_Nd[0], AMREX_D_DECL(-u_n, 0, 0),
+                                primv_L_Nd[0],
+                                AMREX_D_DECL(-u_n, u_t.vectorLength(), 0),
                                 primv_L_Nd[1 + AMREX_SPACEDIM]
                             };
                             // Account for pressure gradient
@@ -108,8 +109,7 @@ AMREX_GPU_HOST void fill_ghost_rb(const amrex::Geometry           &geom,
                             // dp/dn = density * tangential_vel^2 * curvature -
                             //     density * rigidbody_acceleration
                             const Real p_R = primv_L_Nd[1 + AMREX_SPACEDIM]
-                                             + primv_L_Nd[0] *
-                                             u_t.radSquared()
+                                             + primv_L_Nd[0] * u_t.radSquared()
                                                    * curvature * 2 * delta
                                                    * dx[0];
                             // Print() << "p_R = " << p_R << std::endl;
@@ -118,7 +118,8 @@ AMREX_GPU_HOST void fill_ghost_rb(const amrex::Geometry           &geom,
                             // "curvature = " << curvature << std::endl;
 
                             const GpuArray<Real, EULER_NCOMP> primv_R{
-                                primv_L_Nd[0], AMREX_D_DECL(u_n, 0, 0), p_R
+                                primv_L_Nd[0],
+                                AMREX_D_DECL(u_n, u_t.vectorLength(), 0), p_R
                             };
 
                             EulerExactRiemannSolver<0> riem(primv_L, primv_R,
