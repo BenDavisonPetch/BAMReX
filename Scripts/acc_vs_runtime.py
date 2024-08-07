@@ -18,7 +18,7 @@ runs = {8 : {"IMEX" : [128]},
 
 adiabatic = 1.4
 
-test_names = ["M1", "M1e-1", "M5e-1"]
+test_names = ["M1", "M1e-1", "M5e-1", "M3e-1"]
 
 log_dir = "/home/bendp/practicals/remote_results/csd3-accres-logs/"
 extra_log_dir = "/home/bendp/practicals/remote_results/csd3-accres-logs-extra/"
@@ -67,6 +67,17 @@ class RunData:
         self.pressure_L2 = error_norms[15]
         self.pressure_Linf = error_norms[16]
         self.profile_data = profile_data
+
+exc_fields = ["Amr::writePlotFile()", "VisMF::Write(FabArray)",
+              "NFI::CleanUpMessages","AmrLevel::writePlotFile()",
+              "NFI::ReadyToWrite::decider"]
+
+def runtime_nooutput(run_data):
+    excluded_time = 0
+    for exc_field in exc_fields:
+        if exc_field in run_data.excl_data["avg"]:
+            excluded_time += run_data.excl_data["avg"][exc_field]
+    return run_data.run_time - excluded_time
 
 save_file = "__acc_vs_runtime.p"
 
@@ -143,7 +154,7 @@ for i, plot_combo in enumerate(plot_combos):
         for itest, testcase in enumerate(plot_combo[method]):
             label = f"{method_names[method]}"
             profile_datas = [res.profile_data for res in results[testcase][method]]
-            run_times = [data.run_time for data in profile_datas]
+            run_times = [runtime_nooutput(data) for data in profile_datas]
             errors = [res.pressure_L1 for res in results[testcase][method]]
             ax[itest].plot(errors, run_times, label=label)
 
@@ -166,10 +177,10 @@ file_name = "outputs/accuracy_runtime/acc_rt_comp_big.pdf"
 fig, ax = plt.subplots(2, 2, figsize=(6*5/6,2.5*5/6*1.2*2))
 
 for method in ["MHM", "PEEK-MUSCL-SSP222"]:
-    for itest, testcase in enumerate(["M1", "M5e-1", "M1e-1"]):
+    for itest, testcase in enumerate(["M1", "M5e-1", "M3e-1", "M1e-1"]):
         label = f"{method_names[method]}"
         profile_datas = [res.profile_data for res in results[testcase][method]]
-        run_times = [data.run_time for data in profile_datas]
+        run_times = [runtime_nooutput(data) for data in profile_datas]
         errors = [res.pressure_L1 for res in results[testcase][method]]
         ax[itest // 2, itest % 2].plot(errors, run_times, label=label)
 
@@ -182,7 +193,8 @@ for i in range(2):
         ax[i, j].yaxis.set_major_formatter(ScalarFormatter())
 ax[0,0].set_title("$M = 1$")
 ax[0,1].set_title("$M = 0.5$")
-ax[1,0].set_title("$M = 0.1$")
+ax[1,0].set_title("$M = 0.3$")
+ax[1,1].set_title("$M = 0.1$")
 ax[0,1].legend(fontsize=6)
 fig.tight_layout(pad=0.8)
 fig.savefig(file_name, bbox_inches="tight")

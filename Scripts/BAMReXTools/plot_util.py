@@ -222,7 +222,7 @@ adiabatic : the adiabatic index
 exact_soln_plotfile : the name of the plotfile with the exact solution for each test. Should have the
     same resolution as the test itself
 """
-def get_convergence_properties(test_dir, adiabatic, exact_soln_plotfile = "pltEXACT_SOLN"):
+def get_convergence_properties(test_dir, adiabatic, exact_soln_plotfile = "pltEXACT_SOLN", use_imex_pressure=False):
     SUBRUN_DIRS = sorted(glob.glob(test_dir))
     if (len(SUBRUN_DIRS) == 0):
         print (f"Cannot find results with pattern {test_dir}")
@@ -231,7 +231,7 @@ def get_convergence_properties(test_dir, adiabatic, exact_soln_plotfile = "pltEX
     EXACT_SOLUTIONS = [SUBRUN_DIR + "/" + exact_soln_plotfile for SUBRUN_DIR in SUBRUN_DIRS]
     error_norms = []
     for i in range(len(SUBRUN_FINAL_OUTPUTS)):
-        error_norms.append(compute_error_norms(SUBRUN_FINAL_OUTPUTS[i], EXACT_SOLUTIONS[i], adiabatic))
+        error_norms.append(compute_error_norms(SUBRUN_FINAL_OUTPUTS[i], EXACT_SOLUTIONS[i], adiabatic, use_imex_pressure))
     df = pd.DataFrame(columns=["N", "dx", "density L1", "density L2", "density Linf",
                                "u L1", "u L2", "u Linf", "v L1", "v L2", "v Linf",
                                "w L1", "w L2", "w Linf", "pressure L1", "pressure L2",
