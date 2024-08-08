@@ -103,7 +103,8 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
             bc_data.fill_pressure_boundary(geom, pressure,
                                            statein_exp[stage % 2], 0);
             if (bc_data.rb_enabled())
-                fill_ghost_p_rb(geom, pressure, LS, gfm_flags, bc_data.rigidbody_bc());
+                fill_ghost_p_rb(geom, pressure, statein_exp[stage % 2], LS,
+                                gfm_flags, bc_data.rigidbody_bc());
         }
 
         // Compute stage flux for this step

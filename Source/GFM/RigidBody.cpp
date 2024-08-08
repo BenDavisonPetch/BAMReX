@@ -155,6 +155,7 @@ AMREX_GPU_HOST void fill_ghost_rb(const amrex::Geometry           &geom,
  *
  * \param geom
  * \param p
+ * \param U Used to determine tangential velocity for slip condition
  * \param LS >0 -> body, =0 -> interface, <0 -> fluid. Components
  * 1:AMREX_SPACEDIM are the normal vectors (point into fluid, i.e. grad(LS))
  * \param gfm_flags constructed using build_gfm_flags
@@ -162,6 +163,7 @@ AMREX_GPU_HOST void fill_ghost_rb(const amrex::Geometry           &geom,
  */
 AMREX_GPU_HOST void fill_ghost_p_rb(const amrex::Geometry           &geom,
                                     amrex::MultiFab                 &p,
+                                    const amrex::MultiFab           &U,
                                     const amrex::MultiFab           &LS,
                                     const amrex::iMultiFab          &gfm_flags,
                                     RigidBodyBCType::rigidbodybctype rb_bc)
@@ -174,10 +176,12 @@ AMREX_GPU_HOST void fill_ghost_p_rb(const amrex::Geometry           &geom,
 
     AMREX_ASSERT(p.nComp() == 1);
 
-    constexpr Real delta = 1.5; // we always look delta*dx into the fluid from
-                                // the boundary to interpolate
+    constexpr Real delta = 1; // we always look delta*dx into the fluid from
+                              // the boundary to interpolate
 
-    const auto &dx = geom.CellSizeArray();
+    const auto &dx  = geom.CellSizeArray();
+    const auto &rdx = geom.InvCellSizeArray();
+
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -190,7 +194,8 @@ AMREX_GPU_HOST void fill_ghost_p_rb(const amrex::Geometry           &geom,
 
             // TODO: skip FABs with no ghost cells
             const auto &bx    = mfi.tilebox();
-            const auto &arr   = p.array(mfi);
+            const auto &parr  = p.array(mfi);
+            const auto &Uarr  = U.const_array(mfi);
             const auto &ls    = LS.const_array(mfi);
             const auto &flags = gfm_flags.const_array(mfi);
             ParallelFor(
@@ -210,7 +215,38 @@ AMREX_GPU_HOST void fill_ghost_p_rb(const amrex::Geometry           &geom,
                         const RealVect x_refl(
                             x_gh + (ls(i, j, k) + delta * dx[0]) * norm);
 
-                        bilinear_interp(x_refl, arr, arr, i, j, k, dx, 1);
+                        bilinear_interp(x_refl, parr, parr, i, j, k, dx, 1);
+
+                        if (rb_bc == RigidBodyBCType::reflective)
+                        {
+                            const auto consv = bilinear_interp<EULER_NCOMP>(
+                                x_refl, Uarr, dx);
+                            const Real     q_n = (AMREX_D_TERM(
+                                    consv[1] * norm[0], +consv[2] * norm[1],
+                                    +consv[3] * norm[2]));
+                            const RealVect u_t(AMREX_D_DECL(
+                                (consv[1] - q_n * norm[0]) / consv[0],
+                                (consv[2] - q_n * norm[1]) / consv[0],
+                                (consv[3] - q_n * norm[2]) / consv[0]));
+
+                            // TODO: precompute this
+                            const Real curvature = AMREX_D_TERM(
+                                -(0.5 * rdx[0]
+                                  * (ls(i + 1, j, k, 1) - ls(i - 1, j, k, 1))),
+                                -(0.5 * rdx[1]
+                                  * (ls(i, j + 1, k, 2) - ls(i, j - 1, k, 2))),
+                                -(0.5 * rdx[2]
+                                  * (ls(i, j, k + 1, 3)
+                                     - ls(i, j, k - 1, 3))));
+                            // Account for pressure gradient
+
+                            // dp/dn = density * tangential_vel^2 * curvature -
+                            //     density * rigidbody_acceleration
+                            parr(i, j, k)
+                                = parr(i, j, k)
+                                  + consv[0] * u_t.radSquared() * curvature
+                                        * (ls(i, j, k) + delta * dx[0]);
+                        }
                     }
                 });
         }

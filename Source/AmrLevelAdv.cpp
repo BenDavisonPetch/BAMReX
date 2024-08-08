@@ -601,7 +601,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
         bc_data.fill_pressure_boundary(geom, P_new, Sborder, time);
         if (bc_data.rb_enabled())
         {
-            fill_ghost_p_rb(geom, P_new, LS, gfm_flags,
+            fill_ghost_p_rb(geom, P_new, Sborder, LS, gfm_flags,
                             bc_data.rigidbody_bc());
         }
         advance_imex_rk_stab(time, geom, Sborder, S_new, P_new, fluxes, LS,

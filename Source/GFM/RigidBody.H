@@ -28,6 +28,7 @@ AMREX_GPU_HOST void fill_ghost_rb(const amrex::Geometry           &geom,
  *
  * \param geom
  * \param p
+ * \param U Used to determine tangential velocity for slip condition
  * \param LS >0 -> body, =0 -> interface, <0 -> fluid. Components
  * 1:AMREX_SPACEDIM are the normal vectors (point into fluid, i.e. grad(LS))
  * \param gfm_flags constructed using build_gfm_flags
@@ -35,6 +36,7 @@ AMREX_GPU_HOST void fill_ghost_rb(const amrex::Geometry           &geom,
  */
 AMREX_GPU_HOST void fill_ghost_p_rb(const amrex::Geometry           &geom,
                                     amrex::MultiFab                 &p,
+                                    const amrex::MultiFab           &U,
                                     const amrex::MultiFab           &LS,
                                     const amrex::iMultiFab          &gfm_flags,
                                     RigidBodyBCType::rigidbodybctype rb_bc);
