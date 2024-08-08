@@ -131,6 +131,11 @@ void AmrLevelAdv::checkPoint(const std::string &dir, std::ostream &os,
 void AmrLevelAdv::writePlotFile(const std::string &dir, std::ostream &os,
                                 VisMF::How how)
 {
+    // Before we write first order extrapolate density into boundary for better
+    // postprocessing
+    auto &U  = get_new_data(Consv_Type);
+    auto &LS = get_new_data(Levelset_Type);
+    fill_ghost_rb(geom, U, LS, gfm_flags, RigidBodyBCType::foextrap);
     AmrLevel::writePlotFile(dir, os, how);
 }
 

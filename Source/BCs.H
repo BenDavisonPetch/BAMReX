@@ -58,7 +58,8 @@ namespace RigidBodyBCType
 enum rigidbodybctype
 {
     reflective,
-    no_slip
+    no_slip,
+    foextrap
 };
 
 inline rigidbodybctype enum_from_string(const std::string &name)
