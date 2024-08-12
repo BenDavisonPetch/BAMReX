@@ -3,6 +3,7 @@
 #include "Euler/Euler.H"
 #include "Euler/NComp.H"
 #include "Euler/RiemannSolver.H"
+#include "GFM/Extrapolate.H"
 #include "GFM/GFMFlag.H"
 #include "GFM/Interp_K.H"
 #include <AMReX_RealVect.H>
@@ -34,9 +35,6 @@ AMREX_GPU_HOST void fill_ghost_rb(const amrex::Geometry           &geom,
     const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
     const Real eps  = AmrLevelAdv::h_prob_parm->epsilon;
 
-    constexpr Real delta = 1.5; // we always look delta*dx into the fluid from
-                                // the boundary to interpolate
-
     const auto &dx  = geom.CellSizeArray();
     const auto &rdx = geom.InvCellSizeArray();
 
@@ -59,7 +57,8 @@ AMREX_GPU_HOST void fill_ghost_rb(const amrex::Geometry           &geom,
                 bx,
                 [=] AMREX_GPU_DEVICE(int i, int j, int k)
                 {
-                    if (needs_fill(flags(i, j, k)))
+                    if (at_interface(flags(i, j, k))
+                        && is_ghost(flags(i, j, k)))
                     {
                         // don't need prob_lo here because of how
                         // bilinear_interp works
@@ -68,16 +67,21 @@ AMREX_GPU_HOST void fill_ghost_rb(const amrex::Geometry           &geom,
                                                          (k + 0.5) * dx[2]));
                         const RealVect norm(AMREX_D_DECL(
                             ls(i, j, k, 1), ls(i, j, k, 2), ls(i, j, k, 3)));
-                        // normals point into fluid and ls >0 in body
-                        const RealVect x_refl(
-                            x_gh + (ls(i, j, k) + delta * dx[0]) * norm);
-                        // const RealVect x_refl(
-                        //     x_gh + 2*ls(i, j, k) * norm);
-                        bilinear_interp(x_refl, arr, arr, i, j, k, dx,
-                                        EULER_NCOMP);
 
                         if (rb_bc == RigidBodyBCType::reflective)
                         {
+                            constexpr Real delta
+                                = 1.5; // we always look delta*dx into the
+                                       // fluid from the boundary to
+                                       // interpolate
+                            // normals point into fluid and ls >0 in body
+                            const RealVect x_refl(
+                                x_gh + (ls(i, j, k) + delta * dx[0]) * norm);
+                            // const RealVect x_refl(
+                            //     x_gh + 2*ls(i, j, k) * norm);
+                            bilinear_interp(x_refl, arr, arr, i, j, k, dx,
+                                            EULER_NCOMP);
+
                             const auto primv_L_Nd
                                 = primv_from_consv(arr, adia, eps, i, j, k);
                             const Real u_n
@@ -108,10 +112,11 @@ AMREX_GPU_HOST void fill_ghost_rb(const amrex::Geometry           &geom,
 
                             // dp/dn = density * tangential_vel^2 * curvature -
                             //     density * rigidbody_acceleration
-                            const Real p_R = primv_L_Nd[1 + AMREX_SPACEDIM]
-                                             + primv_L_Nd[0] * u_t.radSquared()
-                                                   * curvature * 2 * delta
-                                                   * dx[0];
+                            const Real p_R = max(
+                                primv_L_Nd[1 + AMREX_SPACEDIM]
+                                    - primv_L_Nd[0] * u_t.radSquared()
+                                          * curvature * 2 * delta * dx[0],
+                                1e-14);
                             // Print() << "p_R = " << p_R << std::endl;
                             // Print() << "u_t.radSquared() = " <<
                             // u_t.radSquared() << std::endl; Print() <<
@@ -143,10 +148,28 @@ AMREX_GPU_HOST void fill_ghost_rb(const amrex::Geometry           &geom,
                                 arr(i, j, k, n + 1) *= -1;
                             }
                         }
+                        else if (rb_bc == RigidBodyBCType::foextrap)
+                        {
+                            constexpr Real delta
+                                = 1.5; // we always look delta*dx into the
+                                       // fluid from the boundary to
+                                       // interpolate
+                            // normals point into fluid and ls >0 in body
+                            const RealVect x_refl(
+                                x_gh + (ls(i, j, k) + delta * dx[0]) * norm);
+                            // const RealVect x_refl(
+                            //     x_gh + 2*ls(i, j, k) * norm);
+                            bilinear_interp(x_refl, arr, arr, i, j, k, dx,
+                                            EULER_NCOMP);
+                        }
                     }
                 });
         }
     }
+
+    U.FillBoundary(geom.periodicity());
+    extrapolate_from_boundary(geom, U, LS, gfm_flags, Vector<Real>(), 0,
+                              U.nComp());
 }
 
 /**
@@ -176,8 +199,8 @@ AMREX_GPU_HOST void fill_ghost_p_rb(const amrex::Geometry           &geom,
 
     AMREX_ASSERT(p.nComp() == 1);
 
-    constexpr Real delta = 1; // we always look delta*dx into the fluid from
-                              // the boundary to interpolate
+    const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Real eps  = AmrLevelAdv::h_prob_parm->epsilon;
 
     const auto &dx  = geom.CellSizeArray();
     const auto &rdx = geom.InvCellSizeArray();
@@ -202,7 +225,8 @@ AMREX_GPU_HOST void fill_ghost_p_rb(const amrex::Geometry           &geom,
                 bx,
                 [=] AMREX_GPU_DEVICE(int i, int j, int k)
                 {
-                    if (needs_fill(flags(i, j, k)))
+                    if (at_interface(flags(i, j, k))
+                        && is_ghost(flags(i, j, k)))
                     {
                         // don't need prob_lo here because of how
                         // bilinear_interp works
@@ -211,14 +235,19 @@ AMREX_GPU_HOST void fill_ghost_p_rb(const amrex::Geometry           &geom,
                                                          (k + 0.5) * dx[2]));
                         const RealVect norm(AMREX_D_DECL(
                             ls(i, j, k, 1), ls(i, j, k, 2), ls(i, j, k, 3)));
-                        // normals point into fluid and ls >0 in body
-                        const RealVect x_refl(
-                            x_gh + (ls(i, j, k) + delta * dx[0]) * norm);
-
-                        bilinear_interp(x_refl, parr, parr, i, j, k, dx, 1);
 
                         if (rb_bc == RigidBodyBCType::reflective)
                         {
+                            constexpr Real delta
+                                = 1.5; // we always look delta*dx into the
+                                       // fluid from the boundary to
+                                       // interpolate
+                            // normals point into fluid and ls >0 in body
+                            const RealVect x_refl(
+                                x_gh + (ls(i, j, k) + delta * dx[0]) * norm);
+
+                            bilinear_interp(x_refl, parr, parr, i, j, k, dx,
+                                            1);
                             const auto consv = bilinear_interp<EULER_NCOMP>(
                                 x_refl, Uarr, dx);
                             const Real     q_n = (AMREX_D_TERM(
@@ -244,11 +273,14 @@ AMREX_GPU_HOST void fill_ghost_p_rb(const amrex::Geometry           &geom,
                             //     density * rigidbody_acceleration
                             parr(i, j, k)
                                 = parr(i, j, k)
-                                  + consv[0] * u_t.radSquared() * curvature
+                                  - consv[0] * u_t.radSquared() * curvature
                                         * (ls(i, j, k) + delta * dx[0]);
                         }
                     }
                 });
         }
     }
+
+    p.FillBoundary(geom.periodicity());
+    extrapolate_from_boundary(geom, p, LS, gfm_flags, Vector<Real>(), 0, 1);
 }

@@ -25,6 +25,7 @@ set (SRC_NO_MAIN ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/RCM/RCM.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/GFM/GFMFlag.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/GFM/RigidBody.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/GFM/Extrapolate.cc
                  ${CMAKE_CURRENT_SOURCE_DIR}/Geometry/Normals.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Geometry/MakeSDF.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/BCs.cpp
