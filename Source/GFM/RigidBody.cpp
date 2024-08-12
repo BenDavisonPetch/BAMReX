@@ -199,9 +199,6 @@ AMREX_GPU_HOST void fill_ghost_p_rb(const amrex::Geometry           &geom,
 
     AMREX_ASSERT(p.nComp() == 1);
 
-    const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
-    const Real eps  = AmrLevelAdv::h_prob_parm->epsilon;
-
     const auto &dx  = geom.CellSizeArray();
     const auto &rdx = geom.InvCellSizeArray();
 
