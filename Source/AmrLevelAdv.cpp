@@ -133,9 +133,13 @@ void AmrLevelAdv::writePlotFile(const std::string &dir, std::ostream &os,
 {
     // Before we write first order extrapolate density into boundary for better
     // postprocessing
-    auto &U  = get_new_data(Consv_Type);
+    auto    &U = get_new_data(Consv_Type);
+    MultiFab Sborder(grids, dmap, NUM_STATE, NUM_GROW);
+    FillPatcherFill(Sborder, 0, NUM_STATE, NUM_GROW,
+                    state[Consv_Type].curTime(), Consv_Type, 0);
     auto &LS = get_new_data(Levelset_Type);
-    fill_ghost_rb(geom, U, LS, gfm_flags, RigidBodyBCType::foextrap);
+    fill_ghost_rb(geom, Sborder, LS, gfm_flags, RigidBodyBCType::foextrap);
+    MultiFab::Copy(U, Sborder, 0, 0, NUM_STATE, 0);
     AmrLevel::writePlotFile(dir, os, how);
 }
 
