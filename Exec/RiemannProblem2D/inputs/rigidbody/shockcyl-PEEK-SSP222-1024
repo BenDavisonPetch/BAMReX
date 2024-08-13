@@ -2,46 +2,50 @@
 max_step = 10000
 
 ## PROBLEM INPUT
-stop_time = 0.56
+stop_time = 0.000126061
 # determined by hand matching Figure 3 (plate 2) from 
 # Diffraction of strong shocks by cones, cylinders, and spheres
 # A. E. Bryson and R. W. F. Gross, 2006
 
-# M 2.81 shock
+# M 1.34 shock
 prob.adiabatic  = 1.4
-init.density_L  = 1
+init.density_L  = 0.595
 init.velocity_L = 0
-init.pressure_L = 1
-init.density_R  = 3.6767 # rho_R = 3.6767 rho_L
-init.velocity_R = -2.419794953
-init.pressure_R = 9.04545
-init.int_offset = -0.36 # int is at x = 0.14
+init.pressure_L = 0.05e6
+init.density_R  = 2.18603
+init.velocity_R = -703.9826
+init.pressure_R = 452250
+init.int_offset = -0.31 # int is at x = 0.19
 init.rotation   = 0
+
+# shock velocity -967.252m/s
+# must travel 0.07m before hitting sphere
+# time to contact = 1.5252e-4s
 
 geometry.is_periodic =  0  0  0
 geometry.coord_sys   =  0       # 0 => cart
 geometry.prob_lo     =  0.0  0.0  0.0 
 geometry.prob_hi     =  0.2  0.2  0.2
 
-limiting.limiter = van_leer
+limiting.limiter = minbee
 limiting.density = density
 limiting.mom     = mom_x mom_y mom_z
 limiting.energy  = energy
 
 # RESOLUTION
-amr.n_cell         =  512 512 512
+amr.n_cell         =  1024 1024 1024
 
 # TIME STEP CONTROL
-adv.cfl            = 0.8   # cfl number for hyperbolic system
+adv.cfl            = 0.4   # cfl number for hyperbolic system
 
 ## NUMERICAL METHOD SETTINGS
-adv.num_method = muscl_hancock
-# imex.advection_flux = muscl_rusanov
-# imex.linearise                  = true
-# imex.enthalpy_method            = reuse_pressure
-# imex.ke_method                  = ex
-# imex.butcher_tableau            = SSP222
-# imex.stabilize = true
+adv.num_method = imex
+imex.advection_flux = muscl_rusanov
+imex.linearise                  = true
+imex.enthalpy_method            = reuse_pressure
+imex.ke_method                  = ex
+imex.butcher_tableau            = SSP222
+imex.stabilize = true
 
 # VERBOSITY
 adv.v              = 0       # verbosity in Adv
@@ -57,14 +61,14 @@ amr.max_grid_size   = 64
 
 # CHECKPOINT FILES
 amr.checkpoint_files_output = 1     # 0 will disable checkpoint files
-amr.check_file              = chk/MHM/shockcyl_134/0512/chk   # root name of checkpoint file
-amr.check_int               = 100    # number of timesteps between checkpoints
+amr.check_file              = chk/PEEK-SSP222/shockcyl_134/1024/chk   # root name of checkpoint file
+amr.check_int               = 500    # number of timesteps between checkpoints
 
 # PLOTFILES
 amr.plot_files_output = 1      # 0 will disable plot files
 amr.plot_file         = plt    # root name of plot file
 amr.plot_int          = 100 # number of timesteps between plot files
-amr.plot_file = output/MHM/shockcyl_134/0512/plt
+amr.plot_file = output/PEEK-SSP222/shockcyl_134/1024/plt
 
 # TRACER PARTICLES
 adv.do_tracers = 0

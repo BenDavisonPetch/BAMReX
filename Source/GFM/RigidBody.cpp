@@ -191,6 +191,7 @@ AMREX_GPU_HOST void fill_ghost_p_rb(const amrex::Geometry           &geom,
                                     const amrex::iMultiFab          &gfm_flags,
                                     RigidBodyBCType::rigidbodybctype rb_bc)
 {
+    return;
     AMREX_ASSERT_WITH_MESSAGE(
         LS.nComp() == AMREX_SPACEDIM + 1,
         "LS should store the level set and the normal vectors");

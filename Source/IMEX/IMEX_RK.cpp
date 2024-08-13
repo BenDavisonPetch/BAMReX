@@ -80,15 +80,15 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
                             statein_exp[stage % 2], dt_imp, dt_exp, stage);
 
         // fill rigid body ghost states
-        if (bc_data.rb_enabled())
-        {
-            bc_data.fill_consv_boundary(geom, statein_imp, time);
-            bc_data.fill_consv_boundary(geom, statein_exp[stage % 2], time);
-            fill_ghost_rb(geom, statein_exp[stage % 2], LS, gfm_flags,
-                          bc_data.rigidbody_bc());
-            fill_ghost_rb(geom, statein_imp, LS, gfm_flags,
-                          bc_data.rigidbody_bc());
-        }
+        // if (bc_data.rb_enabled())
+        // {
+        //     bc_data.fill_consv_boundary(geom, statein_imp, time);
+        //     bc_data.fill_consv_boundary(geom, statein_exp[stage % 2], time);
+        //     fill_ghost_rb(geom, statein_exp[stage % 2], LS, gfm_flags,
+        //                   bc_data.rigidbody_bc());
+        //     fill_ghost_rb(geom, statein_imp, LS, gfm_flags,
+        //                   bc_data.rigidbody_bc());
+        // }
         bc_data.fill_consv_boundary(geom, statein_imp, time);
         bc_data.fill_consv_boundary(geom, statein_exp[stage % 2], time);
 
@@ -102,9 +102,9 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
                              settings);
             bc_data.fill_pressure_boundary(geom, pressure,
                                            statein_exp[stage % 2], 0);
-            if (bc_data.rb_enabled())
-                fill_ghost_p_rb(geom, pressure, statein_exp[stage % 2], LS,
-                                gfm_flags, bc_data.rigidbody_bc());
+            // if (bc_data.rb_enabled())
+            //     fill_ghost_p_rb(geom, pressure, statein_exp[stage % 2], LS,
+            //                     gfm_flags, bc_data.rigidbody_bc());
         }
 
         // Compute stage flux for this step

@@ -405,21 +405,22 @@ void solve_pressure_eqn(const amrex::Geometry &geom,
 
     // Ownership belongs to this scope
     // There are probably ASync issues with using this if on GPU
-    auto pressure_op = details::get_p_linop(bc_data.rb_enabled());
+    // auto pressure_op = details::get_p_linop(bc_data.rb_enabled());
+    auto pressure_op = details::get_p_linop(false);
 
-    if (!bc_data.rb_enabled())
+    // if (!bc_data.rb_enabled())
         details::setup_pressure_op(
             geom, enthalpy, velocity, rhs, pressure,
             dynamic_cast<MLABecLaplacianGrad &>(*pressure_op), U, dt, bc_data,
             settings);
-    else
-    {
-#ifdef AMREX_USE_EB
-        IMEXEB::setup_pressure_op_rb(geom, enthalpy, rhs, pressure,
-                                     dynamic_cast<MLEBABecLap &>(*pressure_op),
-                                     U, dt, bc_data);
-#endif
-    }
+//     else
+//     {
+// #ifdef AMREX_USE_EB
+//         IMEXEB::setup_pressure_op_rb(geom, enthalpy, rhs, pressure,
+//                                      dynamic_cast<MLEBABecLap &>(*pressure_op),
+//                                      U, dt, bc_data);
+// #endif
+//     }
 
     MLMG solver(*pressure_op);
 
@@ -651,11 +652,11 @@ void solve_pressure(const amrex::Geometry &geom, const amrex::MultiFab &rhs,
 
     bc_data.fill_pressure_boundary(geom, pressure, U, 0);
     // Extrapolate pressure into the ghost cells
-    if (bc_data.rb_enabled())
-    {
-        fill_ghost_p_rb(geom, pressure, U, LS, gfm_flags, bc_data.rigidbody_bc());
-        bc_data.fill_pressure_boundary(geom, pressure, U, 0);
-    }
+    // if (bc_data.rb_enabled())
+    // {
+    //     fill_ghost_p_rb(geom, pressure, U, LS, gfm_flags, bc_data.rigidbody_bc());
+    //     bc_data.fill_pressure_boundary(geom, pressure, U, 0);
+    // }
 
     AMREX_ASSERT(!pressure.contains_nan());
 }
