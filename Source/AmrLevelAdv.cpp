@@ -977,9 +977,20 @@ void AmrLevelAdv::post_regrid(int lbase, int /*new_finest*/)
  */
 void AmrLevelAdv::post_restart()
 {
-    const MultiFab &LS_new = get_new_data(Levelset_Type);
+    MultiFab &LS_new = get_new_data(Levelset_Type);
+    // we need to do this because it sets whether rigid bodies are enabled in
+    // bc_data
+    init_levelset(LS_new, geom, bc_data);
+
     gfm_flags.define(LS_new.boxArray(), dmap, 1, LS_new.nGrow());
-    build_gfm_flags(gfm_flags, LS_new);
+    GFMFillInfo fill_info;
+    if (num_method == NumericalMethods::imex)
+    {
+        fill_info.fill_diagonals = true;
+        if (imex_settings.advection_flux == IMEXSettings::muscl_rusanov)
+            fill_info.stencil = 3;
+    }
+    build_gfm_flags(gfm_flags, LS_new, fill_info);
 }
 
 /**
