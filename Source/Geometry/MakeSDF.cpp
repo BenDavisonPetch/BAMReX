@@ -187,14 +187,11 @@ SDF make_sdf()
         auto        inner_cyl_full = make_intersection(std::move(innercyl_out),
                                                        std::move(innercyl_in));
 
-        XDim3 innercyl_otip_cone_tip(
-            { center.x + length
-                  + inner_radius / tan(tip_angle * 0.5 * M_PI / 180),
-              center.y, center.z });
+        const Real tanha = tan(tip_angle * 0.5 * M_PI / 180);
+        XDim3      innercyl_otip_cone_tip(
+                 { center.x + length + inner_radius / tanha, center.y, center.z });
         XDim3 innercyl_itip_cone_tip(
-            { center.x + length
-                  - inner_radius / tan(tip_angle * 0.5 * M_PI / 180),
-              center.y, center.z });
+            { center.x + length - inner_radius / tanha, center.y, center.z });
         XDim3   invaxis({ -1, 0, 0 });
         ConeSDF inner_otip_cone(innercyl_otip_cone_tip, axis, tip_angle / 2,
                                 false);
@@ -210,10 +207,12 @@ SDF make_sdf()
         // auto nozzle = make_union(std::move(outer_cyl_full),
         // std::move(inner_cyl_full));
 
-        // to account for the SDF values in the fluid being wrong beyond the
-        // non-right angled corners, let's take another intersection with a
-        // plane at the outflow
-        PlaneSDF plane({ center.x + length, center.y, center.z }, { 1, 0, 0 });
+        // cut off the sharp end.
+        const Real min_thickness = 4 * 0.4 / 1024;
+        const Real cut_dist      = min_thickness / tanha;
+
+        PlaneSDF plane({ center.x + length - cut_dist, center.y, center.z },
+                       { 1, 0, 0 });
         auto     nozzle_chopped
             = make_intersection(std::move(nozzle), std::move(plane));
 
