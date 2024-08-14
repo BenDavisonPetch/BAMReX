@@ -160,6 +160,9 @@ SDF make_sdf()
         XDim3 center({ vcenter[0], vcenter[1], vcenter[2] });
         XDim3 axis({ 1, 0, 0 });
 
+        bool square_tips = false;
+        ppls.query("square_tips", square_tips);
+
         wall_thickness *= scale_factor;
         inner_radius *= scale_factor;
         outer_radius *= scale_factor;
@@ -203,20 +206,35 @@ SDF make_sdf()
         auto inner_cyl = make_intersection(std::move(inner_tips),
                                            std::move(inner_cyl_full));
 
-        auto nozzle = make_union(std::move(outer_cyl), std::move(inner_cyl));
-        // auto nozzle = make_union(std::move(outer_cyl_full),
-        // std::move(inner_cyl_full));
+        if (!square_tips)
+        {
+            auto nozzle
+                = make_union(std::move(outer_cyl), std::move(inner_cyl));
+            // auto nozzle = make_union(std::move(outer_cyl_full),
+            // std::move(inner_cyl_full));
 
-        // cut off the sharp end.
-        const Real min_thickness = 4 * 0.4 / 1024;
-        const Real cut_dist      = min_thickness / tanha;
+            // cut off the sharp end.
+            const Real min_thickness = wall_thickness * 0.1;
+            const Real cut_dist      = min_thickness / tanha;
 
-        PlaneSDF plane({ center.x + length - cut_dist, center.y, center.z },
-                       { 1, 0, 0 });
-        auto     nozzle_chopped
-            = make_intersection(std::move(nozzle), std::move(plane));
+            PlaneSDF plane(
+                { center.x + length - cut_dist, center.y, center.z },
+                { 1, 0, 0 });
+            auto nozzle_chopped
+                = make_intersection(std::move(nozzle), std::move(plane));
+            return nozzle_chopped;
+        }
+        else
+        {
+            auto     nozzle = make_union(std::move(inner_cyl_full),
+                                         std::move(outer_cyl_full));
+            PlaneSDF plane({ center.x + length, center.y, center.z },
+                           { 1, 0, 0 });
+            auto     nozzle_chopped
+                = make_intersection(std::move(nozzle), std::move(plane));
 
-        return nozzle_chopped;
+            return nozzle_chopped;
+        }
     }
     else
     {

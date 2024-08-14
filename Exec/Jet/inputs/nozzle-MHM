@@ -17,8 +17,7 @@ init.R_spec = 287.052874 # J / kg / K
 geometry.is_periodic =  0  0  0
 geometry.coord_sys   =  0       # 0 => cart
 geometry.prob_lo     =  0.0  0.0  0.0 
-# geometry.prob_hi     =  4  1.6  0.0 # 40 D_s + L by 16 D_s, D_s = 0.1
-geometry.prob_hi = 1 0.4
+geometry.prob_hi     =  4  1.6  0.0 # 40 D_s + L by 16 D_s, D_s = 0.1
 
 bc.x = coaxial_jet coaxial_jet
 bc.y = reflective coaxial_jet
@@ -33,7 +32,7 @@ limiting.mom     = energy energy energy
 limiting.energy  = energy
 
 # RESOLUTION
-amr.n_cell         = 2560 1024 0
+amr.n_cell         = 3200 1280 0
 
 # TIME STEP CONTROL
 adv.cfl            = 0.8   # cfl number for hyperbolic system
@@ -81,3 +80,4 @@ ls.outer_radius = 52.5
 ls.length = 158 # base to tip
 ls.tip_angle = 7 # in degrees
 ls.nozzle_center = 0 0 0 # x value sets position of base
+ls.square_tips=true
