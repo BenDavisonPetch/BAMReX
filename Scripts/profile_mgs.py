@@ -2,6 +2,7 @@ from BAMReXTools.profiling import *
 import matplotlib.pyplot as plt
 import BAMReXTools.plot_defaults
 import glob
+import matplotlib.ticker as ticker
 
 #
 # MHM
@@ -55,6 +56,7 @@ ax.set_xlabel("Max grid size")
 ax.set_ylabel("Run time / s")
 
 ax.set_yscale("log")
+ax.set_ylim(ax.get_ylim()[0], 1100)
 
 ax.legend()
 

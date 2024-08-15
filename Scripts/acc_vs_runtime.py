@@ -156,7 +156,8 @@ for i, plot_combo in enumerate(plot_combos):
             profile_datas = [res.profile_data for res in results[testcase][method]]
             run_times = [runtime_nooutput(data) for data in profile_datas]
             errors = [res.pressure_L1 for res in results[testcase][method]]
-            ax[itest].plot(errors, run_times, label=label)
+            ls = ":" if method != "PEEK-SP111" else "-."
+            ax[itest].plot(errors, run_times, label=label,ls=ls)
 
     for j in range(2):
         ax[j].set_xlabel(r"$L_{rel}^1(p)$")
@@ -166,7 +167,12 @@ for i, plot_combo in enumerate(plot_combos):
         ax[j].yaxis.set_major_formatter(ScalarFormatter())
     ax[0].set_title("$M = 1$")
     ax[1].set_title("$M = 0.1$")
-    ax[1].legend(fontsize=6)
+    if i == 0:
+        ax[1].legend(fontsize=5,loc=[0,0])
+        # ax[0].set_xlim([0.5e-5, ax[1].get_xlim()[1]])
+    else:
+        ax[1].legend(fontsize=6)
+
     fig.tight_layout(pad=0.8)
     fig.savefig(file_names[i], bbox_inches="tight")
 
@@ -182,14 +188,14 @@ for method in ["MHM", "PEEK-MUSCL-SSP222"]:
         profile_datas = [res.profile_data for res in results[testcase][method]]
         run_times = [runtime_nooutput(data) for data in profile_datas]
         errors = [res.pressure_L1 for res in results[testcase][method]]
-        ax[itest // 2, itest % 2].plot(errors, run_times, label=label)
+        ax[itest // 2, itest % 2].plot(errors, run_times, label=label,ls=":")
 
 for i in range(2):
     for j in range(2):
         ax[i, j].set_xlabel(r"$L_{rel}^1(p)$")
         ax[i, j].set_ylabel("Run time / s")
-        ax[i, j].set_xscale("log")
         ax[i, j].set_yscale("log")
+        ax[i, j].set_xscale("log")
         ax[i, j].yaxis.set_major_formatter(ScalarFormatter())
 ax[0,0].set_title("$M = 1$")
 ax[0,1].set_title("$M = 0.5$")
