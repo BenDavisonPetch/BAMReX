@@ -3,7 +3,6 @@
 #include "Euler/Euler.H"
 #include "Euler/NComp.H"
 #include "Fluxes/Update.H"
-#include "GFM/RigidBody.H"
 #include "IMEX/ButcherTableau.H"
 #include "IMEX/IMEXSettings.H"
 #include "IMEX_K/euler_K.H"
@@ -25,26 +24,13 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
                      const amrex::MultiFab &statein, amrex::MultiFab &stateout,
                      amrex::MultiFab                               &pressure,
                      amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
-                     const amrex::MultiFab                         &LS,
-                     const amrex::iMultiFab &gfm_flags, const amrex::Real dt,
-                     const bamrexBCData &bc_data, const IMEXSettings settings)
+                     const amrex::Real dt, const bamrexBCData &bc_data,
+                     const IMEXSettings settings)
 {
     BL_PROFILE_REGION("advance_imex_rk()");
     BL_PROFILE("advance_imex_rk()");
     AMREX_ASSERT(!pressure.contains_nan()); // pressure must be initialised!
     AMREX_ASSERT(pressure.nGrow() >= 1);
-
-#ifndef AMREX_USE_EB
-    AMREX_ASSERT_WITH_MESSAGE(!bc_data.rb_enabled(),
-                              "For rigid bodies with IMEX, must have "
-                              "AMReX's EB functionality enabled!");
-#endif
-    AMREX_ASSERT_WITH_MESSAGE(
-        !bc_data.rb_enabled()
-            || (settings.linearise
-                || settings.ke_method != IMEXSettings::split),
-        "Rigid bodies are only supported for IMEX types without grad term in "
-        "pressure equation (i.e. EK and CK methods)");
 
     const IMEXButcherTableau tableau(settings.butcher_tableau);
     const int                s = tableau.n_steps_imp();
@@ -79,16 +65,6 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
         conservative_update(geom, statein, stage_fluxes, statein_imp,
                             statein_exp[stage % 2], dt_imp, dt_exp, stage);
 
-        // fill rigid body ghost states
-        // if (bc_data.rb_enabled())
-        // {
-        //     bc_data.fill_consv_boundary(geom, statein_imp, time);
-        //     bc_data.fill_consv_boundary(geom, statein_exp[stage % 2], time);
-        //     fill_ghost_rb(geom, statein_exp[stage % 2], LS, gfm_flags,
-        //                   bc_data.rigidbody_bc());
-        //     fill_ghost_rb(geom, statein_imp, LS, gfm_flags,
-        //                   bc_data.rigidbody_bc());
-        // }
         bc_data.fill_consv_boundary(geom, statein_imp, time);
         bc_data.fill_consv_boundary(geom, statein_exp[stage % 2], time);
 
@@ -102,15 +78,12 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
                              settings);
             bc_data.fill_pressure_boundary(geom, pressure,
                                            statein_exp[stage % 2], 0);
-            // if (bc_data.rb_enabled())
-            //     fill_ghost_p_rb(geom, pressure, statein_exp[stage % 2], LS,
-            //                     gfm_flags, bc_data.rigidbody_bc());
         }
 
         // Compute stage flux for this step
         compute_flux_imex_o1(time, geom, statein_imp, statein_exp[stage % 2],
-                             pressure, stage_fluxes[stage], LS, gfm_flags, adt,
-                             bc_data, settings);
+                             pressure, stage_fluxes[stage], adt, bc_data,
+                             settings);
 
         if (settings.verbose)
             Print() << "Computed flux for RK stage " << stage << std::endl;
@@ -128,15 +101,14 @@ void advance_imex_rk_stab(
     const amrex::MultiFab &statein, amrex::MultiFab &stateout,
     amrex::MultiFab                               &pressure,
     amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
-    const amrex::MultiFab &LS, const amrex::iMultiFab &gfm_flags,
     const amrex::Real dt, const bamrexBCData &bc_data,
     const IMEXSettings settings)
 {
     BL_PROFILE("advance_imex_rk_stab()");
     if (!settings.stabilize)
     {
-        advance_imex_rk(time, geom, statein, stateout, pressure, fluxes, LS,
-                        gfm_flags, dt, bc_data, settings);
+        advance_imex_rk(time, geom, statein, stateout, pressure, fluxes, dt,
+                        bc_data, settings);
         return;
     }
 
@@ -147,8 +119,8 @@ void advance_imex_rk_stab(
     pressure_o1.ParallelCopy(pressure, 0, 0, pressure.nComp(),
                              pressure.nGrow(), pressure.nGrow());
 
-    advance_imex_rk(time, geom, statein, stateout, pressure, fluxes, LS,
-                    gfm_flags, dt, bc_data, settings);
+    advance_imex_rk(time, geom, statein, stateout, pressure, fluxes, dt,
+                    bc_data, settings);
 
     const IMEXButcherTableau tableau(settings.butcher_tableau);
     if (tableau.order() <= 1)
@@ -180,7 +152,7 @@ void advance_imex_rk_stab(
     settings_o1.advection_flux  = IMEXSettings::rusanov;
     settings_o1.butcher_tableau = IMEXButcherTableau::SP111;
     advance_imex_rk(time, geom, statein, stateout_o1, pressure_o1, fluxes_o1,
-                    LS, gfm_flags, dt, bc_data, settings_o1);
+                    dt, bc_data, settings_o1);
 
     // Convex combo
 #ifdef AMREX_USE_OMP

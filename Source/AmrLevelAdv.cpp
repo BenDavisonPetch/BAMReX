@@ -613,8 +613,8 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
             fill_ghost_p_rb(geom, P_new, Sborder, LS, gfm_flags,
                             bc_data.rigidbody_bc());
         }
-        advance_imex_rk_stab(time, geom, Sborder, S_new, P_new, fluxes, LS,
-                             gfm_flags, dt, bc_data, imex_settings);
+        advance_imex_rk_stab(time, geom, Sborder, S_new, P_new, fluxes, dt,
+                             bc_data, imex_settings);
 
         if (rot_axis != -1 && alpha != 0)
         {

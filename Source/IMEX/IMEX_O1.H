@@ -6,9 +6,6 @@
 #include <AMReX_FArrayBox.H>
 #include <AMReX_GpuQualifiers.H>
 #include <AMReX_MLMG.H>
-#ifdef AMREX_USE_EB
-#include <AMReX_MLEBABecLap.H>
-#endif
 
 #include "BCs.H"
 #include "IMEXSettings.H"
@@ -25,7 +22,6 @@ void compute_flux_imex_o1(
     const amrex::MultiFab &statein_imp, const amrex::MultiFab &statein_exp,
     amrex::MultiFab                               &pressure,
     amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
-    const amrex::MultiFab &LS, const amrex::iMultiFab &gfm_flags,
     const amrex::Real dt, const bamrexBCData &bc_data,
     const IMEXSettings &settings);
 
@@ -49,9 +45,8 @@ void solve_pressure_eqn(const amrex::Geometry &geom,
                         const amrex::MultiFab &enthalpy,
                         const amrex::MultiFab &velocity,
                         const amrex::MultiFab &rhs, amrex::MultiFab &pressure,
-                        const amrex::MultiFab &U, const amrex::MultiFab &LS,
-                        const amrex::iMultiFab &gfm_flags,
-                        const amrex::Real dt, const bamrexBCData &bc_data,
+                        const amrex::MultiFab &U, const amrex::Real dt,
+                        const bamrexBCData &bc_data,
                         const IMEXSettings &settings);
 
 /**
@@ -140,19 +135,6 @@ void update_energy_flux(
 namespace details
 {
 
-// Transfers ownership to calling scope
-inline std::unique_ptr<amrex::MLCellLinOp> get_p_linop(bool rb_enabled)
-{
-#ifdef AMREX_USE_EB
-    if (rb_enabled)
-    {
-        return std::make_unique<amrex::MLEBABecLap>();
-    }
-#endif
-    AMREX_ASSERT(!rb_enabled);
-    return std::make_unique<amrex::MLABecLaplacianGrad>();
-}
-
 /**
  * Sets up the pressure operator
  *
@@ -186,9 +168,8 @@ void setup_pressure_op(
 AMREX_GPU_HOST
 void solve_pressure(const amrex::Geometry &geom, const amrex::MultiFab &rhs,
                     amrex::MultiFab &pressure, const amrex::MultiFab &U,
-                    const amrex::MultiFab  &LS,
-                    const amrex::iMultiFab &gfm_flags, amrex::MLMG &solver,
-                    const bamrexBCData &bc_data, const IMEXSettings &settings);
+                    amrex::MLMG &solver, const bamrexBCData &bc_data,
+                    const IMEXSettings &settings);
 
 /**
  * \param pressure_op
@@ -214,8 +195,7 @@ void picard_iterate(
     const amrex::Geometry &geom, const amrex::MultiFab &statein,
     const amrex::MultiFab &stateex, const amrex::MultiFab &velocity,
     amrex::MultiFab &stateout, amrex::MultiFab &enthalpy, amrex::MultiFab &ke,
-    amrex::MultiFab &rhs, amrex::MultiFab &pressure, const amrex::MultiFab &LS,
-    const amrex::iMultiFab &gfm_flags, amrex::Real dt,
+    amrex::MultiFab &rhs, amrex::MultiFab &pressure, amrex::Real dt,
     AMREX_D_DECL(amrex::Real hdtdx, amrex::Real hdtdy, amrex::Real hdtdz),
     AMREX_D_DECL(amrex::Real hdtdxe, amrex::Real hdtdye, amrex::Real hdtdze),
     const bamrexBCData &bc_data, const IMEXSettings &settings);

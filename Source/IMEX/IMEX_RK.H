@@ -13,9 +13,8 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
                      const amrex::MultiFab &statein, amrex::MultiFab &stateout,
                      amrex::MultiFab                               &pressure,
                      amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
-                     const amrex::MultiFab                         &LS,
-                     const amrex::iMultiFab &gfm_flags, const amrex::Real dt,
-                     const bamrexBCData &bc_data, const IMEXSettings settings);
+                     const amrex::Real dt, const bamrexBCData &bc_data,
+                     const IMEXSettings settings);
 
 /**
  * \brief Same as above but implements high-Mach number stabilisation for high
@@ -28,7 +27,6 @@ void advance_imex_rk_stab(
     const amrex::MultiFab &statein, amrex::MultiFab &stateout,
     amrex::MultiFab                               &pressure,
     amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
-    const amrex::MultiFab &LS, const amrex::iMultiFab &gfm_flags,
     const amrex::Real dt, const bamrexBCData &bc_data,
     const IMEXSettings settings);
 
