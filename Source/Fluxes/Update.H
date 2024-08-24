@@ -111,17 +111,14 @@ void conservative_update(
                  , const auto &fluxy = fy.const_array();
                  , const auto &fluxz = fz.const_array();)
 
-    ParallelFor(
-        bx, statein.nComp(),
-        [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-        {
-            out(i, j, k, n)
-                = in(i, j, k, n)
-                  - AMREX_D_TERM(
-                      dtdx * (fluxx(i + 1, j, k, n) - fluxx(i, j, k, n)),
-                      -dtdy * (fluxy(i, j + 1, k, n) - fluxy(i, j, k, n)),
-                      -dtdz * (fluxz(i, j, k + 1, n) - fluxz(i, j, k, n)));
-        });
+    ParallelFor(bx, statein.nComp(),
+                [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
+                {
+                    out(i, j, k, n) = in(i, j, k, n)AMREX_D_TERM(
+                        -dtdx * (fluxx(i + 1, j, k, n) - fluxx(i, j, k, n)),
+                        -dtdy * (fluxy(i, j + 1, k, n) - fluxy(i, j, k, n)),
+                        -dtdz * (fluxz(i, j, k + 1, n) - fluxz(i, j, k, n)));
+                });
 }
 
 AMREX_GPU_HOST
