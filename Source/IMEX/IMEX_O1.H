@@ -34,6 +34,8 @@ void compute_flux_imex_o1(
  * be equal to the velocity at the previous timestep
  * \param rhs of the pressure equation
  * \param pressure used for output
+ * \param U conservative variables. Should contain density *at the new time*.
+ * Used when filling BCs for inflow conditions
  * \param dt
  * \param bc_data
  * \param settings
@@ -43,29 +45,20 @@ void solve_pressure_eqn(const amrex::Geometry &geom,
                         const amrex::MultiFab &enthalpy,
                         const amrex::MultiFab &velocity,
                         const amrex::MultiFab &rhs, amrex::MultiFab &pressure,
-                        const amrex::Real dt, const bamrexBCData &bc_data,
+                        const amrex::MultiFab &U, const amrex::Real dt,
+                        const bamrexBCData &bc_data,
                         const IMEXSettings &settings);
 
 /**
  * \brief Computes the enthalpy on cell-centres. Will update the pressure
  * accordingly with an initial guess if the settings determine we are not
  * reusing it
- *
- * \c statenew is used during Picard iterations when settings.linearise = false
  */
 AMREX_GPU_HOST
 void compute_enthalpy(const amrex::Box &bx, const amrex::FArrayBox &statein,
                       const amrex::FArrayBox &stateexp,
-                      const amrex::FArrayBox &statenew,
                       amrex::FArrayBox &pressure, amrex::FArrayBox &enthalpy,
                       const IMEXSettings &settings);
-
-/**
- * Computes enthalpy from the pressure and the density in \c state
- */
-AMREX_GPU_HOST
-void compute_enthalpy(const amrex::Box &bx, const amrex::FArrayBox &state,
-                      amrex::FArrayBox &pressure, amrex::FArrayBox &enthalpy);
 
 /**
  * \brief Computes the (epsilon scaled) kinetic energy on cell-centres.
@@ -141,6 +134,7 @@ void update_energy_flux(
 
 namespace details
 {
+
 /**
  * Sets up the pressure operator
  *
@@ -151,39 +145,46 @@ namespace details
  * \param pressure_scratch filled with the dirichlet boundary conditions and
  * used to set in the linear solver if present
  * \param pressure_op
+ * \param U conservative variables used by some boundary conditions (e.g.
+ * inflow) to compute dirichlet BC for pressure
  * \param dt
  * \param bc_data
  * \param settings
  */
 AMREX_GPU_HOST
-void setup_pressure_op(const amrex::Geometry      &geom,
-                       const amrex::MultiFab      &enthalpy,
-                       const amrex::MultiFab      &velocity,
-                       const amrex::MultiFab      &rhs,
-                       amrex::MultiFab            &pressure_scratch,
-                       amrex::MLABecLaplacianGrad &pressure_op,
-                       const amrex::Real dt, const bamrexBCData &bc_data,
-                       const IMEXSettings &settings);
+void setup_pressure_op(
+    const amrex::Geometry &geom, const amrex::MultiFab &enthalpy,
+    const amrex::MultiFab &velocity, const amrex::MultiFab &rhs,
+    amrex::MultiFab &pressure_scratch, amrex::MLABecLaplacianGrad &pressure_op,
+    const amrex::MultiFab &U, const amrex::Real dt,
+    const bamrexBCData &bc_data, const IMEXSettings &settings);
 
 /**
  * Configures and runs the solver for pressure given a configured pressure
  * operator and populated RHS
+ *
+ * U might be used to fill boundary of pressure after solve if using inflow BCs
  */
 AMREX_GPU_HOST
 void solve_pressure(const amrex::Geometry &geom, const amrex::MultiFab &rhs,
-                    amrex::MultiFab &pressure, amrex::MLMG &solver,
-                    const bamrexBCData &bc_data, const IMEXSettings &settings);
+                    amrex::MultiFab &pressure, const amrex::MultiFab &U,
+                    amrex::MLMG &solver, const bamrexBCData &bc_data,
+                    const IMEXSettings &settings);
 
 /**
  * \param pressure_op
  * \param geom
  * \param pressure_scratch filled and used to specify the dirichlet boundary
- * conditions if present \param bc_data
+ * conditions if present
+ * \param U the conservative variables. Used by some boundary conditions (e.g.
+ * known u & T inflow) to determine dirichlet BCs for pressure
+ * \param bc_data
  */
 AMREX_GPU_HOST
 void set_pressure_domain_BC(amrex::MLLinOp        &pressure_op,
                             const amrex::Geometry &geom,
                             amrex::MultiFab       &pressure_scratch,
+                            const amrex::MultiFab &U,
                             const bamrexBCData    &bc_data);
 
 AMREX_GPU_HOST

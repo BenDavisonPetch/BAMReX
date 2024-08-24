@@ -29,6 +29,7 @@ enum StateType
 {
     Consv_Type    = 0,
     Pressure_Type = 1,
+    Levelset_Type = 2,
     NUM_STATE_TYPE
 };
 
@@ -112,11 +113,6 @@ class AmrLevelAdv : public amrex::AmrLevel
                         int ncycle) override;
 
     /**
-     * Fill boundary conditions for a MultiFab on this level
-     */
-    void fill_boundary(amrex::MultiFab &fab);
-
-    /**
      * Estimate time step.
      */
     amrex::Real estTimeStep(amrex::Real dt_old);
@@ -181,6 +177,7 @@ class AmrLevelAdv : public amrex::AmrLevel
 
     const static int NUM_STATE;
     const static int NUM_GROW;
+    const static int NUM_GROW_P;
 
     // ProbParm class instances
     static ProbParm *h_prob_parm;
@@ -236,11 +233,18 @@ class AmrLevelAdv : public amrex::AmrLevel
 
     void avgDown(int state_indx);
 
+    /**
+     * Initialises level set. Implemented in AmrLevelAdv_LSinit.cpp
+     */
+    void init_levelset(amrex::MultiFab &LS, const amrex::Geometry &geom,
+                       bamrexBCData &bc_data);
+
     /*
      * The data.
      */
     std::unique_ptr<amrex::FluxRegister> flux_reg;
     PseudoRandom<>                       random; // used for RCM
+    amrex::iMultiFab                     gfm_flags;
 
     /*
      * Static data members.
@@ -252,6 +256,7 @@ class AmrLevelAdv : public amrex::AmrLevel
     static NumericalMethods::Method num_method;
     static IMEXSettings             imex_settings;
     static bamrexBCData             bc_data;
+    static int rot_axis, alpha; // data for geometric source term
 
 #ifdef AMREX_PARTICLES
     void                                                      init_particles();

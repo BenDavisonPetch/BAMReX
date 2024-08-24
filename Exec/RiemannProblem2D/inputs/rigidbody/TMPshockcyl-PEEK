@@ -1,0 +1,83 @@
+# ------------------  INPUTS TO MAIN PROGRAM  -------------------
+max_step = 101
+
+## PROBLEM INPUT
+stop_time = 2.7852e-4
+
+# M 1.34 shock
+prob.adiabatic  = 1.4
+init.density_L  = 0.595
+init.velocity_L = 0
+init.pressure_L = 0.05e6
+init.density_R  = 0.944
+init.velocity_R = -169.68
+init.pressure_R = 0.096e6
+init.int_offset = -0.31 # int is at x = 0.19
+init.rotation   = 0
+
+# shock velocity -458.96m/s
+# must travel 0.07m before hitting sphere
+# time to contact = 1.5252e-4s
+
+geometry.is_periodic =  0  0  0
+geometry.coord_sys   =  0       # 0 => cart
+geometry.prob_lo     =  0.0  0.0  0.0 
+geometry.prob_hi     =  0.2  0.2  0.2
+
+limiting.limiter = minbee
+limiting.density = energy
+limiting.mom     = energy energy energy
+limiting.energy  = energy
+
+# RESOLUTION
+amr.n_cell         =  256 256 256
+
+# TIME STEP CONTROL
+adv.cfl            = 0.4   # cfl number for hyperbolic system
+
+## NUMERICAL METHOD SETTINGS
+adv.num_method = imex
+imex.advection_flux = muscl_rusanov
+# imex.advection_flux = rusanov
+imex.linearise                  = true
+imex.enthalpy_method            = reuse_pressure
+imex.ke_method                  = ex
+imex.butcher_tableau            = SSP222
+# imex.butcher_tableau            = SP111
+
+imex.stabilize = true
+
+# VERBOSITY
+adv.v              = 0       # verbosity in Adv
+amr.v              = 1       # verbosity in Amr
+#amr.grid_log         = grdlog  # name of grid logging file
+
+# REFINEMENT / REGRIDDING
+amr.max_level       = 0       # maximum level number allowed
+amr.ref_ratio       = 2 2 2 2 # refinement ratio
+amr.regrid_int      = 2       # how often to regrid
+amr.blocking_factor = 8       # block factor in grid generation
+amr.max_grid_size   = 64
+
+# CHECKPOINT FILES
+amr.checkpoint_files_output = 0     # 0 will disable checkpoint files
+amr.check_file              = chk   # root name of checkpoint file
+amr.check_int               = 10    # number of timesteps between checkpoints
+
+# PLOTFILES
+amr.plot_files_output = 1      # 0 will disable plot files
+amr.plot_file         = plt    # root name of plot file
+amr.plot_int          = 100 # number of timesteps between plot files
+amr.plot_file = output/PEEK/TESTshockcyl_134/0256/plt
+
+# TRACER PARTICLES
+adv.do_tracers = 0
+
+# ERROR TAGGING
+tagging.phierr =  1.01  1.1   1.5
+tagging.max_phierr_lev = 10
+
+# ls.geom_type = sphere
+# ls.sphere_center = 0.1 0.1 0.1
+# ls.sphere_radius = 0.02
+# ls.sphere_has_fluid_inside = false

@@ -2,6 +2,8 @@
 #include <AMReX_BCUtil.H>
 #include <AMReX_BC_TYPES.H>
 #include <AMReX_GpuMemory.H>
+#include <AMReX_MFIter.H>
+#include <AMReX_MFParallelFor.H>
 #include <AMReX_ParmParse.H>
 #include <AMReX_SPACE.H>
 #include <AMReX_StateDescriptor.H>
@@ -14,6 +16,8 @@
 #include "Euler/Euler.H"
 #include "Fluxes/Fluxes.H"
 #include "Fluxes/Update.H"
+#include "GFM/GFMFlag.H"
+#include "GFM/RigidBody.H"
 #include "IMEX/IMEXSettings.H"
 #include "IMEX/IMEX_RK.H"
 #include "MFIterLoop.H"
@@ -21,6 +25,7 @@
 #include "Prob.H"
 #include "RCM/RCM.H"
 #include "SourceTerms/GeometricSource.H"
+#include "bc_jet.H"
 #include "tagging_K.H"
 //#include "Kernels.H"
 
@@ -35,10 +40,18 @@ NumericalMethods::Method AmrLevelAdv::num_method;
 IMEXSettings             AmrLevelAdv::imex_settings;
 bamrexBCData             AmrLevelAdv::bc_data;
 
+int AmrLevelAdv::rot_axis = -1;
+int AmrLevelAdv::alpha    = 0;
+
 const int AmrLevelAdv::NUM_STATE = 2 + AMREX_SPACEDIM; // Euler eqns
-const int AmrLevelAdv::NUM_GROW  = 4;                  // number of ghost cells
-// (Pressure needs 2 ghost cells, and we need 2 more ghost cells than pressure
-//  bc of the explicit update for the EK formulations)
+// The second-order IMEX methods have the largest stencil.
+// They need 3 ghost cells for conservative variables and 1 for pressure.
+// This gets larger when using rigid bodies, since we fill 3 layers of ghost
+// cells.
+const int AmrLevelAdv::NUM_GROW = 6; // number of ghost cells.
+const int AmrLevelAdv::NUM_GROW_P
+    = 4; // IMEX with no rigid bodies needs 1 ghost cell for pressure, we use 3
+         // for GFM
 
 // Mechanism for getting code to work on GPU
 ProbParm *AmrLevelAdv::h_prob_parm = nullptr;
@@ -118,6 +131,15 @@ void AmrLevelAdv::checkPoint(const std::string &dir, std::ostream &os,
 void AmrLevelAdv::writePlotFile(const std::string &dir, std::ostream &os,
                                 VisMF::How how)
 {
+    // Before we write first order extrapolate density into boundary for better
+    // postprocessing
+    auto    &U = get_new_data(Consv_Type);
+    MultiFab Sborder(grids, dmap, NUM_STATE, NUM_GROW);
+    FillPatcherFill(Sborder, 0, NUM_STATE, NUM_GROW,
+                    state[Consv_Type].curTime(), Consv_Type, 0);
+    auto &LS = get_new_data(Levelset_Type);
+    fill_ghost_rb(geom, Sborder, LS, gfm_flags, RigidBodyBCType::foextrap);
+    MultiFab::Copy(U, Sborder, 0, 0, NUM_STATE, 0);
     AmrLevel::writePlotFile(dir, os, how);
 }
 
@@ -154,7 +176,13 @@ void AmrLevelAdv::variableSetUp()
                            StateDescriptor::Point, storedGhostZones, NUM_STATE,
                            &cell_cons_interp);
     desc_lst.addDescriptor(Pressure_Type, IndexType::TheCellType(),
-                           StateDescriptor::Point, 2, 1, &cell_cons_interp);
+                           StateDescriptor::Point, NUM_GROW_P, 1,
+                           &cell_cons_interp);
+    // Type of interpolator shouldn't matter because level set should always be
+    // reinitialised on finest grid
+    desc_lst.addDescriptor(Levelset_Type, IndexType::TheCellType(),
+                           StateDescriptor::Point, NUM_GROW,
+                           1 + AMREX_SPACEDIM, &cell_bilinear_interp);
 
     Geometry const *gg = AMReX::top()->getDefaultGeometry();
 
@@ -169,23 +197,29 @@ void AmrLevelAdv::variableSetUp()
     // output to identify what is being plotted bc: Boundary condition
     // object for this variable (defined above) bndryfunc: The boundary
     // condition function set above
-    desc_lst.setComponent(Consv_Type, 0, "density", bc_data.get_consv_bcrec(0),
-                          bc_data.get_consv_bndryfunc());
-    AMREX_D_TERM(desc_lst.setComponent(Consv_Type, 1, "mom_x",
-                                       bc_data.get_consv_bcrec(1),
-                                       bc_data.get_consv_bndryfunc());
-                 , desc_lst.setComponent(Consv_Type, 2, "mom_y",
-                                         bc_data.get_consv_bcrec(2),
-                                         bc_data.get_consv_bndryfunc());
-                 , desc_lst.setComponent(Consv_Type, 3, "mom_z",
-                                         bc_data.get_consv_bcrec(3),
-                                         bc_data.get_consv_bndryfunc());)
-    desc_lst.setComponent(Consv_Type, 1 + AMREX_SPACEDIM, "energy",
-                          bc_data.get_consv_bcrec(1 + AMREX_SPACEDIM),
+    Vector<std::string> consv_names{ "density",
+                                     AMREX_D_DECL("mom_x", "mom_y", "mom_z"),
+                                     "energy" };
+    desc_lst.setComponent(Consv_Type, 0, consv_names,
+                          bc_data.get_consv_bcrecs(),
                           bc_data.get_consv_bndryfunc());
     desc_lst.setComponent(Pressure_Type, 0, "IMEX_pressure",
                           bc_data.get_pressure_bcrec(),
                           bc_data.get_pressure_bndryfunc());
+
+    // Boundary conditions unimportant because initialisation should set
+    // ghost cells properly
+    desc_lst.setComponent(Levelset_Type, 0, "level_set",
+                          bc_data.get_ls_bcrec(), bc_data.get_ls_bndryfunc());
+    AMREX_D_TERM(desc_lst.setComponent(Levelset_Type, 1, "n_x",
+                                       bc_data.get_normal_bcrec(),
+                                       bc_data.get_ls_bndryfunc());
+                 , desc_lst.setComponent(Levelset_Type, 2, "n_y",
+                                         bc_data.get_normal_bcrec(),
+                                         bc_data.get_ls_bndryfunc());
+                 , desc_lst.setComponent(Levelset_Type, 3, "n_z",
+                                         bc_data.get_normal_bcrec(),
+                                         bc_data.get_ls_bndryfunc());)
 }
 
 /**
@@ -208,9 +242,22 @@ void AmrLevelAdv::initData()
 {
     if (verbose)
         Print() << "Initialising data at level " << level << std::endl;
-    MultiFab &S_new = get_new_data(Consv_Type);
-    MultiFab &P_new = get_new_data(Pressure_Type);
+    MultiFab &S_new  = get_new_data(Consv_Type);
+    MultiFab &P_new  = get_new_data(Pressure_Type);
+    MultiFab &LS_new = get_new_data(Levelset_Type);
 
+    init_levelset(LS_new, geom, bc_data);
+    gfm_flags.define(LS_new.boxArray(), dmap, 1, LS_new.nGrow());
+
+    // Default filling scheme is fine for MHM and HLLC
+    GFMFillInfo fill_info;
+    if (num_method == NumericalMethods::imex)
+    {
+        fill_info.fill_diagonals = true;
+        if (imex_settings.advection_flux == IMEXSettings::muscl_rusanov)
+            fill_info.stencil = 3;
+    }
+    build_gfm_flags(gfm_flags, LS_new, fill_info);
     initdata(S_new, geom);
     AMREX_ASSERT(!S_new.contains_nan());
 
@@ -221,6 +268,7 @@ void AmrLevelAdv::initData()
     IMEXSettings settings; // can just pass default settings to
                            // compute_pressure, doesn't make a difference
     compute_pressure(Sborder, Sborder, P_new, geom, 0, settings);
+    AMREX_ASSERT(!Sborder.contains_nan());
     AMREX_ASSERT(!P_new.contains_nan());
 
     if (verbose)
@@ -313,6 +361,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
         Print() << "Starting advance:" << std::endl;
     // MultiFab &S_mm = get_new_data(Consv_Type);
     MultiFab &P_mm = get_new_data(Pressure_Type);
+    MultiFab &LS   = get_new_data(Levelset_Type);
 
     // Note that some useful commands exist - the maximum and minumum
     // values on the current level can be computed directly - here the
@@ -323,11 +372,11 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     //                << std::endl;
 
     // This ensures that all data computed last time step is moved from
-    // `new' data to `old data' - this should not need changing If more
-    // than one type of data were declared in variableSetUp(), then the
-    // loop ensures that all of it is updated appropriately
+    // `new' data to `old data' -
     for (int k = 0; k < NUM_STATE_TYPE; k++)
     {
+        if (k == Levelset_Type)
+            continue;
         state[k].allocOldData();
         state[k].swapTimeLevels(dt);
     }
@@ -391,6 +440,13 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     // This is similar to the FillPatch function documented in init(), but
     // takes care of boundary conditions too
     FillPatcherFill(Sborder, 0, NUM_STATE, NUM_GROW, time, Consv_Type, 0);
+
+    // fill rigid body ghost states
+    if (bc_data.rb_enabled())
+    {
+        fill_ghost_rb(geom, Sborder, LS, gfm_flags, bc_data.rigidbody_bc());
+        bc_data.fill_consv_boundary(geom, Sborder, time);
+    }
 
     if (verbose)
         AllPrint() << "\tFilled ghost states" << std::endl;
@@ -513,42 +569,61 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
                 0, { d });
 
             // We need to compute boundary conditions again after each update
-            fill_boundary(Sborder);
+            bc_data.fill_consv_boundary(geom, Sborder, time);
 
             if (verbose)
                 Print() << "\tDirection update complete" << std::endl;
         }
 
-        // The updated data is now copied to the S_new multifab.  This means
-        // it is now accessible through the get_new_data command, and AMReX
-        // can automatically interpolate or extrapolate between layers etc.
-        // S_new: Destination
-        // Sborder: Source
-        // Third entry: Starting variable in the source array to be copied (the
-        // zeroth variable in this case) Fourth entry: Starting variable in the
-        // destination array to receive the copy (again zeroth here) NUM_STATE:
-        // Total number of variables being copied Sixth entry: Number of ghost
-        // cells to be included in the copy (zero in this case, since only real
-        //              data is needed for S_new)
-        MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, 0);
+        if (rot_axis != -1 && alpha != 0)
+        {
+            advance_geometric(geom, dt, alpha, rot_axis, Sborder, S_new);
+        }
+        else
+        {
+            // The updated data is now copied to the S_new multifab.  This
+            // means it is now accessible through the get_new_data command, and
+            // AMReX can automatically interpolate or extrapolate between
+            // layers etc. S_new: Destination Sborder: Source Third entry:
+            // Starting variable in the source array to be copied (the zeroth
+            // variable in this case) Fourth entry: Starting variable in the
+            // destination array to receive the copy (again zeroth here)
+            // NUM_STATE: Total number of variables being copied Sixth entry:
+            // Number of ghost cells to be included in the copy (zero in this
+            // case, since only real
+            //              data is needed for S_new)
+            MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, 0);
+        }
     }
     else if (num_method == NumericalMethods::imex)
     {
-        if (imex_settings.stabilize && do_reflux
-            && this->parent->maxLevel() > 0)
-            amrex::Abort("Refluxing with high-Mach number stabilisation not "
-                         "supported!");
+        AMREX_ASSERT_WITH_MESSAGE(
+            !(imex_settings.stabilize && do_reflux
+              && this->parent->maxLevel() > 0),
+            "Refluxing with high-Mach number stabilisation not "
+            "supported!");
 
-        MultiFab::Copy(P_new, P_mm, 0, 0, 1, 2);
-        // TODO: check if ghost cells are actually filled in P_new and P_mm
+        // Ghost cells are filled at the start of each RK step, so they're
+        // filled witihin advance_imex_rk
+
+        MultiFab::Copy(P_new, P_mm, 0, 0, 1, NUM_GROW_P);
+        bc_data.fill_pressure_boundary(geom, P_new, Sborder, time);
+        if (bc_data.rb_enabled())
+        {
+            fill_ghost_p_rb(geom, P_new, Sborder, LS, gfm_flags,
+                            bc_data.rigidbody_bc());
+        }
         advance_imex_rk_stab(time, geom, Sborder, S_new, P_new, fluxes, dt,
                              bc_data, imex_settings);
+
+        if (rot_axis != -1 && alpha != 0)
+        {
+            advance_geometric(geom, dt, alpha, rot_axis, S_new, Sborder);
+            MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, 0);
+        }
     }
     else if (num_method == NumericalMethods::rcm)
     {
-        ParmParse pp("rcm");
-        int       alpha;
-        pp.get("coord_sys", alpha);
         Real rand = random.random();
         Real dr   = geom.CellSize(0);
         AMREX_ASSERT(fabs(geom.ProbLo(0)) < 1e-12);
@@ -557,9 +632,12 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
             const auto &bx = mfi.validbox();
             advance_RCM(dt, dr, rand, h_prob_parm->adiabatic,
                         h_prob_parm->epsilon, bx, Sborder[mfi], S_new[mfi]);
-            advance_geometric(dt, dr, 0, alpha, bx, S_new[mfi], Sborder[mfi]);
         }
-        MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, 0);
+        if (rot_axis != -1 && alpha != 0)
+        {
+            advance_geometric(geom, dt, alpha, rot_axis, S_new, Sborder);
+            MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, 0);
+        }
     }
     else
     {
@@ -638,18 +716,6 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     if (verbose)
         Print() << "Advance complete!" << std::endl;
     return dt;
-}
-
-/**
- * Fill boundary conditions for a MultiFab on this level
- */
-void AmrLevelAdv::fill_boundary(amrex::MultiFab &fab)
-{
-    // FillBoundary does periodic conditions
-    fab.FillBoundary(geom.periodicity());
-    // This one does non-periodic conditions
-    FillDomainBoundary(fab, geom,
-                       get_state_data(Consv_Type).descriptor()->getBCs());
 }
 
 /**
@@ -909,7 +975,23 @@ void AmrLevelAdv::post_regrid(int lbase, int /*new_finest*/)
 /**
  * Do work after a restart().
  */
-void AmrLevelAdv::post_restart() {}
+void AmrLevelAdv::post_restart()
+{
+    MultiFab &LS_new = get_new_data(Levelset_Type);
+    // we need to do this because it sets whether rigid bodies are enabled in
+    // bc_data
+    init_levelset(LS_new, geom, bc_data);
+
+    gfm_flags.define(LS_new.boxArray(), dmap, 1, LS_new.nGrow());
+    GFMFillInfo fill_info;
+    if (num_method == NumericalMethods::imex)
+    {
+        fill_info.fill_diagonals = true;
+        if (imex_settings.advection_flux == IMEXSettings::muscl_rusanov)
+            fill_info.stencil = 3;
+    }
+    build_gfm_flags(gfm_flags, LS_new, fill_info);
+}
 
 /**
  * Do work after init().
@@ -1039,6 +1121,13 @@ void AmrLevelAdv::read_params()
         ParmParse pp3("imex");
         acoustic_timestep_end_time = 0.1 * stop_time;
         pp3.query("acoustic_timestep_end_time", acoustic_timestep_end_time);
+    }
+
+    // Geometric source term info
+    {
+        ParmParse pp2("sym");
+        pp2.query("rot_axis", rot_axis);
+        pp2.query("alpha", alpha); // 1 for cylindrical, 2 for spherical
     }
 
     // Vector variables can be read in; these require e.g.\ pp.queryarr

@@ -8,6 +8,9 @@
 #include <AMReX_ParallelDescriptor.H>
 #include <AMReX_ParmParse.H>
 
+#include "AmrLevelAdv.H"
+#include "Geometry/MakeSDF.H"
+
 using namespace amrex;
 
 amrex::LevelBld *getLevelBld();
@@ -47,6 +50,17 @@ int main(int argc, char *argv[])
 
     {
         Amr amr(getLevelBld());
+
+#ifdef AMREX_USE_EB
+        AmrLevel::SetEBSupportLevel(EBSupport::full);
+        // EB only used by linear solver
+        AmrLevel::SetEBMaxGrowCells(AmrLevelAdv::NUM_GROW, 2, 2);
+        // Initialize geometric database
+        auto sdf   = SDF::make_sdf();
+        auto gshop = EB2::makeShop(sdf);
+        EB2::Build(gshop, amr.Geom(amr.maxLevel()), amr.maxLevel(),
+                   amr.maxLevel());
+#endif
 
         amr.init(strt_time, stop_time);
 

@@ -47,6 +47,28 @@ class EulerExactRiemannSolver
         return p_interm;
     }
 
+    AMREX_GPU_HOST_DEVICE
+    AMREX_FORCE_INLINE
+    const amrex::GpuArray<amrex::Real, NCOMP> &get_interm_consv_L()
+    {
+        if (!interm_states_computed)
+        {
+            compute_soln();
+        }
+        return consv_interm_L;
+    }
+
+    AMREX_GPU_HOST_DEVICE
+    AMREX_FORCE_INLINE
+    const amrex::GpuArray<amrex::Real, NCOMP> &get_interm_consv_R()
+    {
+        if (!interm_states_computed)
+        {
+            compute_soln();
+        }
+        return consv_interm_R;
+    }
+
   protected:
     /**
      * @brief Uses the Newton-Raphson root finding method to find the
@@ -99,7 +121,11 @@ EulerExactRiemannSolver<orientation, dim>::EulerExactRiemannSolver(
     , adiabatic_R(adiabatic_R)
     , epsilon(epsilon)
 {
-}
+    AMREX_ASSERT(primv_L[0] > 0);
+    AMREX_ASSERT(primv_L[1+AMREX_SPACEDIM] > 0);
+    AMREX_ASSERT(primv_R[0] > 0);
+    AMREX_ASSERT(primv_R[1+AMREX_SPACEDIM] > 0);
+}   
 
 template <int orientation, int dim>
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void

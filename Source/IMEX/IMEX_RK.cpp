@@ -30,7 +30,7 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
     BL_PROFILE_REGION("advance_imex_rk()");
     BL_PROFILE("advance_imex_rk()");
     AMREX_ASSERT(!pressure.contains_nan()); // pressure must be initialised!
-    AMREX_ASSERT(pressure.nGrow() >= 2);
+    AMREX_ASSERT(pressure.nGrow() >= 1);
 
     const IMEXButcherTableau tableau(settings.butcher_tableau);
     const int                s = tableau.n_steps_imp();
@@ -64,8 +64,9 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
         const auto dt_exp = tableau.get_A_exp_row(stage, dt);
         conservative_update(geom, statein, stage_fluxes, statein_imp,
                             statein_exp[stage % 2], dt_imp, dt_exp, stage);
-        bc_data.fill_consv_boundary(geom, statein_exp[stage % 2], time);
+
         bc_data.fill_consv_boundary(geom, statein_imp, time);
+        bc_data.fill_consv_boundary(geom, statein_exp[stage % 2], time);
 
         const Real adt = tableau.get_A_imp()[stage][stage] * dt;
 
@@ -75,6 +76,8 @@ void advance_imex_rk(const amrex::Real time, const amrex::Geometry &geom,
             compute_pressure(statein_exp[stage % 2],
                              statein_exp[(stage - 1) % 2], pressure, geom, adt,
                              settings);
+            bc_data.fill_pressure_boundary(geom, pressure,
+                                           statein_exp[stage % 2], 0);
         }
 
         // Compute stage flux for this step
@@ -111,7 +114,8 @@ void advance_imex_rk_stab(
 
     // We need a copy of the pressure for later
     MultiFab pressure_o1(pressure.boxArray(), pressure.DistributionMap(),
-                         pressure.nComp(), pressure.nGrow());
+                         pressure.nComp(), pressure.nGrow(), MFInfo(),
+                         pressure.Factory());
     pressure_o1.ParallelCopy(pressure, 0, 0, pressure.nComp(),
                              pressure.nGrow(), pressure.nGrow());
 
@@ -138,8 +142,8 @@ void advance_imex_rk_stab(
                 << std::endl;
 
     // Compute 1st order solution
-    MultiFab stateout_o1(statein.boxArray(), statein.DistributionMap(),
-                         statein.nComp(), statein.nGrow());
+    MultiFab stateout_o1(stateout.boxArray(), stateout.DistributionMap(),
+                         stateout.nComp(), stateout.nGrow());
     Array<MultiFab, AMREX_SPACEDIM> fluxes_o1;
     for (int d = 0; d < AMREX_SPACEDIM; ++d)
         fluxes_o1[d].define(fluxes[d].boxArray(), fluxes[d].DistributionMap(),
@@ -157,6 +161,8 @@ void advance_imex_rk_stab(
     {
         for (MFIter mfi(stateout, TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
+            // IMPORTANT: ghost cells for pressure are not filled after the end
+            // of this routine
             const auto &bx        = mfi.tilebox();
             const auto &indicator = shock_indicator.const_array(mfi);
             const auto &out

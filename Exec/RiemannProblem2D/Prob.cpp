@@ -27,6 +27,7 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
     const GpuArray<Real, AMREX_SPACEDIM> prob_lo = geom.ProbLoArray();
 
     Real density_L, velocity_L, pressure_L, density_R, velocity_R, pressure_R;
+    Real int_offset; // interface offset
     Real rotation = 0;
     Real stop_time; // used when calculating exact solution
 
@@ -38,6 +39,7 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
         pp.get("density_R", density_R);
         pp.get("velocity_R", velocity_R);
         pp.get("pressure_R", pressure_R);
+        pp.query("int_offset", int_offset);
         pp.query("rotation", rotation);
         rotation *= Math::pi<Real>() / Real(180);
 
@@ -84,7 +86,7 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
                         const Real x = prob_lo[0] + (i + Real(0.5)) * dx[0];
                         const Real y = prob_lo[1] + (j + Real(0.5)) * dx[1];
                         const Real d = (x - 0.5) * cos(rotation)
-                                       + (y - 0.5) * sin(rotation);
+                                       + (y - 0.5) * sin(rotation) - int_offset;
                         if (d <= 0)
                             phi(i, j, k, n) = consv_L[n];
                         else
