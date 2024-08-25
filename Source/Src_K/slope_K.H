@@ -1,3 +1,6 @@
+/**
+ * Code left over from AMReX tutorial. Unused.
+ */
 #ifndef slope_K_H_
 #define slope_K_H_
 

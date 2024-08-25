@@ -1,3 +1,6 @@
+/**
+ * Code left over from AMReX tutorial. Unused.
+ */
 #ifndef Adv_K_H_
 #define Adv_K_H_
 

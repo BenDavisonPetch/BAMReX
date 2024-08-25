@@ -1,3 +1,6 @@
+/**
+ * Code left over from AMReX tutorial. Unused.
+ */
 #ifndef flux_3d_K_H_
 #define flux_3d_K_H_
 
