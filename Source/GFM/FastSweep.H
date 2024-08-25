@@ -24,7 +24,6 @@ fast_sweep(const amrex::Box &bx, const amrex::Array4<const int> &flag,
     // 1D
     //
 #if AMREX_SPACEDIM == 1
-    (void)post_inner_loop_op;
     const int k = bx.loVect3d()[2];
     const int j = bx.loVect3d()[1];
     // i = lo : hi
