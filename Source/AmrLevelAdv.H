@@ -190,6 +190,7 @@ class AmrLevelAdv : public amrex::AmrLevel
     // Variables for error tagging
     static int                        max_phierr_lev;
     static int                        max_phigrad_lev;
+    static int                        max_int_lev;
     static amrex::Vector<amrex::Real> phierr;
     static amrex::Vector<amrex::Real> phigrad;
 
@@ -236,8 +237,7 @@ class AmrLevelAdv : public amrex::AmrLevel
     /**
      * Initialises level set. Implemented in AmrLevelAdv_LSinit.cpp
      */
-    void init_levelset(amrex::MultiFab &LS, const amrex::Geometry &geom,
-                       bamrexBCData &bc_data);
+    void init_levelset(amrex::MultiFab &LS) const;
 
     /*
      * The data.

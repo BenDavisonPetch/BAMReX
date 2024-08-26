@@ -64,6 +64,7 @@ MultiFab AmrLevelAdv::MFpressure;
 // Parameters for mesh refinement
 int          AmrLevelAdv::max_phierr_lev  = -1;
 int          AmrLevelAdv::max_phigrad_lev = -1;
+int          AmrLevelAdv::max_int_lev     = -1;
 Vector<Real> AmrLevelAdv::phierr;
 Vector<Real> AmrLevelAdv::phigrad;
 
@@ -131,15 +132,18 @@ void AmrLevelAdv::checkPoint(const std::string &dir, std::ostream &os,
 void AmrLevelAdv::writePlotFile(const std::string &dir, std::ostream &os,
                                 VisMF::How how)
 {
-    // Before we write first order extrapolate density into boundary for better
-    // postprocessing
-    auto    &U = get_new_data(Consv_Type);
-    MultiFab Sborder(grids, dmap, NUM_STATE, NUM_GROW);
-    FillPatcherFill(Sborder, 0, NUM_STATE, NUM_GROW,
-                    state[Consv_Type].curTime(), Consv_Type, 0);
-    auto &LS = get_new_data(Levelset_Type);
-    fill_ghost_rb(geom, Sborder, LS, gfm_flags, RigidBodyBCType::foextrap);
-    MultiFab::Copy(U, Sborder, 0, 0, NUM_STATE, 0);
+    if (bc_data.rb_enabled())
+    {
+        // Before we write first order extrapolate density into boundary for
+        // better postprocessing
+        auto    &U = get_new_data(Consv_Type);
+        MultiFab Sborder(grids, dmap, NUM_STATE, NUM_GROW);
+        FillPatcherFill(Sborder, 0, NUM_STATE, NUM_GROW,
+                        state[Consv_Type].curTime(), Consv_Type, 0);
+        auto &LS = get_new_data(Levelset_Type);
+        fill_ghost_rb(geom, Sborder, LS, gfm_flags, RigidBodyBCType::foextrap);
+        MultiFab::Copy(U, Sborder, 0, 0, NUM_STATE, 0);
+    }
     AmrLevel::writePlotFile(dir, os, how);
 }
 
@@ -246,7 +250,7 @@ void AmrLevelAdv::initData()
     MultiFab &P_new  = get_new_data(Pressure_Type);
     MultiFab &LS_new = get_new_data(Levelset_Type);
 
-    init_levelset(LS_new, geom, bc_data);
+    init_levelset(LS_new);
     gfm_flags.define(LS_new.boxArray(), dmap, 1, LS_new.nGrow());
 
     // Default filling scheme is fine for MHM and HLLC
@@ -320,6 +324,20 @@ void AmrLevelAdv::init(AmrLevel &old)
     // dimensionality - this argument is the number of variables that
     // are being filled/copied, and NOT the position of the final
     // component in e.g. the primitive variable vector.
+
+    // Level set initialisation
+    MultiFab &LS_new = get_new_data(Levelset_Type);
+    init_levelset(LS_new);
+    gfm_flags.define(LS_new.boxArray(), dmap, 1, LS_new.nGrow());
+    // Default filling scheme is fine for MHM and HLLC
+    GFMFillInfo fill_info;
+    if (num_method == NumericalMethods::imex)
+    {
+        fill_info.fill_diagonals = true;
+        if (imex_settings.advection_flux == IMEXSettings::muscl_rusanov)
+            fill_info.stencil = 3;
+    }
+    build_gfm_flags(gfm_flags, LS_new, fill_info);
 }
 
 /**
@@ -347,6 +365,20 @@ void AmrLevelAdv::init()
     // level)
     FillCoarsePatch(S_new, 0, cur_time, Consv_Type, 0, NUM_STATE);
     FillCoarsePatch(P_new, 0, cur_time, Pressure_Type, 0, 1, 2);
+
+    // Level set initialisation
+    MultiFab &LS_new = get_new_data(Levelset_Type);
+    init_levelset(LS_new);
+    gfm_flags.define(LS_new.boxArray(), dmap, 1, LS_new.nGrow());
+    // Default filling scheme is fine for MHM and HLLC
+    GFMFillInfo fill_info;
+    if (num_method == NumericalMethods::imex)
+    {
+        fill_info.fill_diagonals = true;
+        if (imex_settings.advection_flux == IMEXSettings::muscl_rusanov)
+            fill_info.stencil = 3;
+    }
+    build_gfm_flags(gfm_flags, LS_new, fill_info);
 }
 
 /**
@@ -493,8 +525,6 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
                         = (d == 0) ? fx.array()
                                    : ((d == 1) ? fy.array() : fz.array());
 #endif
-                    if (verbose)
-                        Print() << "\t\tComputing flux..." << std::endl;
 
                     switch (num_method)
                     {
@@ -543,12 +573,6 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
                     default: throw std::logic_error("Internal error");
                     }
 
-                    if (verbose)
-                        Print() << "\t\tDone!" << std::endl;
-
-                    if (verbose)
-                        Print() << "\t\tPerforming update" << std::endl;
-
                     // Conservative update
                     ParallelFor(
                         bx, NUM_STATE,
@@ -563,8 +587,6 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
                                                    k + kOffset, n)
                                            - fluxArr(i, j, k, n));
                         });
-                    if (verbose)
-                        Print() << "\t\tDone!" << std::endl;
                 },
                 0, { d });
 
@@ -978,9 +1000,6 @@ void AmrLevelAdv::post_regrid(int lbase, int /*new_finest*/)
 void AmrLevelAdv::post_restart()
 {
     MultiFab &LS_new = get_new_data(Levelset_Type);
-    // we need to do this because it sets whether rigid bodies are enabled in
-    // bc_data
-    init_levelset(LS_new, geom, bc_data);
 
     gfm_flags.define(LS_new.boxArray(), dmap, 1, LS_new.nGrow());
     GFMFillInfo fill_info;
@@ -1023,7 +1042,7 @@ void AmrLevelAdv::post_init(Real /*stop_time*/)
 void AmrLevelAdv::errorEst(TagBoxArray &tags, int /*clearval*/, int /*tagval*/,
                            Real /*time*/, int /*n_error_buf*/, int /*ngrow*/)
 {
-    MultiFab &S_new = get_new_data(Consv_Type);
+    const MultiFab &S_new = get_new_data(Consv_Type);
 
     // Properly fill patches and ghost cells for phi gradient check
     // (i.e. make sure there is at least one ghost cell defined)
@@ -1039,8 +1058,8 @@ void AmrLevelAdv::errorEst(TagBoxArray &tags, int /*clearval*/, int /*tagval*/,
     }
     MultiFab const &phi = (level < max_phigrad_lev) ? phitmp : S_new;
 
-    const char tagval = TagBox::SET;
-    // const char clearval = TagBox::CLEAR;
+    const char tagval   = TagBox::SET;
+    const char clearval = TagBox::CLEAR;
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -1074,6 +1093,24 @@ void AmrLevelAdv::errorEst(TagBoxArray &tags, int /*clearval*/, int /*tagval*/,
                                            grad_error(i, j, k, tagarr, phiarr,
                                                       phigrad_lev, tagval);
                                        });
+            }
+
+            // Tag cells at interfaces
+            if (bc_data.rb_enabled() && level < max_int_lev)
+            {
+                const auto &flag = gfm_flags.const_array(mfi);
+                amrex::ParallelFor(
+                    tilebx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+                    { interface_error(i, j, k, tagarr, flag, tagval); });
+            }
+
+            // Untag cells in the ghost region not at the interface
+            if (bc_data.rb_enabled())
+            {
+                const auto &flag = gfm_flags.const_array(mfi);
+                amrex::ParallelFor(
+                    tilebx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+                    { ghost_error(i, j, k, tagarr, flag, clearval); });
             }
         }
     }
@@ -1148,6 +1185,12 @@ void AmrLevelAdv::read_params()
     // Read tagging parameters from tagging block in the input file.
     // See Src_nd/Tagging_params.cpp for the function implementation.
     get_tagging_params();
+
+    // Check if rigid bodies are enabled
+    ParmParse   ppls("ls");
+    std::string geom_type;
+    ppls.query("geom_type", geom_type);
+    bc_data.set_rb_enabled(!(geom_type.empty() || geom_type == "all_regular"));
 }
 
 //

@@ -34,22 +34,15 @@ template <class F> void fill_from_IF(const Geometry geom, MultiFab &dst, F &&f)
     }
 }
 
-void AmrLevelAdv::init_levelset(amrex::MultiFab       &LS,
-                                const amrex::Geometry &geom,
-                                bamrexBCData          &bc_data)
+void AmrLevelAdv::init_levelset(amrex::MultiFab &LS) const
 {
-    ParmParse   ppls("ls");
-    std::string geom_type;
-    ppls.query("geom_type", geom_type);
-    if (geom_type.empty() || geom_type == "all_regular")
+    if (!bc_data.rb_enabled())
     {
         LS.setVal(-1);
-        bc_data.set_rb_enabled(false);
         return;
     }
     else
     {
-        bc_data.set_rb_enabled(true);
         auto sdf = SDF::make_sdf();
         fill_from_IF(geom, LS, sdf);
         // normal vectors (point into fluid)

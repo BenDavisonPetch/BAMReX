@@ -14,6 +14,9 @@ void AmrLevelAdv::get_tagging_params()
     // set independently.
     pp.query("max_phierr_lev", max_phierr_lev);
     pp.query("max_phigrad_lev", max_phigrad_lev);
+    // We can also set the maximum level for automatic refinement at solid
+    // interfaces
+    pp.query("max_int_lev", max_int_lev);
 
     // Set default values for the error thresholds, then read from input file
     if (max_phierr_lev != -1)

@@ -23,14 +23,20 @@ struct GFMFillInfo
     bool fill_diagonals{ false };
 };
 
-inline bool is_ghost(int gfm_flag) { return (gfm_flag & GFMFlag::ghost); }
+inline bool is_ghost(int gfm_flag) noexcept
+{
+    return (gfm_flag & GFMFlag::ghost);
+}
 
-inline bool at_interface(int gfm_flag)
+inline bool at_interface(int gfm_flag) noexcept
 {
     return (gfm_flag & GFMFlag::interface);
 }
 
-inline bool needs_fill(int gfm_flag) { return (gfm_flag & GFMFlag::fill); }
+inline bool needs_fill(int gfm_flag) noexcept
+{
+    return (gfm_flag & GFMFlag::fill);
+}
 
 AMREX_GPU_HOST
 void build_gfm_flags(amrex::iMultiFab &flags, const amrex::MultiFab &ls,
