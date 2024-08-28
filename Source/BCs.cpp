@@ -151,7 +151,7 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
             ParmParse pp("init");
             pp.get("M", M);
         }
-        // By the time this is called h_prob_parm has not been populated. We
+        // By the time this is called h_parm has not been populated. We
         // read adia and eps straight from the input file
         Real adia;
         Real eps = 1;

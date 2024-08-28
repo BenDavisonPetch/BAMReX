@@ -53,8 +53,8 @@ class IMEXO1 : public BoxTest
 TEST_F(IMEXO1, SplitKEEnergyMatch)
 {
     setup(true);
-    const Real eps  = AmrLevelAdv::h_prob_parm->epsilon;
-    const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Real eps  = AmrLevelAdv::h_parm->epsilon;
+    const Real adia = AmrLevelAdv::h_parm->adiabatic;
     ASSERT_EQ(eps, 0.5);
     ASSERT_EQ(adia, 1.6);
 
@@ -196,8 +196,8 @@ TEST_F(IMEXO1, SplitKEEnergyMatch)
 TEST_F(IMEXO1, ExplicitKEEnergyMatch)
 {
     setup(true);
-    const Real eps  = AmrLevelAdv::h_prob_parm->epsilon;
-    const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Real eps  = AmrLevelAdv::h_parm->epsilon;
+    const Real adia = AmrLevelAdv::h_parm->adiabatic;
     ASSERT_EQ(eps, 0.5);
     ASSERT_EQ(adia, 1.6);
 
@@ -283,7 +283,6 @@ TEST_F(IMEXO1, GridSplitting)
         MultiFab::Copy(nonsplit_fluxes[d], fluxes[d], 0, 0, EULER_NCOMP, 0);
     }
 
-    TearDown();
     // compute with grid splitting
     setup(true);
     compute_flux_imex_o1(0, geom, statein, statein, m_pressure, fluxes, dt,

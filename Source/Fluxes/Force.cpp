@@ -15,8 +15,8 @@ compute_force_flux(amrex::Real time, const amrex::Box &bx,
                    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr,
                    amrex::Real                                      dt)
 {
-    const amrex::Real adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
-    const amrex::Real epsilon   = AmrLevelAdv::h_prob_parm->epsilon;
+    const amrex::Real adiabatic = AmrLevelAdv::h_parm->adiabatic;
+    const amrex::Real epsilon   = AmrLevelAdv::h_parm->epsilon;
     compute_force_flux_LR<dir>(time, bx, flux, consv_values, consv_values,
                                adiabatic, adiabatic, epsilon, dx_arr, dt);
 }

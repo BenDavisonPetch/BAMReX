@@ -11,9 +11,9 @@ using namespace amrex;
 TEST_F(ToroTest1, RusanovAdv)
 {
     setup(4);
-    const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Real adia = AmrLevelAdv::h_parm->adiabatic;
     ASSERT_EQ(adia, 1.4);
-    ASSERT_EQ(AmrLevelAdv::h_prob_parm->epsilon, 1);
+    ASSERT_EQ(AmrLevelAdv::h_parm->epsilon, 1);
     const auto &consv_L = consv_from_primv(primv_L, adia, 1);
     const auto &consv_R = consv_from_primv(primv_R, adia, 1);
 
@@ -116,9 +116,9 @@ TEST_F(ToroTest1, RusanovAdv)
 TEST_F(ToroTest2, RusanovAdv)
 {
     setup(4);
-    const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Real adia = AmrLevelAdv::h_parm->adiabatic;
     ASSERT_EQ(adia, 1.4);
-    ASSERT_EQ(AmrLevelAdv::h_prob_parm->epsilon, 1);
+    ASSERT_EQ(AmrLevelAdv::h_parm->epsilon, 1);
     const auto &consv_L = consv_from_primv(primv_L, adia, 1);
     const auto &consv_R = consv_from_primv(primv_R, adia, 1);
 
@@ -261,8 +261,8 @@ TEST_F(ToroTest2, RusanovAdv)
 TEST_F(BoxTest, RusanovAdv)
 {
     setup(true);
-    const Real epsilon = AmrLevelAdv::h_prob_parm->epsilon;
-    const Real adia    = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Real epsilon = AmrLevelAdv::h_parm->epsilon;
+    const Real adia    = AmrLevelAdv::h_parm->adiabatic;
     ASSERT_EQ(epsilon, 0.5);
     ASSERT_EQ(adia, 1.6);
 
@@ -401,8 +401,8 @@ TEST_F(BoxTest, RusanovAdv)
 TEST_F(BoxTest, RusanovAdvExpImp)
 {
     setup(true);
-    const Real epsilon = AmrLevelAdv::h_prob_parm->epsilon;
-    const Real adia    = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Real epsilon = AmrLevelAdv::h_parm->epsilon;
+    const Real adia    = AmrLevelAdv::h_parm->adiabatic;
     ASSERT_EQ(epsilon, 0.5);
     ASSERT_EQ(adia, 1.6);
 

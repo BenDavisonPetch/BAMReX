@@ -32,8 +32,8 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
     pp.get("pressure_out", pressure_out);
     pp.query("radius", radius);
 
-    const double adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
-    const double eps       = AmrLevelAdv::h_prob_parm->epsilon;
+    const double adiabatic = AmrLevelAdv::h_parm->adiabatic;
+    const double eps       = AmrLevelAdv::h_parm->epsilon;
 
     GpuArray<Real, EULER_NCOMP> primv_in{ density_in, AMREX_D_DECL(0, 0, 0),
                                           pressure_in };

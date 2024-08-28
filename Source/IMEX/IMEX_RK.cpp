@@ -257,8 +257,8 @@ amrex::Real compute_shock_indicator(const amrex::Geometry &geom,
     state_grow.ParallelCopy(state, 0, 0, state.nComp(), 0, 0);
     bc_data.fill_consv_boundary(geom, state_grow, 0);
 
-    const Real eps  = AmrLevelAdv::h_prob_parm->epsilon;
-    const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Real eps  = AmrLevelAdv::h_parm->epsilon;
+    const Real adia = AmrLevelAdv::h_parm->adiabatic;
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())

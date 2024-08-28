@@ -47,27 +47,27 @@ AMREX_GPU_HOST
 amrex::Real max_wave_speed(amrex::Real /*time*/, const amrex::MultiFab &S_new)
 {
     BL_PROFILE("max_wave_speed()");
-    const Real adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
-    const Real epsilon   = AmrLevelAdv::h_prob_parm->epsilon;
+    const Real adiabatic = AmrLevelAdv::h_parm->adiabatic;
+    const Real epsilon   = AmrLevelAdv::h_parm->epsilon;
 
-    auto const &ma = S_new.const_arrays();
-    auto wave_speed = ParReduce(
-        TypeList<ReduceOpMax>{}, TypeList<Real>{}, S_new,
-        IntVect(0), // no ghost cells
-        [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k)
-            noexcept -> GpuTuple<Real>
-        {
+    auto const &ma         = S_new.const_arrays();
+    auto        wave_speed = ParReduce(
+               TypeList<ReduceOpMax>{}, TypeList<Real>{}, S_new,
+               IntVect(0), // no ghost cells
+               [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k)
+                   noexcept -> GpuTuple<Real>
+               {
             const Array4<const Real> &consv = ma[box_no];
             const auto                primv_arr
                 = primv_from_consv(consv, adiabatic, epsilon, i, j, k);
             const Real velocity = std::sqrt(AMREX_D_TERM(
-                primv_arr[1] * primv_arr[1], +primv_arr[2] * primv_arr[2],
-                +primv_arr[3] * primv_arr[3]));
+                       primv_arr[1] * primv_arr[1], +primv_arr[2] * primv_arr[2],
+                       +primv_arr[3] * primv_arr[3]));
             return sqrt(adiabatic * primv_arr[1 + AMREX_SPACEDIM]
-                        / (primv_arr[0] * epsilon))
+                               / (primv_arr[0] * epsilon))
                    + velocity;
         });
-    
+
     BL_PROFILE_VAR("wave_wave_speed::ReduceRealMax", preduce);
     ParallelDescriptor::ReduceRealMax(wave_speed);
     BL_PROFILE_VAR_STOP(preduce);
@@ -78,18 +78,18 @@ AMREX_GPU_HOST
 amrex::Real max_speed(const amrex::MultiFab &state)
 {
     BL_PROFILE("max_speed()");
-    auto const &ma = state.const_arrays();
-    auto wave_speed = ParReduce(
-        TypeList<ReduceOpMax>{}, TypeList<Real>{}, state,
-        IntVect(0), // no ghost cells
-        [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k)
-            noexcept -> GpuTuple<Real>
-        {
+    auto const &ma         = state.const_arrays();
+    auto        wave_speed = ParReduce(
+               TypeList<ReduceOpMax>{}, TypeList<Real>{}, state,
+               IntVect(0), // no ghost cells
+               [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k)
+                   noexcept -> GpuTuple<Real>
+               {
             const Array4<const Real> &consv = ma[box_no];
             const Real                u_sq
                 = (AMREX_D_TERM(consv(i, j, k, 1) * consv(i, j, k, 1),
-                                +consv(i, j, k, 2) * consv(i, j, k, 2),
-                                +consv(i, j, k, 3) * consv(i, j, k, 3)))
+                                       +consv(i, j, k, 2) * consv(i, j, k, 2),
+                                       +consv(i, j, k, 3) * consv(i, j, k, 3)))
                   / (consv(i, j, k, 0) * consv(i, j, k, 0));
             return { sqrt(u_sq) };
         });
@@ -110,18 +110,18 @@ amrex::Real max_dx_scaled_speed(const amrex::MultiFab                &state,
 {
     BL_PROFILE("max_dx_scaled_speed()");
     auto const &ma = state.const_arrays();
-    auto wave_speed = ParReduce(
-        TypeList<ReduceOpMax>{}, TypeList<Real>{}, state,
-        IntVect(0), // no ghost cells
-        [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k)
-            noexcept -> GpuTuple<Real>
-        {
-            const Array4<const Real> &consv = ma[box_no];
-            return (AMREX_D_TERM(fabs(consv(i, j, k, 1)) / dx[0],
-                                 +fabs(consv(i, j, k, 2)) / dx[1],
-                                 +fabs(consv(i, j, k, 3)) / dx[2]))
-                   / consv(i, j, k, 0);
-        });
+    auto        wave_speed
+        = ParReduce(TypeList<ReduceOpMax>{}, TypeList<Real>{}, state,
+                    IntVect(0), // no ghost cells
+                    [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k)
+                        noexcept -> GpuTuple<Real>
+                    {
+                        const Array4<const Real> &consv = ma[box_no];
+                        return (AMREX_D_TERM(fabs(consv(i, j, k, 1)) / dx[0],
+                                             +fabs(consv(i, j, k, 2)) / dx[1],
+                                             +fabs(consv(i, j, k, 3)) / dx[2]))
+                               / consv(i, j, k, 0);
+                    });
 
     BL_PROFILE_VAR("max_dx_scaled_speed::ReduceRealMax", preduce);
     ParallelDescriptor::ReduceRealMax(wave_speed);

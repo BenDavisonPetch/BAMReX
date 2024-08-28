@@ -20,8 +20,8 @@ AMREX_GPU_HOST void compute_MUSCL_hancock_flux(
     amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr, amrex::Real dt)
 {
     BL_PROFILE("compute_MUSCL_hancock_flux()");
-    const Real adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
-    const Real epsilon   = AmrLevelAdv::h_prob_parm->epsilon;
+    const Real adiabatic = AmrLevelAdv::h_parm->adiabatic;
+    const Real epsilon   = AmrLevelAdv::h_parm->epsilon;
     // const Real &dx        = dx_arr[dir];
     // define boxes (i.e. index domains) for cell-centred values with ghost
     // cells, and for fluxes in this direction

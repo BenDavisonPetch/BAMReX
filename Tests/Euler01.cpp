@@ -12,8 +12,8 @@ TEST_F(BoxTest, ConsvFromPrimvArray3D)
 #endif
 {
     setup(false);
-    const Real epsilon      = AmrLevelAdv::h_prob_parm->epsilon;
-    const Real adiabatic    = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Real epsilon      = AmrLevelAdv::h_parm->epsilon;
+    const Real adiabatic    = AmrLevelAdv::h_parm->adiabatic;
     const auto consv_L_calc = consv_from_primv(primv_L, adiabatic, epsilon);
     const auto consv_R_calc = consv_from_primv(primv_R, adiabatic, epsilon);
     for (int n = 0; n < EULER_NCOMP; ++n)
@@ -30,8 +30,8 @@ TEST_F(BoxTest, PrimvFromConsv3D)
 #endif
 {
     setup(false);
-    const Real epsilon   = AmrLevelAdv::h_prob_parm->epsilon;
-    const Real adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Real epsilon   = AmrLevelAdv::h_parm->epsilon;
+    const Real adiabatic = AmrLevelAdv::h_parm->adiabatic;
     const auto primv_L_calc
         = primv_from_consv(statein[0].array(), adiabatic, epsilon, 0, 0, 0);
     const auto primv_R_calc
@@ -51,8 +51,8 @@ TEST_F(BoxTest, MaxWaveSpeed3D)
 #endif
 {
     setup(true);
-    ASSERT_EQ(AmrLevelAdv::h_prob_parm->epsilon, 0.5);
-    ASSERT_EQ(AmrLevelAdv::h_prob_parm->adiabatic, 1.6);
+    ASSERT_EQ(AmrLevelAdv::h_parm->epsilon, 0.5);
+    ASSERT_EQ(AmrLevelAdv::h_parm->adiabatic, 1.6);
     const Real speed = max_wave_speed(0, statein);
 #if AMREX_SPACEDIM == 3
     // |v|_L = sqrt(14)

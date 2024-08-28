@@ -47,8 +47,8 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
         pp2.get("stop_time", stop_time);
     }
 
-    const Real adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
-    const Real epsilon   = AmrLevelAdv::h_prob_parm->epsilon;
+    const Real adiabatic = AmrLevelAdv::h_parm->adiabatic;
+    const Real epsilon   = AmrLevelAdv::h_parm->epsilon;
 
     GpuArray<Real, EULER_NCOMP> primv_L{ density_L,
                                          AMREX_D_DECL(

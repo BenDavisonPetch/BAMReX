@@ -5,12 +5,15 @@
 #include "Euler/Euler.H"
 
 #include <AMReX_IntVect.H>
+#include <AMReX_LevelBld.H>
 #include <AMReX_PROB_AMR_F.H>
 #include <AMReX_ParmParse.H>
 #include <AMReX_SPACE.H>
 #include <gtest/gtest.h>
 
 #include <AMReX_MultiFab.H>
+
+amrex::LevelBld *getLevelBld();
 
 class UnitDomainTest : public testing::Test
 {
@@ -26,7 +29,13 @@ class UnitDomainTest : public testing::Test
     amrex::Geometry                              geom;
     amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx;
 
-    UnitDomainTest() {}
+    amrex::LevelBld *adv_bld;
+    bool varsetup = false;
+
+    UnitDomainTest()
+        : adv_bld(getLevelBld())
+    {
+    }
 
     void setup(int ncells_, int max_grid_size = -1)
     {
@@ -39,7 +48,7 @@ class UnitDomainTest : public testing::Test
         ba     = BoxArray(domain);
         if (max_grid_size > 0)
             ba.maxSize(max_grid_size);
-        dm     = DistributionMapping(ba);
+        dm = DistributionMapping(ba);
         mf.define(ba, dm, AmrLevelAdv::NUM_STATE, 0);
         prob_lo  = { AMREX_D_DECL(0.0, 0.0, 0.0) };
         prob_hi  = { AMREX_D_DECL(1.0, 1.0, 1.0) };
@@ -48,16 +57,26 @@ class UnitDomainTest : public testing::Test
         geom     = Geometry(domain, &real_box);
         dx       = geom.CellSizeArray();
 
-        AmrLevelAdv::h_prob_parm = new ProbParm{};
-        int  dummy     = 0;
-        Real dummyreal = 0;
-        amrex_probinit(&dummy, &dummy, &dummy, &dummyreal, &dummyreal);
+        // Must add these to the ParmParse otherwise variable setup in
+        // AmrLevelAdv won't have all the entries it's expecting
+        {
+            ParmParse   ppadv("adv");
+            std::string nm_dummy = "muscl_hancock";
+            ppadv.add("num_method", nm_dummy);
+        }
+        {
+            ParmParse pp;
+            pp.add("stop_time", 1.0);
+        }
+
+        if (!varsetup)
+        {
+            adv_bld->variableSetUp();
+            varsetup = true;
+        }
     }
 
-    void TearDown() override {
-        delete AmrLevelAdv::h_prob_parm;
-        AmrLevelAdv::h_prob_parm = nullptr;
-    }
+    void TearDown() override { adv_bld->variableCleanUp(); }
 
     /**
      * @brief Gives the indices of the multifab corresponding to a given x

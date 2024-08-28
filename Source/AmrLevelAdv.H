@@ -23,7 +23,7 @@
 #endif
 
 // Problem-dependent struct. Defined under Exec directory.
-#include "Prob_Parm.H"
+#include "Parm.H"
 
 enum StateType
 {
@@ -179,9 +179,9 @@ class AmrLevelAdv : public amrex::AmrLevel
     const static int NUM_GROW;
     const static int NUM_GROW_P;
 
-    // ProbParm class instances
-    static ProbParm *h_prob_parm;
-    // static ProbParm *d_prob_parm;
+    // Parm class instances
+    static Parm *h_parm;
+    static Parm *d_parm;
 
 #if REUSE_PRESSURE
     static amrex::MultiFab MFpressure;

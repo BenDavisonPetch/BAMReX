@@ -120,8 +120,8 @@ compute_HLLC_flux(amrex::Real time, const amrex::Box &bx,
                   amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr,
                   amrex::Real                                      dt)
 {
-    const amrex::Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
-    const amrex::Real eps  = AmrLevelAdv::h_prob_parm->epsilon;
+    const amrex::Real adia = AmrLevelAdv::h_parm->adiabatic;
+    const amrex::Real eps  = AmrLevelAdv::h_parm->epsilon;
     compute_HLLC_flux_LR<dir>(time, bx, flux, consv_values, consv_values, adia,
                               adia, eps, dx_arr, dt);
 }

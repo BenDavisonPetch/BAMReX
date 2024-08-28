@@ -224,8 +224,8 @@ class Tester
         // pressure = [1,2]
         // u,v,w = [-1, 1]
         // so max wave speed is sqrt(SPACEDIM) + 1.67332
-        const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
-        const Real eps  = AmrLevelAdv::h_prob_parm->epsilon;
+        const Real adia = AmrLevelAdv::h_parm->adiabatic;
+        const Real eps  = AmrLevelAdv::h_parm->epsilon;
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -266,6 +266,8 @@ class Tester
     }
 };
 
+amrex::LevelBld *getLevelBld();
+
 int main(int argc, char *argv[])
 {
     Initialize(argc, argv);
@@ -273,10 +275,8 @@ int main(int argc, char *argv[])
     ParmParse pp("prob");
     pp.add("adiabatic", 1.4);
 
-    AmrLevelAdv::h_prob_parm = new ProbParm{};
-    int  dummy               = 0;
-    Real dummyreal           = 0;
-    amrex_probinit(&dummy, &dummy, &dummy, &dummyreal, &dummyreal);
+    auto adv_bld = getLevelBld();
+    adv_bld->variableSetUp();
 
     amrex::InitRandom(39672806746);
 
@@ -284,5 +284,6 @@ int main(int argc, char *argv[])
 
     tester.test();
 
+    adv_bld->variableCleanUp();
     Finalize();
 }

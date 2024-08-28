@@ -21,7 +21,7 @@ AMREX_GPU_HOST void reconstruct_and_half_time_step(
     const amrex::Array4<const amrex::Real>          &consv_values,
     amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr, amrex::Real dt)
 {
-    switch (AmrLevelAdv::h_prob_parm->limiter)
+    switch (AmrLevelAdv::h_parm->limiter)
     {
     case (minbee_limiter):
         reconstruct_and_half_time_step<minbee_limiter, dir>(
@@ -76,7 +76,7 @@ AMREX_GPU_HOST void reconstruct_and_half_time_step(
     int j_off = (dir == 1) ? 1 : 0;
     int k_off = (dir == 2) ? 1 : 0;
 
-    const auto &limiter_indices = AmrLevelAdv::h_prob_parm->limiter_indices;
+    const auto &limiter_indices = AmrLevelAdv::h_parm->limiter_indices;
 
     //
     // Reconstruct

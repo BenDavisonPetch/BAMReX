@@ -49,8 +49,8 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
     pp.get("velocity_y_BR", vel_y_BR);
     pp.get("pressure_BR", pressure_BR);
 
-    const Real adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
-    const Real epsilon   = AmrLevelAdv::h_prob_parm->epsilon;
+    const Real adiabatic = AmrLevelAdv::h_parm->adiabatic;
+    const Real epsilon   = AmrLevelAdv::h_parm->epsilon;
 
     GpuArray<Real, EULER_NCOMP> primv_TR{ density_TR,
                                           AMREX_D_DECL(vel_x_TR, vel_y_TR, 0),

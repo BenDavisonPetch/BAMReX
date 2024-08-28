@@ -62,7 +62,7 @@ void compute_flux_imex_o1(
 
     const auto &dx  = geom.CellSizeArray();
     const auto &idx = geom.InvCellSizeArray();
-    const Real  eps = AmrLevelAdv::h_prob_parm->epsilon;
+    const Real  eps = AmrLevelAdv::h_parm->epsilon;
     AMREX_D_TERM(const amrex::Real hdtdx = 0.5 * dt * idx[0];
                  , const amrex::Real hdtdy = 0.5 * dt * idx[1];
                  , const amrex::Real hdtdz = 0.5 * dt * idx[2];)
@@ -185,7 +185,9 @@ void compute_enthalpy(const amrex::Box &bx, const amrex::FArrayBox &statein,
     const Array4<const Real> exp  = stateexp.const_array();
     const Array4<Real>       enth = enthalpy.array();
 
-    const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
+    const Parm *parm = AmrLevelAdv::d_parm;
+
+    const Real adia = AmrLevelAdv::h_parm->adiabatic;
     if (!settings.linearise)
     {
         const Array4<const Real> p = a_pressure.const_array();
@@ -210,9 +212,9 @@ void compute_enthalpy(const amrex::Box &bx, const amrex::FArrayBox &statein,
         ParallelFor(bx,
                     [=] AMREX_GPU_DEVICE(int i, int j, int k)
                     {
-                        enth(i, j, k)
-                            = vol_enthalpy(i, j, k, in) / exp(i, j, k, 0);
-                        p(i, j, k) = pressure(i, j, k, exp);
+                        enth(i, j, k) = vol_enthalpy(i, j, k, in, *parm)
+                                        / exp(i, j, k, 0);
+                        p(i, j, k) = pressure(i, j, k, exp, *parm);
                     });
     }
     else if (settings.enthalpy_method == IMEXSettings::conservative_ex)
@@ -221,9 +223,9 @@ void compute_enthalpy(const amrex::Box &bx, const amrex::FArrayBox &statein,
         ParallelFor(bx,
                     [=] AMREX_GPU_DEVICE(int i, int j, int k)
                     {
-                        enth(i, j, k)
-                            = vol_enthalpy(i, j, k, exp) / exp(i, j, k, 0);
-                        p(i, j, k) = pressure(i, j, k, exp);
+                        enth(i, j, k) = vol_enthalpy(i, j, k, exp, *parm)
+                                        / exp(i, j, k, 0);
+                        p(i, j, k) = pressure(i, j, k, exp, *parm);
                     });
     }
 }
@@ -235,29 +237,34 @@ compute_ke(const amrex::Box &bx, const amrex::FArrayBox &statein,
 {
     BL_PROFILE("compute_ke()");
     const Array4<Real> kearr = ke.array();
+    const Parm        *parm  = AmrLevelAdv::d_parm;
     if (!settings.linearise)
     {
         const Array4<const Real> newarr = statenew.const_array();
-        ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                    { kearr(i, j, k) = kinetic_energy(i, j, k, newarr); });
+        ParallelFor(
+            bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
+            { kearr(i, j, k) = kinetic_energy(i, j, k, newarr, *parm); });
     }
     else if (settings.ke_method == IMEXSettings::conservative_kinetic)
     {
         const Array4<const Real> consv = statein.const_array();
-        ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                    { kearr(i, j, k) = kinetic_energy(i, j, k, consv); });
+        ParallelFor(bx,
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k) {
+                        kearr(i, j, k) = kinetic_energy(i, j, k, consv, *parm);
+                    });
     }
     else if (settings.ke_method == IMEXSettings::ex)
     {
         const Array4<const Real> consv_ex = stateexp.const_array();
-        ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                    { kearr(i, j, k) = kinetic_energy(i, j, k, consv_ex); });
+        ParallelFor(
+            bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
+            { kearr(i, j, k) = kinetic_energy(i, j, k, consv_ex, *parm); });
     }
     else if (settings.ke_method == IMEXSettings::split)
     {
         const Array4<const Real> consv_ex = stateexp.const_array();
         const Array4<const Real> in       = statein.const_array();
-        const Real               eps      = AmrLevelAdv::h_prob_parm->epsilon;
+        const Real               eps      = AmrLevelAdv::h_parm->epsilon;
         ParallelFor(
             bx,
             [=] AMREX_GPU_DEVICE(int i, int j, int k)
@@ -296,12 +303,13 @@ void compute_pressure(const amrex::MultiFab &statein_exp_new,
                       const amrex::Real adt, const IMEXSettings &settings)
 {
     BL_PROFILE("compute_pressure()");
+    const Parm *parm = AmrLevelAdv::d_parm;
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     {
-        const Real  eps  = AmrLevelAdv::h_prob_parm->epsilon;
-        const Real  adia = AmrLevelAdv::h_prob_parm->adiabatic;
+        const Real  eps  = AmrLevelAdv::h_parm->epsilon;
+        const Real  adia = AmrLevelAdv::h_parm->adiabatic;
         const auto &dx   = geom.CellSizeArray();
         amrex::ignore_unused(adt, dx);
         for (MFIter mfi(a_pressure, TilingIfNotGPU()); mfi.isValid(); ++mfi)
@@ -313,7 +321,7 @@ void compute_pressure(const amrex::MultiFab &statein_exp_new,
             // FI
             if (!settings.linearise)
                 ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                            { p(i, j, k) = pressure(i, j, k, snew); });
+                            { p(i, j, k) = pressure(i, j, k, snew, *parm); });
             // SK schemes
             else if (settings.linearise
                      && settings.ke_method == IMEXSettings::split)
@@ -375,7 +383,7 @@ void compute_pressure(const amrex::MultiFab &statein_exp_new,
             }
             else // any other methods
                 ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                            { p(i, j, k) = pressure(i, j, k, snew); });
+                            { p(i, j, k) = pressure(i, j, k, snew, *parm); });
         }
     }
 }
@@ -413,7 +421,7 @@ void pressure_source_vector(const amrex::Box       &bx,
                                          amrex::Real hdtdz))
 {
     BL_PROFILE("pressure_source_vector()");
-    const Real               epsilon  = AmrLevelAdv::h_prob_parm->epsilon;
+    const Real               epsilon  = AmrLevelAdv::h_parm->epsilon;
     const Array4<const Real> consv_ex = stateexp.const_array();
     const Array4<const Real> enth     = enthalpy.const_array();
     const Array4<const Real> ke_arr   = ke.const_array();
@@ -484,7 +492,7 @@ void update_momentum_flux(
                  , const auto &fluxy = fy.array();
                  , const auto &fluxz = fz.array();)
     const auto &p    = pressure.const_array();
-    const Real  heps = 0.5 / AmrLevelAdv::h_prob_parm->epsilon;
+    const Real  heps = 0.5 / AmrLevelAdv::h_parm->epsilon;
     ParallelFor(
         AMREX_D_DECL(nbx[0], nbx[1], nbx[2]),
         AMREX_D_DECL(
@@ -580,8 +588,8 @@ void setup_pressure_op(
                                     bc_data);
 
     // set coefficients
-    const amrex::Real eps        = AmrLevelAdv::h_prob_parm->epsilon;
-    const amrex::Real adia       = AmrLevelAdv::h_prob_parm->adiabatic;
+    const amrex::Real eps        = AmrLevelAdv::h_parm->epsilon;
+    const amrex::Real adia       = AmrLevelAdv::h_parm->adiabatic;
     const amrex::Real gradscalar = use_grad_term ? -0.5 * eps * dt : 0;
     pressure_op.setScalars(1, dt * dt, gradscalar);
     pressure_op.setACoeffs(0, eps / (adia - 1));
@@ -634,6 +642,7 @@ AMREX_GPU_HOST
 void copy_pressure(const amrex::MultiFab &statesrc, amrex::MultiFab &dst)
 {
     BL_PROFILE("copy_pressure()");
+    const Parm *parm = AmrLevelAdv::d_parm;
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -644,7 +653,7 @@ void copy_pressure(const amrex::MultiFab &statesrc, amrex::MultiFab &dst)
             const Array4<const Real> src     = statesrc.array(mfi);
             const Array4<Real>       dst_arr = dst.array(mfi);
             ParallelFor(bx, [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                        { dst_arr(i, j, k) = pressure(i, j, k, src); });
+                        { dst_arr(i, j, k) = pressure(i, j, k, src, *parm); });
         }
     }
 }

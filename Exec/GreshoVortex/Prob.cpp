@@ -61,8 +61,8 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
         pp.get("M", M);
     }
 
-    const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
-    const Real eps  = AmrLevelAdv::h_prob_parm->epsilon;
+    const Real adia = AmrLevelAdv::h_parm->adiabatic;
+    const Real eps  = AmrLevelAdv::h_parm->epsilon;
 
     AMREX_ALWAYS_ASSERT(eps == 1);
 

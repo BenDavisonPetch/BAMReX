@@ -18,8 +18,8 @@ compute_SLIC_flux(amrex::Real time, const amrex::Box &bx,
                   amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr,
                   amrex::Real                                      dt)
 {
-    const Real adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
-    const Real epsilon   = AmrLevelAdv::h_prob_parm->epsilon;
+    const Real adiabatic = AmrLevelAdv::h_parm->adiabatic;
+    const Real epsilon   = AmrLevelAdv::h_parm->epsilon;
 
     // const Real &dx = dx_arr[dir];
     // define boxes (i.e. index domains) for cell-centred values with ghost

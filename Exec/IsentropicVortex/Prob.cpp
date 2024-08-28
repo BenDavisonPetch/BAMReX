@@ -42,8 +42,8 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
         pp2.get("stop_time", stop_time);
     }
 
-    const Real adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
-    const Real epsilon   = AmrLevelAdv::h_prob_parm->epsilon;
+    const Real adiabatic = AmrLevelAdv::h_parm->adiabatic;
+    const Real epsilon   = AmrLevelAdv::h_parm->epsilon;
 
     // initial conditions
     init_exact_solution(0, S_tmp, geom, density_bg, u_bg, v_bg, w_bg,

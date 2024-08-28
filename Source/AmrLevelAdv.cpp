@@ -25,6 +25,7 @@
 #include "Prob.H"
 #include "RCM/RCM.H"
 #include "SourceTerms/GeometricSource.H"
+#include "VarNames.H"
 #include "bc_jet.H"
 #include "tagging_K.H"
 //#include "Kernels.H"
@@ -54,8 +55,8 @@ const int AmrLevelAdv::NUM_GROW_P
          // for GFM
 
 // Mechanism for getting code to work on GPU
-ProbParm *AmrLevelAdv::h_prob_parm = nullptr;
-// ProbParm *AmrLevelAdv::d_prob_parm = nullptr;
+Parm *AmrLevelAdv::h_parm = nullptr;
+Parm *AmrLevelAdv::d_parm = nullptr;
 
 #if REUSE_PRESSURE
 MultiFab AmrLevelAdv::MFpressure;
@@ -157,8 +158,8 @@ void AmrLevelAdv::variableSetUp()
     BL_ASSERT(desc_lst.size() == 0);
 
     // Initialize struct containing problem-specific variables
-    h_prob_parm = new ProbParm{};
-    // d_prob_parm = (ProbParm *)The_Arena()->alloc(sizeof(ProbParm));
+    h_parm = new Parm{};
+    d_parm = (Parm *)The_Arena()->alloc(sizeof(Parm));
 
     // A function which contains all processing of the settings file,
     // setting up initial data, choice of numerical methods and
@@ -234,9 +235,9 @@ void AmrLevelAdv::variableCleanUp()
     desc_lst.clear();
 
     // Delete structs containing problem-specific parameters
-    delete h_prob_parm;
+    delete h_parm;
     // This relates to freeing parameters on the GPU too
-    // The_Arena()->free(d_prob_parm);
+    The_Arena()->free(d_parm);
 }
 
 /**
@@ -652,8 +653,8 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
         for (MFIter mfi(S_new); mfi.isValid(); ++mfi)
         {
             const auto &bx = mfi.validbox();
-            advance_RCM(dt, dr, rand, h_prob_parm->adiabatic,
-                        h_prob_parm->epsilon, bx, Sborder[mfi], S_new[mfi]);
+            advance_RCM(dt, dr, rand, h_parm->adiabatic, h_parm->epsilon, bx,
+                        Sborder[mfi], S_new[mfi]);
         }
         if (rot_axis != -1 && alpha != 0)
         {
@@ -1159,6 +1160,36 @@ void AmrLevelAdv::read_params()
         acoustic_timestep_end_time = 0.1 * stop_time;
         pp3.query("acoustic_timestep_end_time", acoustic_timestep_end_time);
     }
+    // Parameters in Parm (limiting and material params)
+    h_parm->set_defaults();
+    {
+        ParmParse pp("prob");
+        pp.get("adiabatic", h_parm->adiabatic);
+        pp.query("epsilon", h_parm->epsilon);
+    }
+    {
+        ParmParse                pp("limiting");
+        std::string              limiter_name;
+        std::string              density_limiter, energy_limiter;
+        std::vector<std::string> mom_limiters(3);
+        pp.query("limiter", limiter_name);
+        pp.query("density", density_limiter);
+        pp.queryarr("mom", mom_limiters);
+        pp.query("energy", energy_limiter);
+        if (!limiter_name.empty())
+            h_parm->limiter = limiter_from_name(limiter_name);
+
+        if (!density_limiter.empty())
+            h_parm->limiter_indices[0] = var_name_to_idx(density_limiter);
+        if (!energy_limiter.empty())
+            h_parm->limiter_indices[1 + AMREX_SPACEDIM]
+                = var_name_to_idx(energy_limiter);
+        for (int i = 0; i < AMREX_SPACEDIM; ++i)
+            if (!mom_limiters[i].empty())
+                h_parm->limiter_indices[1 + i]
+                    = var_name_to_idx(mom_limiters[i]);
+    }
+    amrex::Gpu::copy(amrex::Gpu::hostToDevice, h_parm, h_parm + 1, d_parm);
 
     // Geometric source term info
     {

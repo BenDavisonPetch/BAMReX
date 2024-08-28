@@ -22,8 +22,8 @@ using namespace amrex;
 
 void initdata(MultiFab &S_tmp, [[maybe_unused]] const Geometry &geom)
 {
-    const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
-    const Real eps  = AmrLevelAdv::h_prob_parm->epsilon;
+    const Real adia = AmrLevelAdv::h_parm->adiabatic;
+    const Real eps  = AmrLevelAdv::h_parm->epsilon;
 
     Real exit_v_ratio, primary_exit_M, p_amb, T_amb, T_p, T_s, R_spec,
         inner_radius, outer_radius, scale_factor;

@@ -71,8 +71,8 @@ void advance_geometric_1d(amrex::Real dt, amrex::Real dr, amrex::Real r_lo,
     const auto &k3 = tmpfab.array(2 * NCOMP, 3);
     const auto &k4 = tmpfab.array(3 * NCOMP, 3);
 
-    const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
-    const Real eps  = AmrLevelAdv::h_prob_parm->epsilon;
+    const Real adia = AmrLevelAdv::h_parm->adiabatic;
+    const Real eps  = AmrLevelAdv::h_parm->epsilon;
 
     // Compute K1
     ParallelFor(bx, NCOMP,
@@ -171,8 +171,8 @@ AMREX_GPU_HOST void advance_geometric_2d(amrex::Real dt, amrex::Real dr,
     const auto &k3 = tmpfab.array(2 * NCOMP, NCOMP);
     const auto &k4 = tmpfab.array(3 * NCOMP, NCOMP);
 
-    const Real adia = AmrLevelAdv::h_prob_parm->adiabatic;
-    const Real eps  = AmrLevelAdv::h_prob_parm->epsilon;
+    const Real adia = AmrLevelAdv::h_parm->adiabatic;
+    const Real eps  = AmrLevelAdv::h_parm->epsilon;
 
     // Compute K1
     ParallelFor(bx, NCOMP,

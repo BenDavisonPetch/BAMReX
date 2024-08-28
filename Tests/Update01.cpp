@@ -6,8 +6,8 @@
 #include "IMEX/IMEX_RK.H"
 
 #include <AMReX_PROB_AMR_F.H>
-#include <AMReX_Random.H>
 #include <AMReX_ParmParse.H>
+#include <AMReX_Random.H>
 
 using namespace amrex;
 
@@ -76,9 +76,9 @@ class UpdateTest : public testing::Test
         geom     = Geometry(domain, &real_box);
         dx       = geom.CellSizeArray();
 
-        AmrLevelAdv::h_prob_parm = new ProbParm{};
-        int       dummy          = 0;
-        Real      dummyreal      = 0;
+        AmrLevelAdv::h_parm = new Parm{};
+        int       dummy     = 0;
+        Real      dummyreal = 0;
         ParmParse pp("prob");
         pp.add("adiabatic", 1.4);
         pp.add("epsilon", 1);

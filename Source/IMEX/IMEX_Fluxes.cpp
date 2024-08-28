@@ -53,14 +53,17 @@ void advance_rusanov_adv(const amrex::Real /*time*/, const amrex::Box &bx,
     GpuArray<Array4<Real>, AMREX_SPACEDIM> fluxes{ AMREX_D_DECL(
         fx.array(), fy.array(), fz.array()) };
 
+    const Parm *parm = AmrLevelAdv::d_parm;
+
     // Compute physical fluxes
     ParallelFor(gbx,
                 [=] AMREX_GPU_DEVICE(int i, int j, int k)
                 {
                     AMREX_D_TERM(
-                        adv_flux<0>(i, j, k, consv_in, adv_fluxes[0]);
-                        , adv_flux<1>(i, j, k, consv_in, adv_fluxes[1]);
-                        , adv_flux<2>(i, j, k, consv_in, adv_fluxes[2]);)
+                        adv_flux<0>(i, j, k, consv_in, adv_fluxes[0], *parm);
+                        , adv_flux<1>(i, j, k, consv_in, adv_fluxes[1], *parm);
+                        ,
+                        adv_flux<2>(i, j, k, consv_in, adv_fluxes[2], *parm);)
                 });
 
     // Compute Rusanov fluxes using statein
@@ -178,6 +181,8 @@ void advance_MUSCL_rusanov_adv(const amrex::Real, const amrex::Box &bx,
     const GpuArray<Real, AMREX_SPACEDIM> hdtdxarr{ AMREX_D_DECL(
         0.5 * dtdx, 0.5 * dtdy, 0.5 * dtdz) };
 
+    const Parm *parm = AmrLevelAdv::d_parm;
+
     // Now we can do actual computation
 
     // Reconstruct
@@ -217,13 +222,15 @@ void advance_MUSCL_rusanov_adv(const amrex::Real, const amrex::Box &bx,
             [=] AMREX_GPU_DEVICE(int i, int j, int k)
             {
                 AMREX_D_TERM(
-                    adv_flux<0>(i, j, k, state_L[0], adv_fluxes_L[0]);
-                    , adv_flux<1>(i, j, k, state_L[1], adv_fluxes_L[1]);
-                    , adv_flux<2>(i, j, k, state_L[2], adv_fluxes_L[2]);)
+                    adv_flux<0>(i, j, k, state_L[0], adv_fluxes_L[0], *parm);
+                    , adv_flux<1>(i, j, k, state_L[1], adv_fluxes_L[1], *parm);
+                    ,
+                    adv_flux<2>(i, j, k, state_L[2], adv_fluxes_L[2], *parm);)
                 AMREX_D_TERM(
-                    adv_flux<0>(i, j, k, state_R[0], adv_fluxes_R[0]);
-                    , adv_flux<1>(i, j, k, state_R[1], adv_fluxes_R[1]);
-                    , adv_flux<2>(i, j, k, state_R[2], adv_fluxes_R[2]);)
+                    adv_flux<0>(i, j, k, state_R[0], adv_fluxes_R[0], *parm);
+                    , adv_flux<1>(i, j, k, state_R[1], adv_fluxes_R[1], *parm);
+                    ,
+                    adv_flux<2>(i, j, k, state_R[2], adv_fluxes_R[2], *parm);)
             });
 
         // Local update
@@ -248,12 +255,14 @@ void advance_MUSCL_rusanov_adv(const amrex::Real, const amrex::Box &bx,
         gbx,
         [=] AMREX_GPU_DEVICE(int i, int j, int k)
         {
-            AMREX_D_TERM(adv_flux<0>(i, j, k, state_L[0], adv_fluxes_L[0]);
-                         , adv_flux<1>(i, j, k, state_L[1], adv_fluxes_L[1]);
-                         , adv_flux<2>(i, j, k, state_L[2], adv_fluxes_L[2]);)
-            AMREX_D_TERM(adv_flux<0>(i, j, k, state_R[0], adv_fluxes_R[0]);
-                         , adv_flux<1>(i, j, k, state_R[1], adv_fluxes_R[1]);
-                         , adv_flux<2>(i, j, k, state_R[2], adv_fluxes_R[2]);)
+            AMREX_D_TERM(
+                adv_flux<0>(i, j, k, state_L[0], adv_fluxes_L[0], *parm);
+                , adv_flux<1>(i, j, k, state_L[1], adv_fluxes_L[1], *parm);
+                , adv_flux<2>(i, j, k, state_L[2], adv_fluxes_L[2], *parm);)
+            AMREX_D_TERM(
+                adv_flux<0>(i, j, k, state_R[0], adv_fluxes_R[0], *parm);
+                , adv_flux<1>(i, j, k, state_R[1], adv_fluxes_R[1], *parm);
+                , adv_flux<2>(i, j, k, state_R[2], adv_fluxes_R[2], *parm);)
         });
     BL_PROFILE_VAR_STOP(pfluxes);
 

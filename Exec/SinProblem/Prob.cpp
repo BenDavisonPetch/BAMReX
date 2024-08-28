@@ -54,8 +54,8 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
         pp.query("pressure", p);
     }
 
-    const Real adiabatic = AmrLevelAdv::h_prob_parm->adiabatic;
-    const Real epsilon   = AmrLevelAdv::h_prob_parm->epsilon;
+    const Real adiabatic = AmrLevelAdv::h_parm->adiabatic;
+    const Real epsilon   = AmrLevelAdv::h_parm->epsilon;
 
     if (exact_soln_same_resolution)
     {
