@@ -1,6 +1,7 @@
 # Source/CMakeLists.txt
 
 set (SRC_NO_MAIN ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv_advance.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv_LSinit.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Adv_prob.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/bc_nullfill.cpp
@@ -29,6 +30,7 @@ set (SRC_NO_MAIN ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Geometry/MakeSDF.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/BCs.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Parm.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/Visc/Visc.cpp
 )
 
 set (SRC_NO_MAIN ${SRC_NO_MAIN} PARENT_SCOPE)

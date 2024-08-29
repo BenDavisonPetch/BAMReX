@@ -27,9 +27,37 @@ inline Method enum_from_string(const std::string &name)
         return rcm;
     else
     {
-        amrex::Abort("Invalid numerical method! Valid options are "
-                     "muscl_hancock, hllc, and imex");
+        amrex::Abort("Invalid numerical method \"" + name
+                     + "\". Valid options are "
+                       "muscl_hancock, hllc, and imex");
         return muscl_hancock;
+    }
+}
+}
+
+//! Methods for handling viscous terms
+namespace ViscMethods
+{
+enum Method
+{
+    //! No viscous terms
+    none,
+    //! Via operator splitting, done explicitly, no time subcycling (assumes
+    //! dt_diff > dt_conv)
+    op_split_explicit
+};
+
+inline Method enum_from_string(const std::string &name)
+{
+    if (name == "none")
+        return none;
+    else if (name == "op_split_explicit")
+        return op_split_explicit;
+    else
+    {
+        amrex::Abort("Invalid viscosity method \"" + name
+                     + "\". Valid options are none and op_split_explicit.");
+        return none;
     }
 }
 }

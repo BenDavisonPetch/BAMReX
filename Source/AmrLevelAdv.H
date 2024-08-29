@@ -254,6 +254,7 @@ class AmrLevelAdv : public amrex::AmrLevel
     static int                      do_reflux;
     static amrex::Real              acoustic_timestep_end_time;
     static NumericalMethods::Method num_method;
+    static ViscMethods::Method      visc;
     static IMEXSettings             imex_settings;
     static bamrexBCData             bc_data;
     static int rot_axis, alpha; // data for geometric source term
