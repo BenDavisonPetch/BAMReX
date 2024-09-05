@@ -19,7 +19,7 @@ init.rotation   = 90
 adv.visc_method = op_split_explicit
 prob.beta = 1
 prob.S_eta = 0
-prob.eta_prime = 0.1
+prob.eta_prime = 0.001
 prob.Pr = 0.71
 
 geometry.is_periodic =  0  0  0
