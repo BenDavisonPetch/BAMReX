@@ -71,9 +71,6 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
         std::string rb_bc_in;
         pp.get("rb", rb_bc_in);
         rb_bc = RigidBodyBCType::enum_from_string(rb_bc_in);
-        if (rb_bc == RigidBodyBCType::no_slip)
-            amrex::Abort(
-                "No slip boundary conditions don't work without viscosity!");
     }
     else
     {

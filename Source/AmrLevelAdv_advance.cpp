@@ -113,7 +113,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     }
 
     if (verbose)
-        AllPrint() << "\tFilled ghost states" << std::endl;
+        Print() << "\tFilled ghost states" << std::endl;
 
     BL_PROFILE_VAR("AmrLevelAdv::flux_computation", pflux_computation);
 

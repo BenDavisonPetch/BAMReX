@@ -6,6 +6,7 @@
 #include "GFM/Extrapolate.H"
 #include "GFM/GFMFlag.H"
 #include "GFM/Interp_K.H"
+#include "Index.H"
 #include <AMReX_RealVect.H>
 
 using namespace amrex;
@@ -141,11 +142,28 @@ AMREX_GPU_HOST void fill_ghost_rb(const amrex::Geometry           &geom,
                         }
                         else if (rb_bc == RigidBodyBCType::no_slip)
                         {
-                            // this is currently wrong.
-                            Abort("No slip boundaries not supported!");
-                            for (int n = 0; n < AMREX_SPACEDIM; ++n)
+                            constexpr Real delta
+                                = 1.5; // we always look delta*dx into the
+                                       // fluid from the boundary to
+                                       // interpolate
+                            // normals point into fluid and ls >0 in body
+                            const RealVect x_refl(
+                                x_gh + (ls(i, j, k) + delta * dx[0]) * norm);
+                            // const RealVect x_refl(
+                            //     x_gh + 2*ls(i, j, k) * norm);
+                            bilinear_interp(x_refl, arr, arr, i, j, k, dx,
+                                            EULER_NCOMP);
+
+                            auto primv_L_Nd
+                                = primv_from_consv(arr, adia, eps, i, j, k);
+                            AMREX_D_TERM(primv_L_Nd[QInd::U] *= -1;
+                                         , primv_L_Nd[QInd::V] *= -1;
+                                         , primv_L_Nd[QInd::W] *= -1;)
+                            const auto consv_gh
+                                = consv_from_primv(primv_L_Nd, adia, eps);
+                            for (int n = 0; n < EULER_NCOMP; ++n)
                             {
-                                arr(i, j, k, n + 1) *= -1;
+                                arr(i, j, k, n) = consv_gh[n];
                             }
                         }
                         else if (rb_bc == RigidBodyBCType::foextrap)
