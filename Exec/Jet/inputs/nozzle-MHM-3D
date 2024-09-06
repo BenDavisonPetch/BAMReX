@@ -16,8 +16,8 @@ init.R_spec = 287.052874 # J / kg / K
 
 geometry.is_periodic =  0  0  0
 geometry.coord_sys   =  0       # 0 => cart
-geometry.prob_lo     =  0 -0.4  -0.4
-geometry.prob_hi     =  1.6  0.4  0.4
+geometry.prob_lo     =  0 -0.2  -0.2
+geometry.prob_hi     =  1.6  0.2  0.2
 
 bc.x = coaxial_jet coaxial_jet
 bc.y = reflective coaxial_jet
@@ -29,14 +29,14 @@ sym.alpha = 1
 
 limiting.limiter = van_leer
 limiting.density = density
-limiting.mom     = mom_x mom_y mom_z
-limiting.energy  = energy
+limiting.mom     = p p p
+limiting.energy  = p
 
 # RESOLUTION
-amr.n_cell         = 64 32 32
+amr.n_cell         = 64 16 16
 
 # TIME STEP CONTROL
-adv.cfl            = 0.8   # cfl number for hyperbolic system
+adv.cfl            = 0.5   # cfl number for hyperbolic system
 
 ## NUMERICAL METHOD SETTINGS
 adv.num_method = muscl_hancock
