@@ -7,7 +7,7 @@ init.pressure_L = 1.0
 init.density_R  = 0.125
 init.velocity_R = 0.0
 init.pressure_R = 0.1
-init.rotation   = 90
+init.int_normal = 0 1 0
 
 geometry.is_periodic =  0  0  0
 geometry.coord_sys   =  0       # 0 => cart

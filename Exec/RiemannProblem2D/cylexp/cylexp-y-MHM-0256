@@ -11,8 +11,8 @@ init.pressure_L = 1.0
 init.density_R  = 0.125
 init.velocity_R = 0.0
 init.pressure_R = 0.1
-init.rotation   = 90
-init.int_offset     = -0.1
+init.int_normal = 0 1 0
+init.int_offset = -0.1
 
 sym.rot_axis = 1
 sym.alpha = 1

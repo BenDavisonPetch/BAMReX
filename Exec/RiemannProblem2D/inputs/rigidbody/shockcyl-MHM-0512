@@ -16,7 +16,7 @@ init.density_R  = 3.6767 # rho_R = 3.6767 rho_L
 init.velocity_R = -2.419794953
 init.pressure_R = 9.04545
 init.int_offset = -0.36 # int is at x = 0.14
-init.rotation   = 0
+init.int_normal = 1 0 0
 
 geometry.is_periodic =  0  0  0
 geometry.coord_sys   =  0       # 0 => cart

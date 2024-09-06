@@ -11,11 +11,11 @@ stop_time = 0.000126061
 prob.adiabatic  = 1.4
 init.mode = shock
 init.M = 2.81
-init.density_L = 0.595
-init.velocity_L = 0
-init.pressure_L = 0.05e6
-init.int_offset = -0.31 # int is at x = 0.19
-init.rotation   = 0
+init.density_amb = 0.595
+init.velocity_amb = 0
+init.pressure_amb = 0.05e6
+init.int_offset = 0.31 # int is at x = 0.19
+init.int_normal = -1 0 0
 
 adv.visc_method = op_split_explicit
 bc.rb = no_slip

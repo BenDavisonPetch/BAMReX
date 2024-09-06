@@ -13,7 +13,7 @@ init.density_R  = 0.944
 init.velocity_R = -169.68
 init.pressure_R = 0.096e6
 init.int_offset = -0.31 # int is at x = 0.19
-init.rotation   = 0
+init.int_normal = 1 0 0
 
 # shock velocity -458.96m/s
 # must travel 0.07m before hitting sphere

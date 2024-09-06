@@ -12,7 +12,7 @@ init.density_R  = 0.125
 init.velocity_R = 0.0
 init.pressure_R = 0.1
 init.int_offset = -0.4
-init.rotation   = 0
+init.int_normal = 1 0 0
 
 geometry.is_periodic =  0  0  0
 geometry.coord_sys   =  0       # 0 => cart

@@ -29,9 +29,9 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
     std::string mode;
 
     Real density_L, velocity_L, pressure_L, density_R, velocity_R, pressure_R;
-    Real int_offset; // interface offset
-    Real rotation = 0;
-    Real stop_time; // used when calculating exact solution
+    Real int_offset;     // interface offset
+    RealArray hn;        // host interface normal
+    Real      stop_time; // used when calculating exact solution
 
     const Real  adia    = AmrLevelAdv::h_parm->adiabatic;
     const Real  epsilon = AmrLevelAdv::h_parm->epsilon;
@@ -40,33 +40,38 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
     {
         ParmParse pp("init");
         pp.query("mode", mode);
-        pp.get("density_L", density_L);
-        pp.get("velocity_L", velocity_L);
-        pp.get("pressure_L", pressure_L);
         pp.query("int_offset", int_offset);
+        pp.get("int_normal", hn);
         if (mode.empty() || mode == "LR")
         {
+            pp.get("density_L", density_L);
+            pp.get("velocity_L", velocity_L);
+            pp.get("pressure_L", pressure_L);
             pp.get("density_R", density_R);
             pp.get("velocity_R", velocity_R);
             pp.get("pressure_R", pressure_R);
-            pp.query("rotation", rotation);
-            rotation *= Math::pi<Real>() / Real(180);
         }
         else if (mode == "shock")
         {
+            pp.get("density_amb", density_R);
+            pp.get("velocity_amb", velocity_R);
+            pp.get("pressure_amb", pressure_R);
             Real M;
             pp.get("M", M);
-            const Real c_L = sqrt(pressure_L * hparm->adia[0] / density_L);
-            pressure_R = pressure_L * (1 + 2 * hparm->adia[7] * (M * M - 1));
-            density_R  = density_L * (hparm->adia[1] * M * M)
+            const Real c_R = sqrt(pressure_R * hparm->adia[0] / density_R);
+            pressure_L = pressure_R * (1 + 2 * hparm->adia[7] * (M * M - 1));
+            density_L  = density_R * (hparm->adia[1] * M * M)
                         / (2 + hparm->adia[2] * M * M);
-            velocity_R = -c_L * 2 * (M * M - 1) / (hparm->adia[1] * M);
+            velocity_L = c_R * 2 * (M * M - 1) / (hparm->adia[1] * M);
         }
         else
         {
             pressure_R = -1;
             density_R  = -1;
             velocity_R = 0;
+            pressure_L = -1;
+            density_L  = -1;
+            velocity_L = 0;
             amrex::Abort("Invalid mode provided");
         }
 
@@ -74,15 +79,20 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
         pp2.get("stop_time", stop_time);
     }
 
+    const Real nmag
+        = sqrt(AMREX_D_TERM(hn[0] * hn[0], +hn[1] * hn[1], +hn[2] * hn[2]));
+    const GpuArray<Real, AMREX_SPACEDIM> dn{ AMREX_D_DECL(
+        hn[0] / nmag, hn[1] / nmag, hn[2] / nmag) };
+
     GpuArray<Real, EULER_NCOMP> primv_L{ density_L,
-                                         AMREX_D_DECL(
-                                             velocity_L * cos(rotation),
-                                             velocity_L * sin(rotation), 0),
+                                         AMREX_D_DECL(velocity_L * dn[0],
+                                                      velocity_L * dn[1],
+                                                      velocity_L * dn[2]),
                                          pressure_L };
     GpuArray<Real, EULER_NCOMP> primv_R{ density_R,
-                                         AMREX_D_DECL(
-                                             velocity_R * cos(rotation),
-                                             velocity_R * sin(rotation), 0),
+                                         AMREX_D_DECL(velocity_R * dn[0],
+                                                      velocity_R * dn[1],
+                                                      velocity_R * dn[2]),
                                          pressure_R };
 
     GpuArray<Real, EULER_NCOMP> primv_L_x_oriented{
@@ -109,8 +119,12 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
                     {
                         const Real x = prob_lo[0] + (i + Real(0.5)) * dx[0];
                         const Real y = prob_lo[1] + (j + Real(0.5)) * dx[1];
-                        const Real d = (x - 0.5) * cos(rotation)
-                                       + (y - 0.5) * sin(rotation)
+#if AMREX_SPACEDIM == 3
+                        const Real z = prob_lo[2] + (k + Real(0.5)) * dx[2];
+#endif
+                        const Real d = AMREX_D_TERM((x - 0.5) * dn[0],
+                                                    +(y - 0.5) * dn[1],
+                                                    +(z - 0.5) * dn[2])
                                        - int_offset;
                         if (d <= 0)
                             phi(i, j, k, n) = consv_L[n];

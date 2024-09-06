@@ -1,3 +1,4 @@
+# Shock sphere test case where the shock starts very close to sphere
 # ------------------  INPUTS TO MAIN PROGRAM  -------------------
 max_step = 10000
 
@@ -7,16 +8,18 @@ stop_time = 0.000126061
 # Diffraction of strong shocks by cones, cylinders, and spheres
 # A. E. Bryson and R. W. F. Gross, 2006
 
-# M 1.34 shock
+# M 2.81 shock
 prob.adiabatic  = 1.4
-init.density_L  = 0.595
-init.velocity_L = 0
-init.pressure_L = 0.05e6
-init.density_R  = 2.18603
-init.velocity_R = -703.9826
-init.pressure_R = 452250
-init.int_offset = -0.31 # int is at x = 0.19
-init.int_normal = 1 0 0
+init.mode = shock
+init.M = 2.81
+init.density_amb = 0.595
+init.velocity_amb = 0
+init.pressure_amb = 0.05e6
+init.int_offset = 0.375 # int is at x = 0.125
+init.int_normal = -1 0 0
+
+adv.visc_method = op_split_explicit
+bc.rb = no_slip
 
 # shock velocity -967.252m/s
 # must travel 0.07m before hitting sphere
@@ -33,19 +36,19 @@ limiting.mom     = mom_x mom_y mom_z
 limiting.energy  = energy
 
 # RESOLUTION
-amr.n_cell         =  512 512 512
+amr.n_cell         =  16 16 16
 
 # TIME STEP CONTROL
-adv.cfl            = 0.4   # cfl number for hyperbolic system
+adv.cfl            = 0.8   # cfl number for hyperbolic system
 
 ## NUMERICAL METHOD SETTINGS
-adv.num_method = imex
-imex.advection_flux = muscl_rusanov
-imex.linearise                  = true
-imex.enthalpy_method            = reuse_pressure
-imex.ke_method                  = ex
-imex.butcher_tableau            = SSP222
-imex.stabilize = true
+adv.num_method = muscl_hancock
+# imex.advection_flux = muscl_rusanov
+# imex.linearise                  = true
+# imex.enthalpy_method            = reuse_pressure
+# imex.ke_method                  = ex
+# imex.butcher_tableau            = SSP222
+# imex.stabilize = true
 
 # VERBOSITY
 adv.v              = 0       # verbosity in Adv
@@ -53,7 +56,7 @@ amr.v              = 1       # verbosity in Amr
 #amr.grid_log         = grdlog  # name of grid logging file
 
 # REFINEMENT / REGRIDDING
-amr.max_level       = 0       # maximum level number allowed
+amr.max_level       = 4       # maximum level number allowed
 amr.ref_ratio       = 2 2 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
 amr.blocking_factor = 8       # block factor in grid generation
@@ -61,21 +64,22 @@ amr.max_grid_size   = 64
 
 # CHECKPOINT FILES
 amr.checkpoint_files_output = 1     # 0 will disable checkpoint files
-amr.check_file              = chk/PEEK-SSP222/shockcyl_134/0512/chk   # root name of checkpoint file
+amr.check_file              = chk/MHM/shockcyl-inst/AMR/chk   # root name of checkpoint file
 amr.check_int               = 500    # number of timesteps between checkpoints
 
 # PLOTFILES
 amr.plot_files_output = 1      # 0 will disable plot files
 amr.plot_file         = plt    # root name of plot file
 amr.plot_int          = 100 # number of timesteps between plot files
-amr.plot_file = output/PEEK-SSP222/shockcyl_134/0512/plt
+amr.plot_file = output/MHM/shockcyl-inst/AMR/plt
 
 # TRACER PARTICLES
 adv.do_tracers = 0
 
 # ERROR TAGGING
-tagging.phierr =  1.01  1.1   1.5
-tagging.max_phierr_lev = 10
+tagging.phigrad =  0.01 0.01 0.01 0.01 0.01
+tagging.max_phigrad_lev = 10
+tagging.max_int_lev = 10
 
 ls.geom_type = sphere
 ls.sphere_center = 0.1 0.1 0.1
