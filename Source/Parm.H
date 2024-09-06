@@ -49,11 +49,12 @@ struct Parm
      * 8: gamma / (gamma - 1)
      */
     amrex::GpuArray<amrex::Real, 9> adia;
-    amrex::Real Reinv;
+    amrex::Real                     Reinv;
 
     //! MHM slope limiting options
     Limiter                                    limiter;
     amrex::GpuArray<unsigned int, EULER_NCOMP> limiter_indices;
+    amrex::GpuArray<bool, EULER_NCOMP>         limit_on_primv;
 
     //! Set default values
     void set_defaults();

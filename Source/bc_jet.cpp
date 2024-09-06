@@ -231,11 +231,10 @@ struct CoaxJetPFill
     {
     }
 
-    AMREX_GPU_DEVICE AMREX_FORCE_INLINE void
-    operator()(const IntVect &iv, Array4<Real> const &p,
-               Array4<const Real> const &U, int dcomp, int numcomp,
-               GeometryData const &geom, Real /*time*/, const BCRec *bcr,
-               int bcomp, int /*orig_comp*/) const
+    AMREX_GPU_DEVICE AMREX_FORCE_INLINE void operator()(
+        const IntVect &iv, Array4<Real> const &p, Array4<const Real> const &U,
+        int dcomp, [[maybe_unused]] int numcomp, GeometryData const &geom,
+        Real /*time*/, const BCRec *bcr, int bcomp, int /*orig_comp*/) const
     {
         const auto &dx      = geom.CellSize();
         const auto &prob_lo = geom.ProbLo();

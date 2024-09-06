@@ -49,8 +49,9 @@ void fill_ls_normals(const amrex::Geometry &geom, amrex::MultiFab &LS)
                         = sqrt(AMREX_D_TERM(ls(i, j, k, 1) * ls(i, j, k, 1),
                                             +ls(i, j, k, 2) * ls(i, j, k, 2),
                                             +ls(i, j, k, 3) * ls(i, j, k, 3)));
-                    for (int d = 0; d < AMREX_SPACEDIM; ++d)
-                        ls(i, j, k, 1 + d) /= -magnitude;
+                    if (magnitude != 0)
+                        for (int d = 0; d < AMREX_SPACEDIM; ++d)
+                            ls(i, j, k, 1 + d) /= -magnitude;
                 });
         }
     }

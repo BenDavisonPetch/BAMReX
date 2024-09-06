@@ -20,8 +20,8 @@ void extrapolate_from_boundary(const amrex::Geometry  &geom,
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
         {
-            for (MFIter mfi(data, TilingIfNotGPU()); mfi.isValid(); ++mfi) {
-                const auto& bx = mfi.tilebox();
+            for (MFIter mfi(data, false); mfi.isValid(); ++mfi) {
+                const auto& bx = mfi.validbox();
 #ifdef AMREX_USE_GPU
 #error "This section does not launch GPU kernels!"
 #endif

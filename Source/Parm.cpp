@@ -1,5 +1,6 @@
 #include "Parm.H"
 #include "Fluxes/Limiters.H"
+#include <AMReX_Print.H>
 
 using namespace amrex;
 
@@ -17,7 +18,10 @@ void Parm::set_defaults()
     Re      = 1;
     limiter = van_leer_limiter;
     for (int i = 0; i < EULER_NCOMP; ++i)
+    {
         limiter_indices[i] = 1 + AMREX_SPACEDIM;
+        limit_on_primv[i]  = false;
+    }
 }
 
 void Parm::init()

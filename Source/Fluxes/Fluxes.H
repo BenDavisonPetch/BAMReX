@@ -126,11 +126,51 @@ compute_HLLC_flux(amrex::Real time, const amrex::Box &bx,
                               adia, eps, dx_arr, dt);
 }
 
+AMREX_GPU_HOST AMREX_FORCE_INLINE void
+compute_HLLC_flux(int dir, amrex::Real time, const amrex::Box &bx,
+                  const amrex::Array4<amrex::Real>       &flux,
+                  const amrex::Array4<const amrex::Real> &consv_values,
+                  amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr,
+                  amrex::Real                                      dt)
+{
+    if (dir == 0)
+        compute_HLLC_flux<0>(time, bx, flux, consv_values, dx_arr, dt);
+#if AMREX_SPACEDIM >= 2
+    else if (dir == 1)
+        compute_HLLC_flux<1>(time, bx, flux, consv_values, dx_arr, dt);
+#endif
+#if AMREX_SPACEDIM == 3
+    else
+        compute_HLLC_flux<2>(time, bx, flux, consv_values, dx_arr, dt);
+#endif
+}
+
 template <int dir>
 AMREX_GPU_HOST void compute_MUSCL_hancock_flux(
     amrex::Real time, const amrex::Box &bx,
     const amrex::Array4<amrex::Real>                &flux,
     const amrex::Array4<const amrex::Real>          &consv_values,
     amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr, amrex::Real dt);
+
+AMREX_FORCE_INLINE AMREX_GPU_HOST void compute_MUSCL_hancock_flux(
+    int dir, amrex::Real time, const amrex::Box &bx,
+    const amrex::Array4<amrex::Real>                &flux,
+    const amrex::Array4<const amrex::Real>          &consv_values,
+    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr, amrex::Real dt)
+{
+    if (dir == 0)
+        compute_MUSCL_hancock_flux<0>(time, bx, flux, consv_values, dx_arr,
+                                      dt);
+#if AMREX_SPACEDIM >= 2
+    else if (dir == 1)
+        compute_MUSCL_hancock_flux<1>(time, bx, flux, consv_values, dx_arr,
+                                      dt);
+#endif
+#if AMREX_SPACEDIM == 3
+    else
+        compute_MUSCL_hancock_flux<2>(time, bx, flux, consv_values, dx_arr,
+                                      dt);
+#endif
+}
 
 #endif

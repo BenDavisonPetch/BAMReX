@@ -59,6 +59,14 @@ void conservative_update(
     const amrex::Vector<amrex::Real> &dt1,
     const amrex::Vector<amrex::Real> &dt2, int N);
 
+//! Adds src to dst using boxes nbx
+AMREX_GPU_HOST
+AMREX_FORCE_INLINE
+void add_fluxes(
+    const amrex::Array<amrex::FArrayBox *, AMREX_SPACEDIM>       &dst,
+    const amrex::Array<const amrex::FArrayBox *, AMREX_SPACEDIM> &src,
+    const amrex::GpuArray<amrex::Box, BL_SPACEDIM>               &nbx);
+
 //
 // Implementations
 //
@@ -283,6 +291,24 @@ void conservative_update(
                             }
                         });
         }
+    }
+}
+
+//! Adds src to dst using boxes nbx
+AMREX_GPU_HOST
+AMREX_FORCE_INLINE
+void add_fluxes(
+    const amrex::Array<amrex::FArrayBox *, AMREX_SPACEDIM>       &dst,
+    const amrex::Array<const amrex::FArrayBox *, AMREX_SPACEDIM> &src,
+    const amrex::GpuArray<amrex::Box, BL_SPACEDIM>               &nbx)
+{
+    for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
+    {
+        const auto &d = dst[idim]->array();
+        const auto &s = src[idim]->const_array();
+        ParallelFor(nbx[idim], src[idim]->nComp(),
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept
+                    { d(i, j, k, n) += s(i, j, k, n); });
     }
 }
 

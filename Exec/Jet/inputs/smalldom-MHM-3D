@@ -16,8 +16,8 @@ init.R_spec = 287.052874 # J / kg / K
 
 geometry.is_periodic =  0  0  0
 geometry.coord_sys   =  0       # 0 => cart
-geometry.prob_lo     =  0 -0.4  -0.4
-geometry.prob_hi     =  1.6  0.4  0.4
+geometry.prob_lo     =  0 -0.2  -0.2
+geometry.prob_hi     =  0.5  0.2  0.2
 
 bc.x = coaxial_jet coaxial_jet
 bc.y = reflective coaxial_jet
@@ -33,7 +33,7 @@ limiting.mom     = mom_x mom_y mom_z
 limiting.energy  = energy
 
 # RESOLUTION
-amr.n_cell         = 64 32 32
+amr.n_cell         = 160 128 128
 
 # TIME STEP CONTROL
 adv.cfl            = 0.8   # cfl number for hyperbolic system
@@ -47,23 +47,22 @@ amr.v              = 1       # verbosity in Amr
 #amr.grid_log         = grdlog  # name of grid logging file
 
 # REFINEMENT / REGRIDDING
-amr.max_level       = 4       # maximum level number allowed
-amr.ref_ratio       = 4 2 2 2 # refinement ratio
+amr.max_level       = 1       # maximum level number allowed
+amr.ref_ratio       = 4 4 2 2 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
 amr.blocking_factor = 16       # block factor in grid generation
 amr.max_grid_size   = 64
 
 # CHECKPOINT FILES
 amr.checkpoint_files_output = 1     # 0 will disable checkpoint files
-amr.check_file              = chk/MHM/guitton-3d/amr/chk   # root name of checkpoint file
-amr.check_int               = 20    # number of timesteps between checkpoints
+amr.check_file              = chk/MHM/smalldom-3d/amr/chk   # root name of checkpoint file
+amr.check_int               = 100    # number of timesteps between checkpoints
 # in order to use a checkpoint, set amr.restart=path/to/chk
 
 # PLOTFILES
 amr.plot_files_output = 1      # 0 will disable plot files
-amr.plot_file         = plt    # root name of plot file
-amr.plot_int          = 10     # number of timesteps between plot files
-amr.plot_file = output/MHM/guitton-3d/amr/plt
+amr.plot_int          = 100 # number of timesteps between plot files
+amr.plot_file = output/MHM/smalldom-3d/amr/plt
 
 # TRACER PARTICLES
 adv.do_tracers = 0
@@ -72,7 +71,7 @@ adv.do_tracers = 0
 tagging.phigrad =  0.01 0.01 0.01 0.01 0.01
 tagging.max_phigrad_lev = 10
 tagging.max_int_lev = 10
-tagging.lstol = 0.02 0
+tagging.lstol = 0.01 0.01 0.01
 
 ls.geom_type = guitton_nozzle
 ls.scale_factor = 1e-3 # convert to metres

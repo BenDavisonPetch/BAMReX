@@ -1,5 +1,6 @@
 #include "Fluxes/Flux_Helpers.H"
 #include "AmrLevelAdv.H"
+#include "Fluxes/CalcLimitingVal.H"
 #include "Fluxes/Fluxes.H"
 #include "Fluxes/Limiters.H"
 
@@ -76,7 +77,7 @@ AMREX_GPU_HOST void reconstruct_and_half_time_step(
     int j_off = (dir == 1) ? 1 : 0;
     int k_off = (dir == 2) ? 1 : 0;
 
-    const auto &limiter_indices = AmrLevelAdv::h_parm->limiter_indices;
+    const Parm *parm = AmrLevelAdv::d_parm;
 
     //
     // Reconstruct
@@ -90,14 +91,17 @@ AMREX_GPU_HOST void reconstruct_and_half_time_step(
                     // cache locality
 
                     // limiter variable index
-                    int        iq = limiter_indices[n];
-                    const Real numerator
-                        = consv_values(i, j, k, iq)
-                          - consv_values(i - i_off, j - j_off, k - k_off, iq);
-                    const Real denom
-                        = consv_values(i + i_off, j + j_off, k + k_off, iq)
-                          - consv_values(i, j, k, iq);
-                    Real limiter_val;
+                    const Real val_C
+                        = calc_limiting_var(consv_values, *parm, i, j, k, n);
+                    const Real val_L
+                        = calc_limiting_var(consv_values, *parm, i - i_off,
+                                            j - j_off, k - k_off, n);
+                    const Real val_R
+                        = calc_limiting_var(consv_values, *parm, i + i_off,
+                                            j + j_off, k + k_off, n);
+                    const Real numerator = val_C - val_L;
+                    const Real denom     = val_R - val_C;
+                    Real       limiter_val;
                     if (numerator == 0. && denom == 0.)
                         limiter_val = slope_limit<limiter>(1);
                     else if (denom == 0)

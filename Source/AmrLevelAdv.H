@@ -113,6 +113,14 @@ class AmrLevelAdv : public amrex::AmrLevel
                         int ncycle) override;
 
     /**
+     * Advance when using a fully explicit method (e.g. MHM, HLLC)
+     */
+    void
+    advance_explicit(amrex::Real time, amrex::Real dt,
+                     amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
+                     amrex::MultiFab &Sborder1, amrex::MultiFab &Sborder2, amrex::MultiFab &S_new);
+
+    /**
      * Estimate time step.
      */
     amrex::Real estTimeStep(amrex::Real dt_old);
@@ -193,6 +201,7 @@ class AmrLevelAdv : public amrex::AmrLevel
     static int                        max_int_lev;
     static amrex::Vector<amrex::Real> phierr;
     static amrex::Vector<amrex::Real> phigrad;
+    static amrex::Vector<amrex::Real> lstol;
 
 #if !defined(AMREX_USE_CUDA)
   protected:

@@ -96,7 +96,97 @@ fast_sweep(const amrex::Box &bx, const amrex::Array4<const int> &flag,
     }
     // post_sweep_op(4);
 #elif AMREX_SPACEDIM == 3
-    amrex::Abort("Fast sweeping for spacedim 3 not supported yet!");
+    //
+    // 3D
+    //
+    // k = lo : hi, j = lo : hi, i = lo : hi
+    for (int k = bx.loVect3d()[2]; k <= bx.hiVect3d()[2]; ++k)
+        for (int j = bx.loVect3d()[1]; j <= bx.hiVect3d()[1]; ++j)
+        {
+            for (int i = bx.loVect3d()[0]; i <= bx.hiVect3d()[0]; ++i)
+            {
+                if (at_interface(flag(i, j, k)))
+                    continue;
+                operation(i, j, k);
+            }
+        }
+    // k = hi : lo, j = lo : hi, i = lo : hi
+    for (int k = bx.hiVect3d()[2]; k >= bx.loVect3d()[2]; --k)
+        for (int j = bx.loVect3d()[1]; j <= bx.hiVect3d()[1]; ++j)
+        {
+            for (int i = bx.loVect3d()[0]; i <= bx.hiVect3d()[0]; ++i)
+            {
+                if (at_interface(flag(i, j, k)))
+                    continue;
+                operation(i, j, k);
+            }
+        }
+    // k = lo : hi, j = lo : hi, i = hi : lo
+    for (int k = bx.loVect3d()[2]; k <= bx.hiVect3d()[2]; ++k)
+        for (int j = bx.loVect3d()[1]; j <= bx.hiVect3d()[1]; ++j)
+        {
+            for (int i = bx.hiVect3d()[0]; i >= bx.loVect3d()[0]; --i)
+            {
+                if (at_interface(flag(i, j, k)))
+                    continue;
+                operation(i, j, k);
+            }
+        }
+    // k = hi : lo, j = lo : hi, i = hi : lo
+    for (int k = bx.hiVect3d()[2]; k >= bx.loVect3d()[2]; --k)
+        for (int j = bx.loVect3d()[1]; j <= bx.hiVect3d()[1]; ++j)
+        {
+            for (int i = bx.hiVect3d()[0]; i >= bx.loVect3d()[0]; --i)
+            {
+                if (at_interface(flag(i, j, k)))
+                    continue;
+                operation(i, j, k);
+            }
+        }
+    // k = lo : hi, j = hi : lo, i = hi : lo
+    for (int k = bx.loVect3d()[2]; k <= bx.hiVect3d()[2]; ++k)
+        for (int j = bx.hiVect3d()[1]; j >= bx.loVect3d()[1]; --j)
+        {
+            for (int i = bx.hiVect3d()[0]; i >= bx.loVect3d()[0]; --i)
+            {
+                if (at_interface(flag(i, j, k)))
+                    continue;
+                operation(i, j, k);
+            }
+        }
+    // k = hi : lo, j = hi : lo, i = hi : lo
+    for (int k = bx.hiVect3d()[2]; k >= bx.loVect3d()[2]; --k)
+        for (int j = bx.hiVect3d()[1]; j >= bx.loVect3d()[1]; --j)
+        {
+            for (int i = bx.hiVect3d()[0]; i >= bx.loVect3d()[0]; --i)
+            {
+                if (at_interface(flag(i, j, k)))
+                    continue;
+                operation(i, j, k);
+            }
+        }
+    // k = lo : hi, j = hi : lo, i = lo : hi
+    for (int k = bx.loVect3d()[2]; k <= bx.hiVect3d()[2]; ++k)
+        for (int j = bx.hiVect3d()[1]; j >= bx.loVect3d()[1]; --j)
+        {
+            for (int i = bx.loVect3d()[0]; i <= bx.hiVect3d()[0]; ++i)
+            {
+                if (at_interface(flag(i, j, k)))
+                    continue;
+                operation(i, j, k);
+            }
+        }
+    // k = hi : lo, j = hi : lo, i = lo : hi
+    for (int k = bx.hiVect3d()[2]; k >= bx.loVect3d()[2]; --k)
+        for (int j = bx.hiVect3d()[1]; j >= bx.loVect3d()[1]; --j)
+        {
+            for (int i = bx.loVect3d()[0]; i <= bx.hiVect3d()[0]; ++i)
+            {
+                if (at_interface(flag(i, j, k)))
+                    continue;
+                operation(i, j, k);
+            }
+        }
 #endif
 }
 

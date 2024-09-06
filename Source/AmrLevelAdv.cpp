@@ -65,6 +65,7 @@ int          AmrLevelAdv::max_phigrad_lev = -1;
 int          AmrLevelAdv::max_int_lev     = -1;
 Vector<Real> AmrLevelAdv::phierr;
 Vector<Real> AmrLevelAdv::phigrad;
+Vector<Real> AmrLevelAdv::lstol;
 
 /**
  * Default constructor.  Builds invalid object.
@@ -708,6 +709,7 @@ void AmrLevelAdv::errorEst(TagBoxArray &tags, int /*clearval*/, int /*tagval*/,
                            Real /*time*/, int /*n_error_buf*/, int /*ngrow*/)
 {
     const MultiFab &S_new = get_new_data(Consv_Type);
+    const MultiFab &LS    = get_new_data(Levelset_Type);
 
     // Properly fill patches and ghost cells for phi gradient check
     // (i.e. make sure there is at least one ghost cell defined)
@@ -734,6 +736,7 @@ void AmrLevelAdv::errorEst(TagBoxArray &tags, int /*clearval*/, int /*tagval*/,
         {
             const Box &tilebx = mfi.tilebox();
             const auto phiarr = phi.array(mfi);
+            const auto ls     = LS.const_array(mfi);
             auto       tagarr = tags.array(mfi);
 
             // Tag cells with high phi.
@@ -763,19 +766,27 @@ void AmrLevelAdv::errorEst(TagBoxArray &tags, int /*clearval*/, int /*tagval*/,
             // Tag cells at interfaces
             if (bc_data.rb_enabled() && level < max_int_lev)
             {
-                const auto &flag = gfm_flags.const_array(mfi);
+                const Real  lstol_lev = lstol[level];
+                const auto &flag      = gfm_flags.const_array(mfi);
                 amrex::ParallelFor(
-                    tilebx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-                    { interface_error(i, j, k, tagarr, flag, tagval); });
+                    tilebx,
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                        interface_error(i, j, k, tagarr, ls, flag, lstol_lev,
+                                        tagval);
+                    });
             }
 
             // Untag cells in the ghost region not at the interface
             if (bc_data.rb_enabled())
             {
-                const auto &flag = gfm_flags.const_array(mfi);
+                const Real  lstol_lev = lstol[level];
+                const auto &flag      = gfm_flags.const_array(mfi);
                 amrex::ParallelFor(
-                    tilebx, [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
-                    { ghost_error(i, j, k, tagarr, flag, clearval); });
+                    tilebx,
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                        ghost_error(i, j, k, tagarr, ls, flag, lstol_lev,
+                                    clearval);
+                    });
             }
         }
     }
@@ -855,14 +866,24 @@ void AmrLevelAdv::read_params()
             h_parm->limiter = limiter_from_name(limiter_name);
 
         if (!density_limiter.empty())
+        {
             h_parm->limiter_indices[0] = var_name_to_idx(density_limiter);
+            h_parm->limit_on_primv[0]  = var_is_primv(density_limiter);
+        }
         if (!energy_limiter.empty())
+        {
             h_parm->limiter_indices[1 + AMREX_SPACEDIM]
                 = var_name_to_idx(energy_limiter);
+            h_parm->limit_on_primv[1 + AMREX_SPACEDIM]
+                = var_is_primv(energy_limiter);
+        }
         for (int i = 0; i < AMREX_SPACEDIM; ++i)
             if (!mom_limiters[i].empty())
+            {
                 h_parm->limiter_indices[1 + i]
                     = var_name_to_idx(mom_limiters[i]);
+                h_parm->limit_on_primv[1 + i] = var_is_primv(mom_limiters[i]);
+            }
     }
     h_parm->init();
     amrex::Gpu::copy(amrex::Gpu::hostToDevice, h_parm, h_parm + 1, d_parm);

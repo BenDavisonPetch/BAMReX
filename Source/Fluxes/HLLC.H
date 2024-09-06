@@ -227,28 +227,40 @@ AMREX_GPU_DEVICE AMREX_FORCE_INLINE void estimate_wave_speed_HLLC_Toro(
     auto primv_R
         = primv_from_consv(consv_values_R, adiabatic_R, epsilon, i, j, k);
 
-    const amrex::Real density_L = primv_L[0];
-    const amrex::Real density_R = primv_R[0];
-    const amrex::Real p_L       = primv_L[1 + AMREX_SPACEDIM];
-    const amrex::Real p_R       = primv_R[1 + AMREX_SPACEDIM];
+    amrex::Real       density_L = primv_L[0];
+    amrex::Real       density_R = primv_R[0];
+    amrex::Real       p_L       = primv_L[1 + AMREX_SPACEDIM];
+    amrex::Real       p_R       = primv_R[1 + AMREX_SPACEDIM];
     const amrex::Real u_L       = primv_L[1 + dir];
     const amrex::Real u_R       = primv_R[1 + dir];
-    // sound speeds
-    const amrex::Real c_L = sound_speed(primv_L, adiabatic_L, epsilon);
-    const amrex::Real c_R = sound_speed(primv_R, adiabatic_R, epsilon);
 
-    AMREX_ASSERT_WITH_MESSAGE(
-        density_L > 0,
-        "Non-positive density! Consider changing the limiting strategy");
-    AMREX_ASSERT_WITH_MESSAGE(
-        density_R > 0,
-        "Non-positive density! Consider changing the limiting strategy");
-    AMREX_ASSERT_WITH_MESSAGE(
-        p_L > 0,
-        "Non-positive pressure! Consider changing the limiting strategy");
-    AMREX_ASSERT_WITH_MESSAGE(
-        p_R > 0,
-        "Non-positive pressure! Consider changing the limiting strategy");
+#ifdef AMREX_DEBUG
+    if (density_L < 0)
+        amrex::AllPrint() << "WARNING: density_L < 0 at cell " << i << " " << j
+                          << " " << k << " (= " << density_L << ")"
+                          << std::endl;
+    if (density_R < 0)
+        amrex::AllPrint() << "WARNING: density_R < 0 at cell " << i << " " << j
+                          << " " << k << " (= " << density_R << ")"
+                          << std::endl;
+    if (p_L < 0)
+        amrex::AllPrint() << "WARNING: p_L < 0 at cell " << i << " " << j
+                          << " " << k << " (= " << p_L << ")" << std::endl;
+    if (p_R < 0)
+        amrex::AllPrint() << "WARNING: p_R < 0 at cell " << i << " " << j
+                          << " " << k << " (= " << p_R << ")" << std::endl;
+#endif
+    constexpr amrex::Real min_rho = 1e-14;
+    constexpr amrex::Real min_p   = 1e-14;
+    density_L                     = amrex::max(density_L, min_rho);
+    density_R                     = amrex::max(density_R, min_rho);
+    p_L                           = amrex::max(p_L, min_p);
+    p_R                           = amrex::max(p_R, min_p);
+
+    // sound speeds
+    const amrex::Real c_L = sqrt(adiabatic_L * p_L / (density_L * epsilon));
+    const amrex::Real c_R = sqrt(adiabatic_R * p_R / (density_R * epsilon));
+
     AMREX_ASSERT_WITH_MESSAGE(adiabatic_L == adiabatic_R, "Not implemented!");
     const amrex::Real adiabatic = adiabatic_L;
 

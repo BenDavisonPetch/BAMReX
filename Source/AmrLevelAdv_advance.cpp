@@ -8,6 +8,7 @@
 #include "RCM/RCM.H"
 #include "SourceTerms/GeometricSource.H"
 #include "Visc/Visc.H"
+#include <AMReX_Arena.H>
 #include <AMReX_MFIter.H>
 
 using namespace amrex;
@@ -51,9 +52,7 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     // const Real cur_time  = state[Consv_Type].curTime();
     // const Real ctr_time  = 0.5 * (prev_time + cur_time);
 
-    GpuArray<Real, BL_SPACEDIM> dx    = geom.CellSizeArray();
-    GpuArray<Real, BL_SPACEDIM> dxinv = geom.InvCellSizeArray();
-    // GpuArray<Real, BL_SPACEDIM> prob_lo = geom.ProbLoArray();
+    GpuArray<Real, BL_SPACEDIM> dx = geom.CellSizeArray();
 
     //
     // Get pointers to Flux registers, or set pointer to zero if not there.
@@ -98,8 +97,10 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     }
 
     // State with ghost cells - this is used to compute fluxes and perform the
-    // update.
+    // update. We have two for methods with operator splitting (the output of
+    // one step becomes the input of the next and needs ghost cells)
     MultiFab Sborder(grids, dmap, NUM_STATE, NUM_GROW);
+    MultiFab Sborder2(grids, dmap, NUM_STATE, NUM_GROW);
     // We use FillPatcher to do fillpatch here if we can
     // This is similar to the FillPatch function documented in init(), but
     // takes care of boundary conditions too
@@ -115,185 +116,13 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     if (verbose)
         Print() << "\tFilled ghost states" << std::endl;
 
+    MultiFab::Copy(Sborder2, Sborder, 0, 0, NUM_STATE, NUM_GROW);
+
     BL_PROFILE_VAR("AmrLevelAdv::flux_computation", pflux_computation);
 
     if (num_method == NumericalMethods::muscl_hancock
         || num_method == NumericalMethods::hllc)
-    {
-        for (int d = 0; d < amrex::SpaceDim; d++)
-        {
-            if (verbose)
-                Print() << "\tComputing update for direction " << d
-                        << std::endl;
-
-            const int iOffset = (d == 0 ? 1 : 0);
-            const int jOffset = (d == 1 ? 1 : 0);
-            const int kOffset = (d == 2 ? 1 : 0);
-
-            // The below loop basically does an MFIter loop but with lots of
-            // hidden boilerplate to make things performance portable.
-            // Some isms with the
-            // muscl implementation: S_new is never touched, the below will
-            // update Sborder in place nodal boxes aren't used
-            MFIter_loop(
-                time, geom, S_new, Sborder, fluxes, dt,
-                [&](const amrex::MFIter & /*mfi*/, const amrex::Real time,
-                    const amrex::Box &bx,
-                    amrex::GpuArray<amrex::Box, AMREX_SPACEDIM> /*nbx*/,
-                    const amrex::FArrayBox & /*statein*/,
-                    amrex::FArrayBox &stateout,
-                    AMREX_D_DECL(amrex::FArrayBox & fx, amrex::FArrayBox & fy,
-                                 amrex::FArrayBox & fz),
-                    amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx,
-                    const amrex::Real                            dt)
-                {
-                    const auto &arr = stateout.array();
-#if AMREX_SPACEDIM == 1
-                    const auto &fluxArr = fx.array();
-#elif AMREX_SPACEDIM == 2
-                    const auto &fluxArr = (d == 0) ? fx.array() : fy.array();
-#else
-                    const auto &fluxArr
-                        = (d == 0) ? fx.array()
-                                   : ((d == 1) ? fy.array() : fz.array());
-#endif
-
-                    switch (num_method)
-                    {
-                    case NumericalMethods::muscl_hancock:
-                        switch (d)
-                        {
-                        case 0:
-                            compute_MUSCL_hancock_flux<0>(time, bx, fluxArr,
-                                                          arr, dx, dt);
-                            break;
-#if AMREX_SPACEDIM >= 2
-                        case 1:
-                            compute_MUSCL_hancock_flux<1>(time, bx, fluxArr,
-                                                          arr, dx, dt);
-                            break;
-#if AMREX_SPACEDIM == 3
-                        case 2:
-                            compute_MUSCL_hancock_flux<2>(time, bx, fluxArr,
-                                                          arr, dx, dt);
-                            break;
-#endif
-#endif
-                        }
-                        break;
-                    case NumericalMethods::hllc:
-                        switch (d)
-                        {
-                        case 0:
-                            compute_HLLC_flux<0>(time, bx, fluxArr, arr, dx,
-                                                 dt);
-                            break;
-#if AMREX_SPACEDIM >= 2
-                        case 1:
-                            compute_HLLC_flux<1>(time, bx, fluxArr, arr, dx,
-                                                 dt);
-                            break;
-#if AMREX_SPACEDIM == 3
-                        case 2:
-                            compute_HLLC_flux<2>(time, bx, fluxArr, arr, dx,
-                                                 dt);
-                            break;
-#endif
-#endif
-                        }
-                        break;
-                    default: throw std::logic_error("Internal error");
-                    }
-
-                    // Conservative update
-                    ParallelFor(
-                        bx, NUM_STATE,
-                        [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-                            noexcept
-                        {
-                            // Conservative update formula
-                            arr(i, j, k, n)
-                                = arr(i, j, k, n)
-                                  - (dt / dx[d])
-                                        * (fluxArr(i + iOffset, j + jOffset,
-                                                   k + kOffset, n)
-                                           - fluxArr(i, j, k, n));
-                        });
-                },
-                0, { d });
-
-            // We need to compute boundary conditions again after each update
-            bc_data.fill_consv_boundary(geom, Sborder, time);
-
-            if (verbose)
-                Print() << "\tDirection update complete" << std::endl;
-        }
-
-        if (visc == ViscMethods::op_split_explicit)
-        {
-            Array<MultiFab, AMREX_SPACEDIM> vfluxes;
-            for (int j = 0; j < AMREX_SPACEDIM; j++)
-            {
-                BoxArray ba = S_new.boxArray();
-                ba.surroundingNodes(j);
-                vfluxes[j].define(ba, dmap, NUM_STATE, 0);
-            }
-#ifdef AMREX_USE_OMP
-#pragma omp parallel if (Gpu::notInLaunchRegion())
-#endif
-            {
-                for (MFIter mfi(Sborder, TilingIfNotGPU()); mfi.isValid();
-                     ++mfi)
-                {
-                    const Box                 &bx = mfi.tilebox();
-                    GpuArray<Box, BL_SPACEDIM> nbx;
-                    AMREX_D_TERM(nbx[0] = mfi.nodaltilebox(0);
-                                 , nbx[1] = mfi.nodaltilebox(1);
-                                 , nbx[2] = mfi.nodaltilebox(2));
-                    compute_visc_fluxes_exp(bx, nbx,
-                                            AMREX_D_DECL(vfluxes[0][mfi],
-                                                         vfluxes[1][mfi],
-                                                         vfluxes[2][mfi]),
-                                            Sborder[mfi], dxinv);
-                    // Conservative update
-                    conservative_update(bx, Sborder[mfi],
-                                        AMREX_D_DECL(vfluxes[0][mfi],
-                                                     vfluxes[1][mfi],
-                                                     vfluxes[2][mfi]),
-                                        Sborder[mfi], dt, dxinv);
-                    if (do_reflux)
-                    {
-                        AMREX_D_TERM(fluxes[0][mfi] += vfluxes[0][mfi];
-                                     , fluxes[1][mfi] += vfluxes[1][mfi];
-                                     , fluxes[2][mfi] += vfluxes[2][mfi];)
-                    }
-                }
-            }
-        }
-
-        if (rot_axis != -1 && alpha != 0)
-        {
-            AMREX_ALWAYS_ASSERT(
-                parent->maxLevel() == 0
-                || !do_reflux); // this routine doesn't update fluxes
-            advance_geometric(geom, dt, alpha, rot_axis, Sborder, S_new);
-        }
-        else
-        {
-            // The updated data is now copied to the S_new multifab.  This
-            // means it is now accessible through the get_new_data command, and
-            // AMReX can automatically interpolate or extrapolate between
-            // layers etc. S_new: Destination Sborder: Source Third entry:
-            // Starting variable in the source array to be copied (the zeroth
-            // variable in this case) Fourth entry: Starting variable in the
-            // destination array to receive the copy (again zeroth here)
-            // NUM_STATE: Total number of variables being copied Sixth entry:
-            // Number of ghost cells to be included in the copy (zero in this
-            // case, since only real
-            //              data is needed for S_new)
-            MultiFab::Copy(S_new, Sborder, 0, 0, NUM_STATE, 0);
-        }
-    }
+        advance_explicit(time, dt, fluxes, Sborder, Sborder2, S_new);
     else if (num_method == NumericalMethods::imex)
     {
         AMREX_ASSERT_WITH_MESSAGE(
@@ -415,4 +244,157 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     if (verbose)
         Print() << "Advance complete!" << std::endl;
     return dt;
+}
+
+void AmrLevelAdv::advance_explicit(
+    amrex::Real time, amrex::Real dt,
+    amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> &fluxes,
+    amrex::MultiFab &Sborder1, amrex::MultiFab &Sborder2,
+    amrex::MultiFab &S_new)
+{
+    const int   ncomp     = Sborder1.nComp();
+    const auto &dx        = geom.CellSizeArray();
+    const auto &dxinv     = geom.InvCellSizeArray();
+    const bool  do_tiling = TilingIfNotGPU() && AMREX_SPACEDIM == 3;
+
+    MultiFab *MFin  = &Sborder1;
+    MultiFab *MFout = &Sborder2;
+
+    for (int d = 0; d < amrex::SpaceDim; d++)
+    {
+        if (verbose)
+            Print() << "\tComputing update for direction " << d << std::endl;
+
+        const int iOffset = (d == 0 ? 1 : 0);
+        const int jOffset = (d == 1 ? 1 : 0);
+        const int kOffset = (d == 2 ? 1 : 0);
+
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+        {
+            FArrayBox  tileflux;
+            FArrayBox *flux;
+            for (MFIter mfi(Sborder1, do_tiling); mfi.isValid(); ++mfi)
+            {
+                const auto &bx = mfi.tilebox();
+                // box on which we should copy to fluxes
+                const auto &nbx = mfi.nodaltilebox(d);
+                // box on which we should compute fluxes for update on bx
+                const auto               &tbx  = surroundingNodes(bx, d);
+                const Array4<const Real> &Uin  = MFin->const_array(mfi);
+                const Array4<Real>       &Uout = MFout->array(mfi);
+                if (do_tiling)
+                {
+                    tileflux.resize(tbx, ncomp, The_Async_Arena());
+                    flux = &tileflux;
+                }
+                else
+                {
+                    flux = &(fluxes[d][mfi]);
+                }
+                const auto &fluxarr  = flux->array();
+                const auto &cfluxarr = flux->const_array();
+
+                if (num_method == NumericalMethods::muscl_hancock)
+                    compute_MUSCL_hancock_flux(d, time, bx, fluxarr, Uin, dx,
+                                               dt);
+                else if (num_method == NumericalMethods::hllc)
+                    compute_HLLC_flux(d, time, bx, fluxarr, Uin, dx, dt);
+                else
+                    throw std::logic_error("Internal error");
+
+                // Conservative update
+                ParallelFor(
+                    bx, ncomp,
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept
+                    {
+                        // Conservative update formula
+                        Uout(i, j, k, n)
+                            = Uin(i, j, k, n)
+                              - (dt / dx[d])
+                                    * (cfluxarr(i + iOffset, j + jOffset,
+                                                k + kOffset, n)
+                                       - cfluxarr(i, j, k, n));
+                    });
+
+                // Copy tileflux to fluxes using appropriate nodal tile box
+                if (do_reflux && do_tiling)
+                {
+                    const auto &fdst = fluxes[d].array(mfi);
+                    const auto &fsrc = tileflux.const_array();
+                    ParallelFor(
+                        nbx, ncomp,
+                        [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
+                            noexcept { fdst(i, j, k, n) = fsrc(i, j, k, n); });
+                }
+            }
+        }
+        // We need to compute boundary conditions again after each update
+        bc_data.fill_consv_boundary(geom, *MFout, time);
+        std::swap(MFin, MFout);
+        if (verbose)
+            Print() << "\tDirection update complete" << std::endl;
+    }
+
+    if (visc == ViscMethods::op_split_explicit)
+    {
+#ifdef AMREX_USE_OMP
+#pragma omp parallel if (Gpu::notInLaunchRegion())
+#endif
+        {
+            // temporary fabs
+            Array<FArrayBox, AMREX_SPACEDIM> vfluxes;
+            for (MFIter mfi(Sborder1, do_tiling); mfi.isValid(); ++mfi)
+            {
+                const Box &bx = mfi.tilebox();
+                for (int idim = 0; idim < AMREX_SPACEDIM; idim++)
+                {
+                    vfluxes[idim].resize(surroundingNodes(bx, idim), ncomp,
+                                         The_Async_Arena());
+                }
+                GpuArray<Box, BL_SPACEDIM> nbx;
+                AMREX_D_TERM(nbx[0] = mfi.nodaltilebox(0);
+                             , nbx[1] = mfi.nodaltilebox(1);
+                             , nbx[2] = mfi.nodaltilebox(2));
+                compute_visc_fluxes_exp(
+                    bx, AMREX_D_DECL(vfluxes[0], vfluxes[1], vfluxes[2]),
+                    (*MFin)[mfi], dxinv);
+                // Conservative update
+                conservative_update(
+                    bx, (*MFin)[mfi],
+                    AMREX_D_DECL(vfluxes[0], vfluxes[1], vfluxes[2]),
+                    (*MFout)[mfi], dt, dxinv);
+                if (do_reflux)
+                {
+                    Array<FArrayBox *, AMREX_SPACEDIM> fluxfabs{ AMREX_D_DECL(
+                        &(fluxes[0][mfi]), &(fluxes[1][mfi]),
+                        &(fluxes[2][mfi])) };
+                    add_fluxes(fluxfabs, GetArrOfConstPtrs(vfluxes), nbx);
+                }
+            }
+        }
+        std::swap(MFin, MFout);
+    }
+
+    if (rot_axis != -1 && alpha != 0 && AMREX_SPACEDIM < 3)
+    {
+        AMREX_ALWAYS_ASSERT(
+            parent->maxLevel() == 0
+            || !do_reflux); // this routine doesn't update fluxes
+        advance_geometric(geom, dt, alpha, rot_axis, (*MFin), (*MFout));
+        std::swap(MFin, MFout);
+    }
+    // The updated data is now copied to the S_new multifab.  This
+    // means it is now accessible through the get_new_data command, and
+    // AMReX can automatically interpolate or extrapolate between
+    // layers etc. S_new: Destination Sborder: Source Third entry:
+    // Starting variable in the source array to be copied (the zeroth
+    // variable in this case) Fourth entry: Starting variable in the
+    // destination array to receive the copy (again zeroth here)
+    // NUM_STATE: Total number of variables being copied Sixth entry:
+    // Number of ghost cells to be included in the copy (zero in this
+    // case, since only real
+    //              data is needed for S_new)
+    MultiFab::Copy(S_new, *MFin, 0, 0, NUM_STATE, 0);
 }

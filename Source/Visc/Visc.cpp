@@ -18,16 +18,20 @@ void visc_primv_from_consv(const amrex::Box &bx, amrex::FArrayBox &Q,
 
 AMREX_GPU_HOST
 void compute_visc_fluxes_exp(
-    const amrex::Box                                  &bx,
-    const amrex::GpuArray<amrex::Box, AMREX_SPACEDIM> &nbx,
+    const amrex::Box &bx,
     AMREX_D_DECL(amrex::FArrayBox &fx, amrex::FArrayBox &fy,
                  amrex::FArrayBox &fz),
-    const amrex::FArrayBox                       &U,
-    amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &dxinv)
+    const amrex::FArrayBox                             &U,
+    const amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> &dxinv)
 {
     BL_PROFILE("compute_visc_fluxes_exp()");
-    const Box &gbx = amrex::grow(bx, 1);
-    FArrayBox  Qfab(gbx, QInd::vsize, The_Async_Arena());
+    const Box                    &gbx = amrex::grow(bx, 1);
+    GpuArray<Box, AMREX_SPACEDIM> nbx;
+    for (int idim = 0; idim < AMREX_SPACEDIM; ++idim)
+    {
+        nbx[idim] = surroundingNodes(bx, idim);
+    }
+    FArrayBox Qfab(gbx, QInd::vsize, The_Async_Arena());
     visc_primv_from_consv(gbx, Qfab, U);
     const auto &Q = Qfab.const_array();
 
@@ -235,11 +239,11 @@ void compute_visc_fluxes_exp(
                     const Real Reinv = (*parm).Reinv;
                     const Real eps   = (*parm).epsilon;
 
-                    fyarr(i, j, k, UInd::RHO) = 0;
-                    fyarr(i, j, k, UInd::MX)  = -tauxz * Reinv;
-                    fyarr(i, j, k, UInd::MY)  = -tauyz * Reinv;
-                    fyarr(i, j, k, UInd::MZ)  = -tauzz * Reinv;
-                    fyarr(i, j, k, UInd::E)
+                    fzarr(i, j, k, UInd::RHO) = 0;
+                    fzarr(i, j, k, UInd::MX)  = -tauxz * Reinv;
+                    fzarr(i, j, k, UInd::MY)  = -tauyz * Reinv;
+                    fzarr(i, j, k, UInd::MZ)  = -tauzz * Reinv;
+                    fzarr(i, j, k, UInd::E)
                         = -(tauxz * u + tauyz * v + tauzz * w) * Reinv * eps
                           - kappa * dTdz * Reinv;
                 });

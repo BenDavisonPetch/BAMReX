@@ -31,4 +31,10 @@ void AmrLevelAdv::get_tagging_params()
         phigrad.resize(max_phigrad_lev, 1.0e+20);
         pp.queryarr("phigrad", phigrad);
     }
+    if (max_int_lev != -1)
+    {
+        // refine when |LS| < TOL
+        lstol.resize(max_int_lev, 0);
+        pp.queryarr("lstol", lstol);
+    }
 }

@@ -32,8 +32,8 @@ geometry.prob_hi     =  0.2  0.2  0.2
 
 limiting.limiter = minbee
 limiting.density = density
-limiting.mom     = mom_x mom_y mom_z
-limiting.energy  = energy
+limiting.mom     = p p p
+limiting.energy  = p
 
 # RESOLUTION
 amr.n_cell         =  16 16 16
