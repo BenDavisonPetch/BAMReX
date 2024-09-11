@@ -44,7 +44,7 @@ limiting.energy  = energy
 amr.n_cell         =  128 128 1
 
 # TIME STEP CONTROL
-adv.cfl            = 0.5   # cfl number for hyperbolic system
+adv.cfl            = 0.8   # cfl number for hyperbolic system
 
 ## NUMERICAL METHOD SETTINGS
 adv.num_method = muscl_hancock

@@ -444,7 +444,7 @@ Real AmrLevelAdv::estTimeStep(Real)
         const Real visc_eigv = max_visc_eigv(S_new);
         const Real dt_visc
             = (Real)1
-              / (visc_eigv
+              / (2 * visc_eigv
                  * (AMREX_D_TERM(dxinv[0] * dxinv[0], +dxinv[1] * dxinv[1],
                                  +dxinv[2] * dxinv[2])));
         if (dt_visc < dt_est)
