@@ -66,12 +66,11 @@ void interface_error(int i, int j, int k, amrex::Array4<char> const &tag,
 AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 void ghost_error(int i, int j, int k, amrex::Array4<char> const &tag,
-                 amrex::Array4<amrex::Real const> const &LS,
-                 amrex::Array4<int const> const         &gfm_flags,
-                 amrex::Real dist_tol, char const clearval) noexcept
+                 amrex::Array4<amrex::Real const> const & /*LS*/,
+                 amrex::Array4<int const> const &gfm_flags,
+                 amrex::Real /*dist_tol*/, char const clearval) noexcept
 {
-    if (is_ghost(gfm_flags(i, j, k)) && !at_interface(gfm_flags(i, j, k))
-        && fabs(LS(i, j, k)) > dist_tol)
+    if (is_ghost(gfm_flags(i, j, k)) && !at_interface(gfm_flags(i, j, k)))
         tag(i, j, k) = clearval;
 }
 

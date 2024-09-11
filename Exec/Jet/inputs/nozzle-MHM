@@ -73,7 +73,7 @@ adv.do_tracers = 0
 tagging.phigrad =  0.05 0.05 0.05 0.05 0.05 0.05
 tagging.max_phigrad_lev = 4
 tagging.max_int_lev = 10
-tagging.lstol = 0.02 0
+tagging.lstol = 0.02 0.001 0.001 0.001 0.001 0.001
 
 ls.geom_type = guitton_nozzle
 ls.scale_factor = 1e-3 # convert to metres
