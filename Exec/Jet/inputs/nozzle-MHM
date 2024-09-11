@@ -17,7 +17,7 @@ init.R_spec = 287.052874 # J / kg / K
 geometry.is_periodic =  0  0  0
 geometry.coord_sys   =  0       # 0 => cart
 geometry.prob_lo     =  0.0  0.0  0.0 
-geometry.prob_hi     =  4  1.6  0.0 # 40 D_s + L by 16 D_s, D_s = 0.1
+geometry.prob_hi     =  4.8  1.2  0.0 # 48 D_s + L by 12 D_s, D_s = 0.1
 
 bc.x = coaxial_jet coaxial_jet
 bc.y = reflective coaxial_jet
@@ -28,15 +28,15 @@ sym.rot_axis = 1
 sym.alpha = 1
 
 limiting.limiter = van_leer
-limiting.density = energy
-limiting.mom     = energy energy energy
-limiting.energy  = energy
+limiting.density = density
+limiting.mom     = p p p
+limiting.energy  = p
 
 # RESOLUTION
-amr.n_cell         = 3200 1280 0
+amr.n_cell         = 128 32 0
 
 # TIME STEP CONTROL
-adv.cfl            = 0.8   # cfl number for hyperbolic system
+adv.cfl            = 0.5   # cfl number for hyperbolic system
 
 ## NUMERICAL METHOD SETTINGS
 adv.num_method = muscl_hancock
@@ -47,30 +47,33 @@ amr.v              = 1       # verbosity in Amr
 #amr.grid_log         = grdlog  # name of grid logging file
 
 # REFINEMENT / REGRIDDING
-amr.max_level       = 0       # maximum level number allowed
-amr.ref_ratio       = 2 2 2 2 # refinement ratio
+amr.max_level       = 5       # maximum level number allowed
+amr.ref_ratio       = 2 2 4 4 4 # refinement ratio
 amr.regrid_int      = 2       # how often to regrid
-amr.blocking_factor = 8       # block factor in grid generation
+amr.blocking_factor = 16       # block factor in grid generation
 amr.max_grid_size   = 64
 
 # CHECKPOINT FILES
 amr.checkpoint_files_output = 1     # 0 will disable checkpoint files
-amr.check_file              = chk/MHM/full/1024/chk   # root name of checkpoint file
-amr.check_int               = 1000    # number of timesteps between checkpoints
+amr.check_file              = chk/MHM/full/amr/chk   # root name of checkpoint file
+amr.check_int               = 50    # number of timesteps between checkpoints
 # in order to use a checkpoint, set amr.restart=path/to/chk
 
 # PLOTFILES
 amr.plot_files_output = 1      # 0 will disable plot files
 amr.plot_file         = plt    # root name of plot file
-amr.plot_int          = 1000 # number of timesteps between plot files
-amr.plot_file = output/MHM/full/1024/plt
+amr.plot_int          = 10 # number of timesteps between plot files
+amr.plot_file = output/MHM/full/amr/plt
+amr.derive_plot_vars = rank
 
 # TRACER PARTICLES
 adv.do_tracers = 0
 
 # ERROR TAGGING
-tagging.phierr =  1.01  1.1   1.5
-tagging.max_phierr_lev = 10
+tagging.phigrad =  0.05 0.05 0.05 0.05 0.05 0.05
+tagging.max_phigrad_lev = 4
+tagging.max_int_lev = 10
+tagging.lstol = 0.02 0
 
 ls.geom_type = guitton_nozzle
 ls.scale_factor = 1e-3 # convert to metres
@@ -81,4 +84,4 @@ ls.outer_radius = 52.5
 ls.length = 158 # base to tip
 ls.tip_angle = 7 # in degrees
 ls.nozzle_center = 0 0 0 # x value sets position of base
-ls.square_tips=true
+ls.square_tips=false
