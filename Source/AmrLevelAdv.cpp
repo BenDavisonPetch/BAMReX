@@ -12,6 +12,7 @@
 #include <stdexcept>
 
 #include "AmrLevelAdv.H"
+#include "AmrLevelAdv_derive.H"
 #include "BCs.H"
 #include "Euler/Euler.H"
 #include "GFM/GFMFlag.H"
@@ -223,6 +224,11 @@ void AmrLevelAdv::variableSetUp()
                  , desc_lst.setComponent(Levelset_Type, 3, "n_z",
                                          bc_data.get_normal_bcrec(),
                                          bc_data.get_ls_bndryfunc());)
+
+    //! Derived quantities
+    derive_lst.add("rank", IndexType::TheCellType(), 1, derive_rank,
+                   the_same_box);
+    derive_lst.addComponent("rank", desc_lst, Consv_Type, 0, 1);
 }
 
 /**
@@ -231,6 +237,7 @@ void AmrLevelAdv::variableSetUp()
 void AmrLevelAdv::variableCleanUp()
 {
     desc_lst.clear();
+    derive_lst.clear();
 
     // Delete structs containing problem-specific parameters
     delete h_parm;

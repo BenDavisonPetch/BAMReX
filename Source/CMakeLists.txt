@@ -3,6 +3,7 @@
 set (SRC_NO_MAIN ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv_advance.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv_LSinit.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv_derive.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Adv_prob.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/bc_nullfill.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/bc_jet.cpp
