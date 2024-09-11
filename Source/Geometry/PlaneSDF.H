@@ -47,7 +47,6 @@ class PlaneSDF
 
   protected:
     XDim3 m_c, m_n;
-    int   m_sign;
 };
 
 } // namespace SDF
