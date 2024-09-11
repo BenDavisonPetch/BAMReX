@@ -21,6 +21,7 @@ target_link_libraries(cyl_exp_ref AMReX::amrex_1d)
 target_link_libraries(cyl_exp_2d AMReX::amrex_2d)
 target_link_libraries(cyl_exp_3d AMReX::amrex_3d)
 
+# Convenience commands for running tests
 add_custom_target(run_ref
     COMMAND
         $<TARGET_FILE:cyl_exp_ref> ${CMAKE_CURRENT_SOURCE_DIR}/inputs-ref/cyl-RCM-5000
@@ -31,3 +32,21 @@ add_custom_target(run_ref
         cyl_exp_ref
     VERBATIM
 )
+
+if(AMReX_MPI STREQUAL "YES")
+    add_custom_target(run_geom_src_tests
+        COMMAND
+            rm -rf ${CMAKE_CURRENT_BINARY_DIR}/output/visc
+        COMMAND
+            mpirun -np 1 $<TARGET_FILE:cyl_exp_ref> ${CMAKE_CURRENT_SOURCE_DIR}/inputs/visc/MHM-1d
+        COMMAND
+            mpirun -np 8 $<TARGET_FILE:cyl_exp_2d> ${CMAKE_CURRENT_SOURCE_DIR}/inputs/visc/MHM-2d
+        COMMAND
+            mpirun -np 8 $<TARGET_FILE:cyl_exp_3d> ${CMAKE_CURRENT_SOURCE_DIR}/inputs/visc/MHM-3d
+        DEPENDS
+            cyl_exp_ref
+            cyl_exp_2d
+            cyl_exp_3d
+        VERBATIM
+    )
+endif()

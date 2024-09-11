@@ -49,21 +49,6 @@ void advance_geometric_visc(const amrex::Geometry &geom, amrex::Real dt,
                             const amrex::MultiFab &statein,
                             amrex::MultiFab &stateout, const bamrexBCData &bc);
 
-/*********************/
-
-AMREX_GPU_HOST
-void advance_geometric_1d(amrex::Real dt, amrex::Real dr, amrex::Real r_lo,
-                          int alpha, const amrex::Box &bx,
-                          const amrex::FArrayBox &statein,
-                          amrex::FArrayBox       &stateout);
-
-//! rot_axis = 0 -> x lo, = 1 -> y lo
-template <int rot_axis>
-AMREX_GPU_HOST void
-advance_geometric_2d(amrex::Real dt, amrex::Real dr, amrex::Real r_lo,
-                     const amrex::Box &bx, const amrex::FArrayBox &statein,
-                     amrex::FArrayBox &stateout);
-
 // =======
 // Kernels
 // =======
@@ -71,8 +56,7 @@ advance_geometric_2d(amrex::Real dt, amrex::Real dr, amrex::Real r_lo,
 //! Geometric source term for the Euler equations in 1D
 [[nodiscard]] AMREX_GPU_DEVICE
     AMREX_FORCE_INLINE amrex::GpuArray<amrex::Real, 3>
-    geometric_source(amrex::Real r, int alpha, amrex::Real adia,
-                     amrex::Real                             eps,
+    geometric_source(amrex::Real r, int alpha, const Parm &parm,
                      const amrex::Array4<const amrex::Real> &U, int i)
 {
     using namespace amrex;
@@ -83,8 +67,9 @@ advance_geometric_2d(amrex::Real dt, amrex::Real dr, amrex::Real r_lo,
     src[0]                             = prefactor * U(i, 0, 0, 1); // rho u
     src[1] = prefactor * U(i, 0, 0, 1) * u;                         // rho u^2
     src[2] = prefactor * u
-             * (adia * U(i, 0, 0, 2)
-                - (adia - 1) * 0.5 * eps * U(i, 0, 0, 1) * u); // (E + p)u
+             * (parm.adia[0] * U(i, 0, 0, 2)
+                - parm.adia[2] * 0.5 * parm.epsilon * U(i, 0, 0, 1)
+                      * u); // (E + p)u
 
     return src;
 }
@@ -132,8 +117,8 @@ advance_geometric_2d(amrex::Real dt, amrex::Real dr, amrex::Real r_lo,
 template <int axis_loc>
 [[nodiscard]] AMREX_GPU_DEVICE
     AMREX_FORCE_INLINE amrex::GpuArray<amrex::Real, 4>
-    geometric_source(amrex::Real r, amrex::Real adia, amrex::Real eps,
-                     const amrex::Array4<const amrex::Real> &U, int i, int j)
+                       geometric_source(amrex::Real r, const Parm &parm,
+                                        const amrex::Array4<const amrex::Real> &U, int i, int j)
 {
     using namespace amrex;
     AMREX_ASSERT(U.nComp() == 4);
@@ -145,8 +130,8 @@ template <int axis_loc>
     src[1] = prefactor * U(i, j, 0, 1) * u_r; // rho u_r u_r
     src[2] = prefactor * U(i, j, 0, 2) * u_r; // rho u_z u_r
     src[3] = prefactor * u_r
-             * (adia * U(i, j, 0, 3)
-                - (adia - 1) * 0.5 * eps
+             * (parm.adia[0] * U(i, j, 0, 3)
+                - parm.adia[2] * 0.5 * parm.epsilon
                       * (U(i, j, 0, 1) * U(i, j, 0, 1)
                          + U(i, j, 0, 2) * U(i, j, 0, 2))
                       / U(i, j, 0, 0)); // (E + p)u_r
@@ -221,6 +206,32 @@ template <int axis_loc>
     src[UInd::E]           = E_viscterm + E_thermterm;
 
     return src;
+}
+
+/**
+ * \brief Convenience function combining 1D and 2D geometric_source
+ * kernels
+ */
+[[nodiscard]] AMREX_GPU_DEVICE
+    AMREX_FORCE_INLINE amrex::GpuArray<amrex::Real, UInd::size>
+    geometric_source(amrex::Real r, int alpha, int rot_axis, const Parm &parm,
+                     const amrex::Array4<const amrex::Real> &U, int i, int j)
+{
+#if AMREX_SPACEDIM == 1
+    amrex::ignore_unused(rot_axis, j);
+    return geometric_source(r, alpha, parm, U, i);
+#elif AMREX_SPACEDIM == 2
+    amrex::ignore_unused(alpha);
+    if (rot_axis == 0)
+        return geometric_source<0>(r, parm, U, i, j);
+    else if (rot_axis == 1)
+        return geometric_source<1>(r, parm, U, i, j);
+    else
+        return amrex::GpuArray<amrex::Real, UInd::size>();
+#else
+    amrex::ignore_unused(r, alpha, rot_axis, parm, U, i, j);
+    return amrex::GpuArray<amrex::Real, UInd::size>();
+#endif
 }
 
 /**

@@ -21,48 +21,85 @@ void visc_RK_step(Real dt, Real dr, Real drinv, Real dzinv, Real r_lo,
 
 /**
  * Uses RK4 time-stepping to advance Euler equations geometric source terms for
- * methods using operator splitting.
+ * methods using operator splitting. We can do everything in one loop
+ * because the Euler geometric source terms don't require any gradient
+ * calculations
  */
 AMREX_GPU_HOST
-void advance_geometric([[maybe_unused]] const amrex::Geometry &geom,
-                       [[maybe_unused]] amrex::Real            dt,
-                       [[maybe_unused]] int                    alpha,
-                       [[maybe_unused]] int                    rot_axis,
-                       [[maybe_unused]] const amrex::MultiFab &Uin,
-                       [[maybe_unused]] amrex::MultiFab       &Uout)
+void advance_geometric(const amrex::Geometry &geom, amrex::Real dt, int alpha,
+                       int rot_axis, const amrex::MultiFab &statein,
+                       amrex::MultiFab &stateout)
 {
 #if AMREX_SPACEDIM == 1 || AMREX_SPACEDIM == 2
+    AMREX_ASSERT(rot_axis < AMREX_SPACEDIM);
+    //! Spherical symmetry not implemented
+    AMREX_ASSERT(alpha == 1);
+    //! 4 Ghost cells required for coarse-fine boundary when using RK4
+    AMREX_ASSERT(statein.nGrow() >= 4);
+    //! We use stateout as scratch space so it also needs ghost cells
+    AMREX_ASSERT(stateout.nGrow() >= 4);
+
+    constexpr int NCOMP = UInd::size;
+    AMREX_ASSERT(statein.nComp() == NCOMP);
+    AMREX_ASSERT(stateout.nComp() == NCOMP);
+
+    const Real dr   = geom.CellSize(rot_axis);
+    const Real r_lo = geom.ProbLo(rot_axis);
+
+    const Parm *parm = AmrLevelAdv::d_parm;
 
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     {
-        for (MFIter mfi(Uout, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        for (MFIter mfi(stateout, TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
             const auto &bx = mfi.tilebox();
-#if AMREX_SPACEDIM == 1
-            AMREX_ASSERT(rot_axis == 0);
-            const Real dr   = geom.CellSize(0);
-            const Real r_lo = geom.ProbLo(0);
-            advance_geometric_1d(dt, dr, r_lo, alpha, bx, Uin[mfi], Uout[mfi]);
-#elif AMREX_SPACEDIM == 2
-            AMREX_ASSERT(rot_axis == 0 || rot_axis == 1);
-            AMREX_ASSERT(alpha == 1); // must be cylindrical symmetry in 2D
-            const Real dr   = geom.CellSize(rot_axis);
-            const Real r_lo = geom.ProbLo(rot_axis);
-            switch (rot_axis)
-            {
-            case 0:
-                advance_geometric_2d<0>(dt, dr, r_lo, bx, Uin[mfi], Uout[mfi]);
-                break;
-            case 1:
-                advance_geometric_2d<1>(dt, dr, r_lo, bx, Uin[mfi], Uout[mfi]);
-                break;
-            }
-#endif
+
+            const auto &in  = statein.const_array(mfi);
+            const auto &out = stateout.array(mfi);
+
+            ParallelFor(
+                bx,
+                [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+                {
+                    const Real r = (rot_axis == 0) ? (i + 0.5) * dr + r_lo
+                                                   : (j + 0.5) * dr + r_lo;
+                    //! k1 = f(y_0, t_0)
+                    for (int n = 0; n < NCOMP; ++n)
+                        out(i, j, k, n) = in(i, j, k, n);
+                    const auto &k1 = geometric_source(r, alpha, rot_axis,
+                                                      *parm, out, i, j);
+
+                    //! k2 = f(y_0 + k1 * dt/2, t_0 + dt/2)
+                    for (int n = 0; n < NCOMP; ++n)
+                        out(i, j, k, n) = in(i, j, k, n) + 0.5 * dt * k1[n];
+                    const auto &k2 = geometric_source(r, alpha, rot_axis,
+                                                      *parm, out, i, j);
+
+                    //! k3 = f(y_0 + k2 * dt/2, t_0 + dt/2)
+                    for (int n = 0; n < NCOMP; ++n)
+                        out(i, j, k, n) = in(i, j, k, n) + 0.5 * dt * k2[n];
+                    const auto &k3 = geometric_source(r, alpha, rot_axis,
+                                                      *parm, out, i, j);
+
+                    //! k4 = f(y_0 + k3 * dt, t_0 + dt)
+                    for (int n = 0; n < NCOMP; ++n)
+                        out(i, j, k, n) = in(i, j, k, n) + dt * k3[n];
+                    const auto &k4 = geometric_source(r, alpha, rot_axis,
+                                                      *parm, out, i, j);
+
+                    //! y^new = y_0 + (k1 + 2k2 + 2k3 + k4) * dt/6
+                    for (int n = 0; n < NCOMP; ++n)
+                        out(i, j, k, n)
+                            = in(i, j, k, n)
+                              + (k1[n] + 2 * k2[n] + 2 * k3[n] + k4[n]) * dt
+                                    / 6;
+                });
         }
     }
-
+#else
+    amrex::ignore_unused(geom, dt, alpha, rot_axis, statein, stateout);
 #endif
 }
 
@@ -163,208 +200,6 @@ void advance_geometric_visc(const amrex::Geometry &geom, amrex::Real dt,
 #endif
 }
 
-AMREX_GPU_HOST
-void advance_geometric_1d(amrex::Real dt, amrex::Real dr, amrex::Real r_lo,
-                          int alpha, const amrex::Box &bx,
-                          const amrex::FArrayBox &statein,
-                          amrex::FArrayBox       &stateout)
-{
-    using namespace amrex;
-    constexpr int NCOMP = 3;
-    AMREX_ASSERT(statein.nComp() == NCOMP);
-    AMREX_ASSERT(stateout.nComp() == NCOMP);
-
-    amrex::FArrayBox tmpfab(bx, NCOMP * 4, The_Async_Arena());
-
-    const auto &in  = statein.const_array();
-    const auto &out = stateout.array();
-
-    const auto &k1 = tmpfab.array(0, 3);
-    const auto &k2 = tmpfab.array(NCOMP, 3);
-    const auto &k3 = tmpfab.array(2 * NCOMP, 3);
-    const auto &k4 = tmpfab.array(3 * NCOMP, 3);
-
-    const Real adia = AmrLevelAdv::h_parm->adiabatic;
-    const Real eps  = AmrLevelAdv::h_parm->epsilon;
-
-    // Compute K1
-    ParallelFor(bx, NCOMP,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-                { out(i, j, k, n) = in(i, j, k, n); });
-
-    ParallelFor(bx,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                {
-                    const Real  r = (i + 0.5) * dr + r_lo;
-                    const auto &k1arr
-                        = geometric_source(r, alpha, adia, eps, out, i);
-                    AMREX_PRAGMA_SIMD
-                    for (int n = 0; n < NCOMP; ++n)
-                        k1(i, j, k, n) = dt * k1arr[n];
-                });
-
-    // Compute K2
-    ParallelFor(bx, NCOMP,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-                { out(i, j, k, n) = in(i, j, k, n) + 0.5 * k1(i, j, k, n); });
-
-    ParallelFor(bx,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                {
-                    const Real  r = (i + 0.5) * dr + r_lo;
-                    const auto &k2arr
-                        = geometric_source(r, alpha, adia, eps, out, i);
-                    AMREX_PRAGMA_SIMD
-                    for (int n = 0; n < NCOMP; ++n)
-                        k2(i, j, k, n) = dt * k2arr[n];
-                });
-
-    // Compute K3
-    ParallelFor(bx, NCOMP,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-                { out(i, j, k, n) = in(i, j, k, n) + 0.5 * k2(i, j, k, n); });
-
-    ParallelFor(bx,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                {
-                    const Real  r = (i + 0.5) * dr + r_lo;
-                    const auto &k3arr
-                        = geometric_source(r, alpha, adia, eps, out, i);
-                    AMREX_PRAGMA_SIMD
-                    for (int n = 0; n < NCOMP; ++n)
-                        k3(i, j, k, n) = dt * k3arr[n];
-                });
-
-    // Compute K4
-    ParallelFor(bx, NCOMP,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-                { out(i, j, k, n) = in(i, j, k, n) + k3(i, j, k, n); });
-
-    ParallelFor(bx,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                {
-                    const Real  r = (i + 0.5) * dr + r_lo;
-                    const auto &k4arr
-                        = geometric_source(r, alpha, adia, eps, out, i);
-                    AMREX_PRAGMA_SIMD
-                    for (int n = 0; n < NCOMP; ++n)
-                        k4(i, j, k, n) = dt * k4arr[n];
-                });
-
-    // Compute Un+1
-    ParallelFor(bx, NCOMP,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-                {
-                    out(i, j, k, n) = in(i, j, k, n)
-                                      + (k1(i, j, k, n) + 2 * k2(i, j, k, n)
-                                         + 2 * k3(i, j, k, n) + k4(i, j, k, n))
-                                            / 6;
-                });
-}
-
-template <int rot_axis>
-AMREX_GPU_HOST void
-advance_geometric_2d(amrex::Real dt, amrex::Real dr, amrex::Real r_lo,
-                     const amrex::Box &bx, const amrex::FArrayBox &statein,
-                     amrex::FArrayBox &stateout)
-{
-    using namespace amrex;
-    constexpr int NCOMP = 4;
-    AMREX_ASSERT(statein.nComp() == NCOMP);
-    AMREX_ASSERT(stateout.nComp() == NCOMP);
-
-    amrex::FArrayBox tmpfab(bx, NCOMP * 4, The_Async_Arena());
-
-    const auto &in  = statein.const_array();
-    const auto &out = stateout.array();
-
-    const auto &k1 = tmpfab.array(0, NCOMP);
-    const auto &k2 = tmpfab.array(NCOMP, NCOMP);
-    const auto &k3 = tmpfab.array(2 * NCOMP, NCOMP);
-    const auto &k4 = tmpfab.array(3 * NCOMP, NCOMP);
-
-    const Real adia = AmrLevelAdv::h_parm->adiabatic;
-    const Real eps  = AmrLevelAdv::h_parm->epsilon;
-
-    // Compute K1
-    ParallelFor(bx, NCOMP,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-                { out(i, j, k, n) = in(i, j, k, n); });
-
-    ParallelFor(bx,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                {
-                    const Real  r = (rot_axis == 0) ? (i + 0.5) * dr + r_lo
-                                                    : (j + 0.5) * dr + r_lo;
-                    const auto &k1arr
-                        = geometric_source<rot_axis>(r, adia, eps, out, i, j);
-                    AMREX_PRAGMA_SIMD
-                    for (int n = 0; n < NCOMP; ++n)
-                        k1(i, j, k, n) = dt * k1arr[n];
-                });
-
-    // Compute K2
-    ParallelFor(bx, NCOMP,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-                { out(i, j, k, n) = in(i, j, k, n) + 0.5 * k1(i, j, k, n); });
-
-    ParallelFor(bx,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                {
-                    const Real  r = (rot_axis == 0) ? (i + 0.5) * dr + r_lo
-                                                    : (j + 0.5) * dr + r_lo;
-                    const auto &k2arr
-                        = geometric_source<rot_axis>(r, adia, eps, out, i, j);
-                    AMREX_PRAGMA_SIMD
-                    for (int n = 0; n < NCOMP; ++n)
-                        k2(i, j, k, n) = dt * k2arr[n];
-                });
-
-    // Compute K3
-    ParallelFor(bx, NCOMP,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-                { out(i, j, k, n) = in(i, j, k, n) + 0.5 * k2(i, j, k, n); });
-
-    ParallelFor(bx,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                {
-                    const Real  r = (rot_axis == 0) ? (i + 0.5) * dr + r_lo
-                                                    : (j + 0.5) * dr + r_lo;
-                    const auto &k3arr
-                        = geometric_source<rot_axis>(r, adia, eps, out, i, j);
-                    AMREX_PRAGMA_SIMD
-                    for (int n = 0; n < NCOMP; ++n)
-                        k3(i, j, k, n) = dt * k3arr[n];
-                });
-
-    // Compute K4
-    ParallelFor(bx, NCOMP,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-                { out(i, j, k, n) = in(i, j, k, n) + k3(i, j, k, n); });
-
-    ParallelFor(bx,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                {
-                    const Real  r = (rot_axis == 0) ? (i + 0.5) * dr + r_lo
-                                                    : (j + 0.5) * dr + r_lo;
-                    const auto &k4arr
-                        = geometric_source<rot_axis>(r, adia, eps, out, i, j);
-                    AMREX_PRAGMA_SIMD
-                    for (int n = 0; n < NCOMP; ++n)
-                        k4(i, j, k, n) = dt * k4arr[n];
-                });
-
-    // Compute Un+1
-    ParallelFor(bx, NCOMP,
-                [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-                {
-                    out(i, j, k, n) = in(i, j, k, n)
-                                      + (k1(i, j, k, n) + 2 * k2(i, j, k, n)
-                                         + 2 * k3(i, j, k, n) + k4(i, j, k, n))
-                                            / 6;
-                });
-}
-
 namespace details
 {
 
@@ -410,16 +245,3 @@ void visc_RK_step(Real dt, Real dr, Real drinv, Real dzinv, Real r_lo,
 }
 
 }
-
-// template instantiation
-template AMREX_GPU_HOST void advance_geometric_2d<0>(amrex::Real, amrex::Real,
-                                                     amrex::Real,
-                                                     const amrex::Box &,
-                                                     const amrex::FArrayBox &,
-                                                     amrex::FArrayBox &);
-
-template AMREX_GPU_HOST void advance_geometric_2d<1>(amrex::Real, amrex::Real,
-                                                     amrex::Real,
-                                                     const amrex::Box &,
-                                                     const amrex::FArrayBox &,
-                                                     amrex::FArrayBox &);
