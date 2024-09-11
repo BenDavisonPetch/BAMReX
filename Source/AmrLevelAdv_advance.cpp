@@ -130,6 +130,8 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
               && this->parent->maxLevel() > 0),
             "Refluxing with high-Mach number stabilisation not "
             "supported!");
+        AMREX_ALWAYS_ASSERT(visc
+                            == ViscMethods::none); // not implemented for IMEX
 
         // Ghost cells are filled at the start of each RK step, so they're
         // filled witihin advance_imex_rk
@@ -379,11 +381,18 @@ void AmrLevelAdv::advance_explicit(
 
     if (rot_axis != -1 && alpha != 0 && AMREX_SPACEDIM < 3)
     {
-        AMREX_ALWAYS_ASSERT(
-            parent->maxLevel() == 0
-            || !do_reflux); // this routine doesn't update fluxes
+        //! Euler equation geometric source
+        //! Doesn't need boundaries to be filled
         advance_geometric(geom, dt, alpha, rot_axis, (*MFin), (*MFout));
         std::swap(MFin, MFout);
+        if (visc != ViscMethods::none)
+        {
+            //! Viscous terms geometric source
+            //! Fills boundaries within routine
+            advance_geometric_visc(geom, dt, time, alpha, rot_axis, (*MFin),
+                                   (*MFout), bc_data);
+            std::swap(MFin, MFout);
+        }
     }
     // The updated data is now copied to the S_new multifab.  This
     // means it is now accessible through the get_new_data command, and

@@ -24,6 +24,10 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
     const GpuArray<Real, AMREX_SPACEDIM> prob_lo = geom.ProbLoArray();
 
     Real density_in, pressure_in, density_out, pressure_out, radius;
+    // used in 2D to force setup as an RP to test geometric source terms
+    bool setup_as_rp       = false;
+    bool force_cylindrical = false; // used in 3D
+    int  rot_axis          = 0;
 
     ParmParse pp("init");
     pp.get("density_in", density_in);
@@ -31,6 +35,13 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
     pp.get("density_out", density_out);
     pp.get("pressure_out", pressure_out);
     pp.query("radius", radius);
+    pp.query("setup_as_rp", setup_as_rp);
+    pp.query("force_cylindrical", force_cylindrical);
+    if (setup_as_rp)
+    {
+        ParmParse pp2("sym");
+        pp2.get("rot_axis", rot_axis);
+    }
 
     const double adiabatic = AmrLevelAdv::h_parm->adiabatic;
     const double eps       = AmrLevelAdv::h_parm->epsilon;
@@ -59,12 +70,20 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
 #elif AMREX_SPACEDIM == 2
                         Real x = prob_lo[0] + (i + Real(0.5)) * dx[0];
                         Real y = prob_lo[1] + (j + Real(0.5)) * dx[1];
-                        Real r = sqrt((x-1)*(x-1) + (y-1)*(y-1));
+                        Real r;
+                        if (!setup_as_rp)
+                            r = sqrt((x-1)*(x-1) + (y-1)*(y-1));
+                        else
+                            r = (rot_axis == 0) ? x : y;
 #else
                         Real x = prob_lo[0] + (i + Real(0.5)) * dx[0];
                         Real y = prob_lo[1] + (j + Real(0.5)) * dx[1];
                         Real z = prob_lo[2] + (k + Real(0.5)) * dx[2];
-                        Real r = sqrt((x-1)*(x-1) + (y-1)*(y-1) + (z-1)*(z-1));
+                        Real r;
+                        if (!force_cylindrical)
+                            r = sqrt((x-1)*(x-1) + (y-1)*(y-1) + (z-1)*(z-1));
+                        else
+                            r = sqrt((x-1)*(x-1) + (y-1)*(y-1));
 #endif
                         if (r < radius)
                             phi(i, j, k, n) = consv_L[n];
