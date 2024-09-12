@@ -70,8 +70,9 @@ amr.derive_plot_vars = rank
 adv.do_tracers = 0
 
 # ERROR TAGGING
-tagging.phigrad =  0.05 0.05 0.05 0.05 0.05 0.05
-tagging.max_phigrad_lev = 4
+tagging.phigrad =  0.002 0.002 0.002 0.002 0.002 0.002
+tagging.phigrad_var = energy
+tagging.max_phigrad_lev = 5
 tagging.max_int_lev = 10
 tagging.lstol = 0.02 0.001 0.001 0.001 0.001 0.001
 
