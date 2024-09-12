@@ -13,6 +13,14 @@ init.T_ambient = 293 # K
 init.T_p = 293
 init.T_s = 293
 init.R_spec = 287.052874 # J / kg / K
+# These settings start with non-zero
+# velocity only in the nozzle and smears
+# the interface
+# init.flow_in_nozzle = true
+# init.smear_length = 0.02
+# These settings set initial velocity to the outflow velocity
+# for an infinite distance in front of the nozzle
+init.flow_in_nozzle = false
 
 geometry.is_periodic =  0  0  0
 geometry.coord_sys   =  0       # 0 => cart

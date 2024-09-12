@@ -27,7 +27,8 @@ void initdata(MultiFab &S_tmp, [[maybe_unused]] const Geometry &geom)
 
     Real exit_v_ratio, primary_exit_M, p_amb, T_amb, T_p, T_s, R_spec,
         inner_radius, outer_radius, wall_thickness, length, scale_factor,
-        tip_angle;
+        tip_angle, smear_dist;
+    bool      flow_in_nozzle = false;
     ParmParse ppinit("init");
     ppinit.get("exit_v_ratio", exit_v_ratio);
     ppinit.get("primary_exit_M", primary_exit_M);
@@ -35,6 +36,9 @@ void initdata(MultiFab &S_tmp, [[maybe_unused]] const Geometry &geom)
     ppinit.get("T_ambient", T_amb);
     ppinit.get("T_p", T_p);
     ppinit.get("T_s", T_s);
+    smear_dist = 0.02;
+    ppinit.query("smear_dist", smear_dist);
+    ppinit.query("flow_in_nozzle", flow_in_nozzle);
 
     ppinit.get("R_spec", R_spec);
 
@@ -98,10 +102,12 @@ void initdata(MultiFab &S_tmp, [[maybe_unused]] const Geometry &geom)
                 {
                     const Real r = std::abs((j + 0.5) * dx[1] + prob_lo[1]);
                     const Real x = (i + 0.5) * dx[0] + prob_lo[0];
-                    constexpr Real smooth_dist = 0.01;
-                    const Real     smooth
-                        = (Real)1
-                          / (1 + exp((x - non_taper_len) / smooth_dist));
+                    const Real smooth
+                        = (flow_in_nozzle)
+                              ? (Real)1
+                                    / (1
+                                       + exp((x - non_taper_len) / smear_dist))
+                              : 1;
                     if (r < inner_radius - 0.5 * wall_thickness)
                         arr(i, j, k, n) = smooth * init_p_consv[n]
                                           + (1 - smooth) * init_consv[n];
