@@ -26,7 +26,8 @@ void initdata(MultiFab &S_tmp, [[maybe_unused]] const Geometry &geom)
     const Real eps  = AmrLevelAdv::h_parm->epsilon;
 
     Real exit_v_ratio, primary_exit_M, p_amb, T_amb, T_p, T_s, R_spec,
-        inner_radius, outer_radius, wall_thickness, scale_factor;
+        inner_radius, outer_radius, wall_thickness, length, scale_factor,
+        tip_angle;
     ParmParse ppinit("init");
     ppinit.get("exit_v_ratio", exit_v_ratio);
     ppinit.get("primary_exit_M", primary_exit_M);
@@ -42,17 +43,24 @@ void initdata(MultiFab &S_tmp, [[maybe_unused]] const Geometry &geom)
     ppls.get("inner_radius", inner_radius);
     ppls.get("outer_radius", outer_radius);
     ppls.get("wall_thickness", wall_thickness);
+    ppls.get("length", length);
     // ppls.get("nozzle_center", center);
     ppls.get("scale_factor", scale_factor);
+    ppls.get("tip_angle", tip_angle);
+    tip_angle *= M_PI / 180;
     inner_radius *= scale_factor;
     outer_radius *= scale_factor;
     wall_thickness *= scale_factor;
+    length *= scale_factor;
     // center doesn't get scaled
 
     const Real dens_amb = p_amb / (R_spec * T_amb);
     const Real c        = sqrt(p_amb * adia / dens_amb);
     const Real v_p      = primary_exit_M * c;
     const Real v_s      = exit_v_ratio * v_p;
+
+    const Real taper_len = 0.5 * wall_thickness / std::tan(0.5 * tip_angle);
+    const Real non_taper_len = length - taper_len;
 
     const GpuArray<Real, EULER_NCOMP> init_primv{ dens_amb,
                                                   AMREX_D_DECL(0, 0, 0),
@@ -87,12 +95,15 @@ void initdata(MultiFab &S_tmp, [[maybe_unused]] const Geometry &geom)
             ParallelFor(bx, EULER_NCOMP,
                         [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
                         {
-                            const Real r = (j + 0.5) * dx[1] + prob_lo[1];
-                            if (r < inner_radius - 0.5 * wall_thickness)
+                            const Real r
+                                = std::abs((j + 0.5) * dx[1] + prob_lo[1]);
+                            const Real x = (i + 0.5) * dx[0] + prob_lo[0];
+                            if (r < inner_radius - 0.5 * wall_thickness
+                                && x <= non_taper_len)
                                 arr(i, j, k, n) = init_p_consv[n];
                             else if (inner_radius + 0.5 * wall_thickness < r
-                                     && r < outer_radius
-                                                - 0.5 * wall_thickness)
+                                     && r < outer_radius - 0.5 * wall_thickness
+                                     && x <= non_taper_len)
                                 arr(i, j, k, n) = init_s_consv[n];
                             else
                                 arr(i, j, k, n) = init_consv[n];
