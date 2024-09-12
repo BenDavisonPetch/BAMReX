@@ -772,6 +772,24 @@ void AmrLevelAdv::errorEst(TagBoxArray &tags, int /*clearval*/, int /*tagval*/,
                     });
             }
 
+            if (level < max_box_lev)
+            {
+                const auto                    &dx      = geom.CellSizeArray();
+                const auto                    &prob_lo = geom.ProbLoArray();
+                const auto                    &rbx_lop = refine_box.lo();
+                const auto                    &rbx_hip = refine_box.hi();
+                GpuArray<Real, AMREX_SPACEDIM> rbx_lo{ AMREX_D_DECL(
+                    rbx_lop[0], rbx_lop[1], rbx_lop[2]) };
+                GpuArray<Real, AMREX_SPACEDIM> rbx_hi{ AMREX_D_DECL(
+                    rbx_hip[0], rbx_hip[1], rbx_hip[2]) };
+                amrex::ParallelFor(
+                    tilebx,
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                        box_error(i, j, k, tagarr, dx, prob_lo, rbx_lo, rbx_hi,
+                                  tagval);
+                    });
+            }
+
             // Tag cells at interfaces
             if (bc_data.rb_enabled() && level < max_int_lev)
             {
