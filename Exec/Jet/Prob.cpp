@@ -92,22 +92,26 @@ void initdata(MultiFab &S_tmp, [[maybe_unused]] const Geometry &geom)
             const auto &bx  = mfi.tilebox();
             const auto &arr = S_tmp.array(mfi);
 
-            ParallelFor(bx, EULER_NCOMP,
-                        [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
-                        {
-                            const Real r
-                                = std::abs((j + 0.5) * dx[1] + prob_lo[1]);
-                            const Real x = (i + 0.5) * dx[0] + prob_lo[0];
-                            if (r < inner_radius - 0.5 * wall_thickness
-                                && x <= non_taper_len)
-                                arr(i, j, k, n) = init_p_consv[n];
-                            else if (inner_radius + 0.5 * wall_thickness < r
-                                     && r < outer_radius - 0.5 * wall_thickness
-                                     && x <= non_taper_len)
-                                arr(i, j, k, n) = init_s_consv[n];
-                            else
-                                arr(i, j, k, n) = init_consv[n];
-                        });
+            ParallelFor(
+                bx, EULER_NCOMP,
+                [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
+                {
+                    const Real r = std::abs((j + 0.5) * dx[1] + prob_lo[1]);
+                    const Real x = (i + 0.5) * dx[0] + prob_lo[0];
+                    constexpr Real smooth_dist = 0.01;
+                    const Real     smooth
+                        = (Real)1
+                          / (1 + exp((x - non_taper_len) / smooth_dist));
+                    if (r < inner_radius - 0.5 * wall_thickness)
+                        arr(i, j, k, n) = smooth * init_p_consv[n]
+                                          + (1 - smooth) * init_consv[n];
+                    else if (inner_radius + 0.5 * wall_thickness < r
+                             && r < outer_radius - 0.5 * wall_thickness)
+                        arr(i, j, k, n) = smooth * init_s_consv[n]
+                                          + (1 - smooth) * init_consv[n];
+                    else
+                        arr(i, j, k, n) = init_consv[n];
+                });
         }
     }
 }
