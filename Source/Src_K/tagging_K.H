@@ -11,9 +11,10 @@ AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 void state_error(int i, int j, int k, amrex::Array4<char> const &tag,
                  amrex::Array4<amrex::Real const> const &state,
-                 amrex::Real const phi_threshold, char const tagval) noexcept
+                 amrex::Real const phi_threshold, unsigned int var_idx,
+                 char const tagval) noexcept
 {
-    if (state(i, j, k) >= phi_threshold)
+    if (state(i, j, k, var_idx) >= phi_threshold)
     {
         tag(i, j, k) = tagval;
     }
@@ -24,27 +25,35 @@ AMREX_GPU_HOST_DEVICE
 AMREX_FORCE_INLINE
 void grad_error(int i, int j, int k, amrex::Array4<char> const &tag,
                 amrex::Array4<amrex::Real const> const &state,
-                amrex::Real const grad_threshold, char const tagval) noexcept
+                amrex::Real const grad_threshold, unsigned int var_idx,
+                char const tagval) noexcept
 {
-    amrex::Real ax = std::abs(state(i - 1, j, k) - state(i, j, k));
-    ax = amrex::max(ax, std::abs(state(i, j, k) - state(i + 1, j, k)));
+    amrex::Real ax
+        = std::abs(state(i - 1, j, k, var_idx) - state(i, j, k, var_idx));
+    ax = amrex::max(
+        ax, std::abs(state(i, j, k, var_idx) - state(i + 1, j, k, var_idx)));
 
     amrex::Real ay;
 #if AMREX_SPACEDIM < 2
     ay = 0.0;
 #else
-    ay = std::abs(state(i, j - 1, k) - state(i, j, k));
-    ay = amrex::max(ay, std::abs(state(i, j, k) - state(i, j + 1, k)));
+    ay = std::abs(state(i, j - 1, k, var_idx) - state(i, j, k, var_idx));
+    ay = amrex::max(
+        ay, std::abs(state(i, j, k, var_idx) - state(i, j + 1, k, var_idx)));
 #endif
 
     amrex::Real az;
 #if AMREX_SPACEDIM < 3
     az = 0.0;
 #else
-    az = std::abs(state(i, j, k - 1) - state(i, j, k));
-    az = amrex::max(az, std::abs(state(i, j, k) - state(i, j, k + 1)));
+    az = std::abs(state(i, j, k - 1, var_idx) - state(i, j, k, var_idx));
+    az = amrex::max(
+        az, std::abs(state(i, j, k, var_idx) - state(i, j, k + 1, var_idx)));
 #endif
-    if (amrex::max(ax, ay, az) >= grad_threshold * std::abs(state(i, j, k)))
+    constexpr amrex::Real VAL_MAG_MIN = 1e-14;
+    if (amrex::max(ax, ay, az)
+        >= grad_threshold
+               * amrex::max(std::abs(state(i, j, k, var_idx)), VAL_MAG_MIN))
     {
         tag(i, j, k) = tagval;
     }

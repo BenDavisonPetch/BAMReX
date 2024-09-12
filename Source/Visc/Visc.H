@@ -4,6 +4,10 @@
 #include <AMReX_FArrayBox.H>
 
 AMREX_GPU_HOST
+void visc_primv_from_consv(const amrex::Box &bx, amrex::FArrayBox &Q,
+                           const amrex::FArrayBox &U);
+
+AMREX_GPU_HOST
 void compute_visc_fluxes_exp(
     const amrex::Box &bx,
     AMREX_D_DECL(amrex::FArrayBox &fx, amrex::FArrayBox &fy,

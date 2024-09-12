@@ -17,16 +17,23 @@ inline unsigned int var_name_to_idx(const std::string &var_name)
         return UInd::MZ;
     else if (var_name == "energy")
         return UInd::E;
-    else if (var_name == "v_x")
+    else if (var_name == "u_x")
         return QInd::U;
-    else if (var_name == "v_y")
+    else if (var_name == "u_y")
         return QInd::V;
-    else if (var_name == "v_z")
+    else if (var_name == "u_z")
         return QInd::W;
     else if (var_name == "p")
         return QInd::P;
-    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(false,
-                                     "Invalid variable name " + var_name);
+    else if (var_name == "T")
+        return QInd::T;
+    else if (var_name == "eta")
+        return QInd::ETA;
+    else if (var_name == "zeta")
+        return QInd::ZETA;
+    else if (var_name == "kappa")
+        return QInd::KAPPA;
+    amrex::Abort("Invalid variable name " + var_name);
     return 0;
 }
 
@@ -35,8 +42,9 @@ inline unsigned int var_is_primv(const std::string &var_name)
     if (var_name == "density" || var_name == "mom_x" || var_name == "mom_y"
         || var_name == "mom_z" || var_name == "energy")
         return false;
-    else if (var_name == "v_x" || var_name == "v_y" || var_name == "v_z"
-             || var_name == "p")
+    else if (var_name == "u_x" || var_name == "u_y" || var_name == "u_z"
+             || var_name == "p" || var_name == "T" || var_name == "eta"
+             || var_name == "zeta" || var_name == "kappa")
         return true;
     else
     {

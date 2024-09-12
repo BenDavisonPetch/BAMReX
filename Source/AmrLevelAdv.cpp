@@ -56,18 +56,6 @@ const int AmrLevelAdv::NUM_GROW_P
 Parm *AmrLevelAdv::h_parm = nullptr;
 Parm *AmrLevelAdv::d_parm = nullptr;
 
-#if REUSE_PRESSURE
-MultiFab AmrLevelAdv::MFpressure;
-#endif
-
-// Parameters for mesh refinement
-int          AmrLevelAdv::max_phierr_lev  = -1;
-int          AmrLevelAdv::max_phigrad_lev = -1;
-int          AmrLevelAdv::max_int_lev     = -1;
-Vector<Real> AmrLevelAdv::phierr;
-Vector<Real> AmrLevelAdv::phigrad;
-Vector<Real> AmrLevelAdv::lstol;
-
 /**
  * Default constructor.  Builds invalid object.
  */
@@ -730,7 +718,7 @@ void AmrLevelAdv::errorEst(TagBoxArray &tags, int /*clearval*/, int /*tagval*/,
         phitmp.define(S_new.boxArray(), S_new.DistributionMap(), NUM_STATE, 1);
         FillPatch(*this, phitmp, oneGhost, cur_time, Consv_Type, 0, NUM_STATE);
     }
-    MultiFab const &phi = (level < max_phigrad_lev) ? phitmp : S_new;
+    MultiFab const &U = (level < max_phigrad_lev) ? phitmp : S_new;
 
     const char tagval   = TagBox::SET;
     const char clearval = TagBox::CLEAR;
@@ -739,35 +727,49 @@ void AmrLevelAdv::errorEst(TagBoxArray &tags, int /*clearval*/, int /*tagval*/,
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
     {
-        for (MFIter mfi(phi, TilingIfNotGPU()); mfi.isValid(); ++mfi)
+        FArrayBox Q;
+        for (MFIter mfi(U, TilingIfNotGPU()); mfi.isValid(); ++mfi)
         {
             const Box &tilebx = mfi.tilebox();
-            const auto phiarr = phi.array(mfi);
+            const auto Uarr   = U.array(mfi);
             const auto ls     = LS.const_array(mfi);
             auto       tagarr = tags.array(mfi);
+
+            if ((level < max_phierr_lev && phierr_var_is_primv)
+                || (level < max_phigrad_lev && phigrad_var_is_primv))
+            {
+                const int  ngrow = (level < max_phigrad_lev) ? 1 : 0;
+                const Box &gtbx  = grow(tilebx, ngrow);
+                Q.resize(gtbx, QInd::vsize, The_Async_Arena());
+                visc_primv_from_consv(gtbx, Q, U[mfi]);
+            }
 
             // Tag cells with high phi.
             if (level < max_phierr_lev)
             {
-                const Real phierr_lev = phierr[level];
-                amrex::ParallelFor(tilebx,
-                                   [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                                       noexcept {
-                                           state_error(i, j, k, tagarr, phiarr,
-                                                       phierr_lev, tagval);
-                                       });
+                const Real  phierr_lev = phierr[level];
+                const auto &arr
+                    = (phierr_var_is_primv) ? Q.const_array() : Uarr;
+                amrex::ParallelFor(
+                    tilebx,
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                        state_error(i, j, k, tagarr, arr, phierr_lev,
+                                    phierr_var_idx, tagval);
+                    });
             }
 
             // Tag cells with high phi gradient.
             if (level < max_phigrad_lev)
             {
-                const Real phigrad_lev = phigrad[level];
-                amrex::ParallelFor(tilebx,
-                                   [=] AMREX_GPU_DEVICE(int i, int j, int k)
-                                       noexcept {
-                                           grad_error(i, j, k, tagarr, phiarr,
-                                                      phigrad_lev, tagval);
-                                       });
+                const Real  phigrad_lev = phigrad[level];
+                const auto &arr
+                    = (phigrad_var_is_primv) ? Q.const_array() : Uarr;
+                amrex::ParallelFor(
+                    tilebx,
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                        grad_error(i, j, k, tagarr, arr, phigrad_lev,
+                                   phigrad_var_idx, tagval);
+                    });
             }
 
             // Tag cells at interfaces

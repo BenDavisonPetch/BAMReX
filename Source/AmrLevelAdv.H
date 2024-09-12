@@ -200,7 +200,11 @@ class AmrLevelAdv : public amrex::AmrLevel
     static int                        max_phigrad_lev;
     static int                        max_int_lev;
     static amrex::Vector<amrex::Real> phierr;
+    static unsigned int phierr_var_idx;
+    static bool phierr_var_is_primv;
     static amrex::Vector<amrex::Real> phigrad;
+    static unsigned int phigrad_var_idx;
+    static bool phigrad_var_is_primv;
     static amrex::Vector<amrex::Real> lstol;
 
 #if !defined(AMREX_USE_CUDA)
