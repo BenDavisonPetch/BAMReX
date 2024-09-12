@@ -57,7 +57,7 @@ amr.v              = 1       # verbosity in Amr
 # REFINEMENT / REGRIDDING
 amr.max_level       = 5       # maximum level number allowed
 amr.ref_ratio       = 2 2 4 4 4 # refinement ratio
-amr.regrid_int      = -1       # how often to regrid
+amr.regrid_int      = 2       # how often to regrid
 amr.blocking_factor = 16       # block factor in grid generation
 amr.max_grid_size   = 64
 
@@ -80,13 +80,13 @@ adv.do_tracers = 0
 # ERROR TAGGING
 # tagging.phigrad =  0.05 0.05 0.05 0.05 0.05 0.05
 # tagging.phigrad_var = u_x
-# tagging.phigrad =  0.002 0.002 0.002 0.002 0.002 0.002
-# tagging.phigrad_var = energy
-# tagging.max_phigrad_lev = 5
-tagging.max_box_lev = 10 # mandatory refinement in this box
-tagging.box_x = 0 1000
-tagging.box_y = -0.055 0.055
-tagging.box_z = 0 0
+tagging.phigrad =  0.002 0.002 0.002 0.002 0.002 0.002
+tagging.phigrad_var = energy
+tagging.max_phigrad_lev = 5
+# tagging.max_box_lev = 10 # mandatory refinement in this box
+# tagging.box_x = 0 1000
+# tagging.box_y = -0.055 0.055
+# tagging.box_z = 0 0
 tagging.max_int_lev = 10
 tagging.lstol = 0.02 0.001 0.001 0.001 0.001 0.001
 
