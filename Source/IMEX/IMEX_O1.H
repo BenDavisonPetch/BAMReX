@@ -7,7 +7,7 @@
 #include <AMReX_GpuQualifiers.H>
 #include <AMReX_MLMG.H>
 
-#include "BCs.H"
+#include "BoundaryConditions/BCs.H"
 #include "IMEXSettings.H"
 #include "LinearSolver/MLALaplacianGrad.H"
 

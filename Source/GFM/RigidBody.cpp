@@ -1,5 +1,5 @@
 #include "RigidBody.H"
-#include "BCs.H"
+#include "BoundaryConditions/BCs.H"
 #include "Euler/Euler.H"
 #include "Euler/NComp.H"
 #include "Euler/RiemannSolver.H"

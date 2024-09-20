@@ -6,7 +6,7 @@
 #include <AMReX_FluxRegister.H>
 #include <AMReX_PhysBCFunct.H>
 
-#include "BCs.H"
+#include "BoundaryConditions/BCs.H"
 #include "IMEX/IMEXSettings.H"
 #include "NumericalMethods.H"
 #include "RCM/PseudoRandom.H"

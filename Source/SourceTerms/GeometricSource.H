@@ -1,7 +1,7 @@
 #ifndef GeometricSource_H_
 #define GeometricSource_H_
 
-#include "BCs.H"
+#include "BoundaryConditions/BCs.H"
 #include "Index.H"
 #include "Parm.H"
 

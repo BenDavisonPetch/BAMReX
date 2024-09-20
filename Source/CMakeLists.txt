@@ -5,8 +5,6 @@ set (SRC_NO_MAIN ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv_LSinit.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv_derive.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Adv_prob.cpp
-                 ${CMAKE_CURRENT_SOURCE_DIR}/bc_nullfill.cpp
-                 ${CMAKE_CURRENT_SOURCE_DIR}/bc_jet.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/LevelBldAdv.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Tagging_params.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/MFIterLoop.cpp
@@ -30,7 +28,9 @@ set (SRC_NO_MAIN ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Geometry/Normals.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Geometry/PolygonSDF.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Geometry/MakeSDF.cpp
-                 ${CMAKE_CURRENT_SOURCE_DIR}/BCs.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/BoundaryConditions/BCs.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/BoundaryConditions/bc_nullfill.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/BoundaryConditions/bc_jet.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Parm.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Visc/Visc.cpp
 )

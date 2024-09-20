@@ -1,11 +1,11 @@
-#include "BCs.H"
+#include "BoundaryConditions/BCs.H"
 #include "AmrLevelAdv.H"
 #include "Euler/Euler.H"
 #include "Euler/NComp.H"
 #include "MultiBCFunct.H"
-#include "bc_extfill.H"
-#include "bc_jet.H"
-#include "bc_nullfill.H"
+#include "BoundaryConditions/bc_extfill.H"
+#include "BoundaryConditions/bc_jet.H"
+#include "BoundaryConditions/bc_nullfill.H"
 
 #include <AMReX_BC_TYPES.H>
 #include <AMReX_LO_BCTYPES.H>

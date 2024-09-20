@@ -4,7 +4,7 @@
 #include <AMReX_MultiFab.H>
 #include <AMReX_iMultiFab.H>
 
-#include "BCs.H"
+#include "BoundaryConditions/BCs.H"
 
 /**
  * \brief Fills ghost cells for a rigid body defined by level set \c LS

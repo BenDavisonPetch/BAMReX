@@ -2,7 +2,7 @@
 #define BCs_H_
 
 #include "Euler/NComp.H"
-#include "bc_jet.H"
+#include "BoundaryConditions/bc_jet.H"
 
 #include <AMReX.H>
 #include <AMReX_Array.H>

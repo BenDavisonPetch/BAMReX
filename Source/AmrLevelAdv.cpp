@@ -13,7 +13,8 @@
 
 #include "AmrLevelAdv.H"
 #include "AmrLevelAdv_derive.H"
-#include "BCs.H"
+#include "BoundaryConditions/BCs.H"
+#include "BoundaryConditions/bc_jet.H"
 #include "Euler/Euler.H"
 #include "GFM/GFMFlag.H"
 #include "GFM/RigidBody.H"
@@ -23,7 +24,6 @@
 #include "Prob.H"
 #include "VarNames.H"
 #include "Visc/Visc.H"
-#include "bc_jet.H"
 #include "tagging_K.H"
 //#include "Kernels.H"
 

@@ -1,6 +1,6 @@
 #include "AmrLevelAdv.H"
 
-#include "BCs.H"
+#include "BoundaryConditions/BCs.H"
 #include "Geometry/MakeSDF.H"
 #include "Geometry/Normals.H"
 

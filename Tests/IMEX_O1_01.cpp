@@ -2,7 +2,7 @@
 #include <AMReX_MFIter.H>
 #include <gtest/gtest.h>
 
-#include "BCs.H"
+#include "BoundaryConditions/BCs.H"
 #include "BoxTest.H"
 #include "Fluxes/Update.H"
 #include "IMEX/IMEXSettings.H"
