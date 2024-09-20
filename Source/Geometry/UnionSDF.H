@@ -40,7 +40,12 @@ template <class F1, class F2> class UnionSDF
     [[nodiscard]] AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE amrex::Real
     operator()(const amrex::RealArray &p) const noexcept
     {
-        return this->operator()(AMREX_D_DECL(p[0], p[1], p[2]));
+        const Real f1           = m_f1(p);
+        const Real f2           = m_f2(p);
+        const Real outside_dist = min(max(f1, f2), 0.);
+        const Real inside_dist
+            = sqrt((max(f1, 0.) * max(f1, 0.) + max(f2, 0.) * max(f2, 0.)));
+        return inside_dist + outside_dist;
     }
 
   protected:

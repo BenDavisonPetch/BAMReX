@@ -6,6 +6,7 @@
 #include "IntersectionSDF.H"
 #include "Normals.H"
 #include "PlaneSDF.H"
+#include "PolygonSDF.H"
 #include "SphereSDF.H"
 #include "UnionSDF.H"
 
@@ -235,6 +236,51 @@ SDF make_sdf()
 
             return nozzle_chopped;
         }
+    }
+    else if (geom_type == "polygon_union")
+    {
+        /**
+         Makes a union of 2D polygons specified at runtime.
+         The below example produces a triangle and a square:
+         \code
+         ls.geom_type = polygon_union
+         ls.polygons = 2
+
+         polygon_1.vertices = 3
+         polygon_1.fluid_inside = false
+         polygon_1.anticlockwise = false # optional
+         polygon_1.vertex_1 = x1 y1
+         polygon_1.vertex_2 = x2 y2
+         polygon_1.vertex_3 = x3 y3
+
+         polygon_2.vertices = 4
+         polygon_2.fluid_inside = false
+         polygon_2.vertex_1 = x4 y4
+         ...
+         polygon_2.vertex_4 = x7 y7
+         \endcode
+         */
+        long int n_poly;
+        ppls.get("polygons", n_poly);
+        if (n_poly < 1)
+            throw amrex::RuntimeError("Must specify at least one polygon");
+        Vector<GpuArray<Real, 2> > vertices;
+        SDF                        unionfunc;
+        for (long int n = 0; n < n_poly; ++n)
+        {
+            std::ostringstream polyname;
+            polyname << "polygon_" << n + 1;
+            ParmParse pppoly(polyname.str());
+            auto      nv = PolygonSDF::readParameters(vertices, pppoly);
+            bool      fluid_inside;
+            pppoly.get("fluid_inside", fluid_inside);
+            auto poly = PolygonSDF(nv, vertices, fluid_inside);
+            if (n == 0)
+                unionfunc = std::move(poly);
+            else
+                unionfunc = make_union(unionfunc, std::move(poly));
+        }
+        return unionfunc;
     }
     else
     {

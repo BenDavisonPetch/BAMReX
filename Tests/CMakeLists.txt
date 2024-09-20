@@ -41,6 +41,7 @@ add_executable(tests_2d
   GFMFlag01.cpp
   GFMFlag02.cpp
   Interp01.cpp
+  Geometry01.cpp
 )
 
 add_executable(tests_3d
