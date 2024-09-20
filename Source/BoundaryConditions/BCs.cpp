@@ -1,11 +1,12 @@
 #include "BoundaryConditions/BCs.H"
 #include "AmrLevelAdv.H"
-#include "Euler/Euler.H"
-#include "Euler/NComp.H"
-#include "MultiBCFunct.H"
 #include "BoundaryConditions/bc_extfill.H"
 #include "BoundaryConditions/bc_jet.H"
 #include "BoundaryConditions/bc_nullfill.H"
+#include "BoundaryConditions/bc_ss_jet.H"
+#include "Euler/Euler.H"
+#include "Euler/NComp.H"
+#include "MultiBCFunct.H"
 
 #include <AMReX_BC_TYPES.H>
 #include <AMReX_LO_BCTYPES.H>
@@ -80,15 +81,18 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
     // Check if we need to use a non-null boundary fill function
     m_jet    = false;
     m_gresho = false;
+    m_ss_jet = false;
     for (int id = 0; id < 2 * AMREX_SPACEDIM; ++id)
     {
         m_jet    = m_jet || bcs[id] == BAMReXBCType::coaxial_jet;
         m_gresho = m_gresho || bcs[id] == BAMReXBCType::gresho;
+        m_ss_jet = m_ss_jet || bcs[id] == BAMReXBCType::supersonic_jet;
     }
-    AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
-        !(m_jet && m_gresho),
-        "Cannot have runtime-specified jet boundaries as well as gresho "
-        "vortex boundaries!");
+    if ((m_jet && m_gresho) || (m_ss_jet && m_jet) || (m_ss_jet && m_gresho))
+    {
+        throw amrex::RuntimeError("Invalid combination of boundary conditions "
+                                  "requiring custom fill funcitons");
+    }
 
     //
     // Construct boundary functions
@@ -171,6 +175,28 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
         bndryfunc_p        = make_extfill(p_fill);
         bndryfunc_consv_sd = StateDescriptor::BndryFunc(bndryfunc_consv);
         bndryfunc_p_sd     = StateDescriptor::BndryFunc(bndryfunc_p);
+    }
+    else if (m_ss_jet)
+    {
+        // Construct jet BC function. Transmissive except for the jet
+        Real      M, ref_rho, ref_p, radius;
+        RealArray center;
+        int       wall;
+        ParmParse pp("supersonic_jet");
+        pp.get("M", M);
+        pp.get("ref_rho", ref_rho);
+        pp.get("ref_p", ref_p);
+        pp.get("radius", radius);
+        pp.get("center", center);
+        //! wall = 0 -> x lo, =1 -> x hi, =2 -> y lo, =3 -> y hi, =4 -> z lo,
+        //! =5 -> z hi
+        pp.get("wall", wall);
+
+        // wall = 0 => on x lo face
+        bndryfunc_consv
+            = make_ss_jetfill_bcfunc(center, radius, wall, M, ref_rho, ref_p);
+        bndryfunc_consv_sd = StateDescriptor::BndryFunc(bndryfunc_consv);
+        // IMEX pressure boundary not implemented
     }
     // Make sure that the GPU is happy
     bndryfunc_consv_sd.setRunOnGPU(true);
@@ -257,6 +283,17 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
             // inlet with known u & T is dirichlet, *calculated from density
             // and T*
             p_linop_lobc[dir] = LinOpBCType::Dirichlet;
+            break;
+        }
+        case BAMReXBCType::supersonic_jet:
+        {
+            for (int n = 0; n < CONSV_NCOMP; ++n)
+            {
+                consv_bcrecs[n].setLo(dir, amrex::BCType::user_1);
+            }
+            // Supersonic jet boundaries are not implemented for IMEX
+            pressure_bcrec.setLo(dir, amrex::BCType::user_1);
+            p_linop_lobc[dir] = LinOpBCType::Neumann;
             break;
         }
         default:

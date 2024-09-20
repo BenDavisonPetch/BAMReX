@@ -31,6 +31,7 @@ set (SRC_NO_MAIN ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/BoundaryConditions/BCs.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/BoundaryConditions/bc_nullfill.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/BoundaryConditions/bc_jet.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/BoundaryConditions/bc_ss_jet.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Parm.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Visc/Visc.cpp
 )

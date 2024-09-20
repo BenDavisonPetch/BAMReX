@@ -1,8 +1,8 @@
 #ifndef BCs_H_
 #define BCs_H_
 
-#include "Euler/NComp.H"
 #include "BoundaryConditions/bc_jet.H"
+#include "Euler/NComp.H"
 
 #include <AMReX.H>
 #include <AMReX_Array.H>
@@ -25,7 +25,8 @@ enum bctype
     periodic,
     gresho,
     pressure_outlet,
-    coaxial_jet
+    coaxial_jet,
+    supersonic_jet
 };
 
 /**
@@ -45,6 +46,8 @@ inline bctype enum_from_string(const std::string &name)
         return pressure_outlet;
     else if (name == "coaxial_jet")
         return coaxial_jet;
+    else if (name == "supersonic_jet")
+        return supersonic_jet;
     else
     {
         amrex::Abort("Invalid BC type specified");
@@ -184,7 +187,7 @@ class bamrexBCData
     amrex::Array<amrex::LinOpBCType, AMREX_SPACEDIM> p_linop_lobc,
         p_linop_hibc;
 
-    bool m_jet, m_gresho;
+    bool m_jet, m_ss_jet, m_gresho;
     bool m_rb_enabled;
 };
 

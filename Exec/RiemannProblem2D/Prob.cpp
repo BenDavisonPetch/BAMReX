@@ -102,8 +102,15 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
         density_R, AMREX_D_DECL(velocity_R, 0, 0), pressure_R
     };
 
-    write_exact_solution(stop_time, primv_L_x_oriented, primv_R_x_oriented,
-                         adia, adia, epsilon);
+    ParmParse pp;
+    bool      write_exact = true;
+    pp.query("write_exact", write_exact);
+
+    if (write_exact)
+    {
+        write_exact_solution(stop_time, primv_L_x_oriented, primv_R_x_oriented,
+                             adia, adia, epsilon);
+    }
 
     const auto consv_L = consv_from_primv(primv_L, adia, epsilon);
     const auto consv_R = consv_from_primv(primv_R, adia, epsilon);

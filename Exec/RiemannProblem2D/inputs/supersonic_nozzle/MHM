@@ -1,0 +1,96 @@
+# This input file requires amrex version >=24.08
+# ------------------  INPUTS TO MAIN PROGRAM  -------------------
+max_step = 10000
+
+M=1.76
+D=0.15
+rho_amb=1.225
+p_amb=101325
+adia = 1.4
+
+stop_time = (D*6/(M*sqrt(adia*p_amb/rho_amb)))+0
+
+# constant initial conditions
+prob.adiabatic  = adia
+init.density_L  = rho_amb
+init.velocity_L = 0.0
+init.pressure_L = p_amb
+init.density_R  = rho_amb
+init.velocity_R = 0.0
+init.pressure_R = p_amb
+init.int_offset = 1000000
+init.int_normal = 1 0 0
+
+geometry.is_periodic =  0  0  0
+geometry.coord_sys   =  0       # 0 => cart
+geometry.prob_lo     =  0.0  0.0  0.0 
+geometry.prob_hi     =  D*10.0 D*4.0  0.0
+
+ls.geom_type = box
+ls.box_lo = -1 D*0.5 0
+ls.box_hi = D*6.0 D 0.1
+ls.box_has_fluid_inside = false
+
+bc.x = supersonic_jet transmissive
+bc.y = reflective transmissive
+
+supersonic_jet.M = M
+supersonic_jet.ref_rho = rho_amb
+supersonic_jet.ref_p = p_amb
+supersonic_jet.radius = D*0.5
+supersonic_jet.center = 0 0
+supersonic_jet.wall = 0
+
+#adv.visc_method = op_split_explicit # enable viscosity
+#bc.rb = no_slip
+
+# Axisymmetry about y axis
+sym.rot_axis = 1
+sym.alpha = 1
+
+# RESOLUTION
+# baseres = 8
+baseres = 64
+amr.n_cell         =  5*baseres 2*baseres 0
+
+# TIME STEP CONTROL
+adv.cfl            = 0.8   # cfl number for hyperbolic system
+
+## NUMERICAL METHOD SETTINGS
+adv.num_method = muscl_hancock
+
+limiting.limiter = van_leer
+limiting.density = density
+limiting.mom     = p p p
+limiting.energy  = p
+
+# VERBOSITY
+adv.v              = 0       # verbosity in Adv
+amr.v              = 1       # verbosity in Amr
+#amr.grid_log         = grdlog  # name of grid logging file
+
+# REFINEMENT / REGRIDDING
+amr.max_level       = 1       # maximum level number allowed
+amr.ref_ratio       = 2 2 2 2 # refinement ratio
+amr.regrid_int      = 2       # how often to regrid
+amr.blocking_factor = 8       # block factor in grid generation
+amr.max_grid_size   = 64
+
+# ERROR TAGGING
+tagging.phigrad =  0.002 0.002 0.002 0.002 0.002 0.002
+tagging.phigrad_var = density
+tagging.max_phigrad_lev = 5
+tagging.max_int_lev = 10
+
+# CHECKPOINT FILES
+amr.checkpoint_files_output = 0     # 0 will disable checkpoint files
+amr.check_file              = chk/MHM/ss_nozzle/0256/plt   # root name of checkpoint file
+amr.check_int               = 10    # number of timesteps between checkpoints
+
+# PLOTFILES
+amr.plot_files_output = 1      # 0 will disable plot files
+amr.plot_file         = plt    # root name of plot file
+amr.plot_int          = 10 # number of timesteps between plot files
+amr.plot_file = output/MHM/ss_nozzle/0256/plt
+
+write_exact=false
