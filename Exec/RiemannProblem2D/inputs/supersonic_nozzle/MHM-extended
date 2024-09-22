@@ -8,9 +8,9 @@ rho_amb=1.225
 p_amb=101325
 adia = 1.4
 
-t_0 = (D*6/(M*sqrt(adia*p_amb/rho_amb)))
+t_1 = (D*20/(M*sqrt(adia*p_amb/rho_amb)))
 
-stop_time = t_0+0.0015
+stop_time = t_1*10
 
 # constant initial conditions
 prob.adiabatic  = adia
@@ -26,11 +26,11 @@ init.int_normal = 1 0 0
 geometry.is_periodic =  0  0  0
 geometry.coord_sys   =  0       # 0 => cart
 geometry.prob_lo     =  0.0  0.0  0.0 
-geometry.prob_hi     =  D*10.0 D*4.0  0.0
+geometry.prob_hi     =  D*40.0 D*8.0  0.0
 
 ls.geom_type = box
 ls.box_lo = -1 D*0.5 0
-ls.box_hi = D*6.0 D 0.1
+ls.box_hi = D*3.0 D 0.1
 ls.box_has_fluid_inside = false
 
 bc.x = supersonic_jet transmissive
@@ -51,12 +51,11 @@ sym.rot_axis = 1
 sym.alpha = 1
 
 # RESOLUTION
-# baseres = 8
-baseres = 16
-amr.n_cell         =  5*baseres 2*baseres 0
+baseres = 8
+amr.n_cell         =  10*baseres 2*baseres 0
 
 # TIME STEP CONTROL
-adv.cfl            = 0.5   # cfl number for hyperbolic system
+adv.cfl            = 0.4   # cfl number for hyperbolic system
 
 ## NUMERICAL METHOD SETTINGS
 adv.num_method = muscl_hancock
@@ -73,9 +72,9 @@ amr.v              = 1       # verbosity in Amr
 
 # REFINEMENT / REGRIDDING
 amr.max_level       = 4       # maximum level number allowed
-amr.ref_ratio       = 4 2 2 2 # refinement ratio
+amr.ref_ratio       = 4 4 4 2 # refinement ratio
 amr.regrid_int      = 1       # how often to regrid
-amr.blocking_factor = 8       # block factor in grid generation
+amr.blocking_factor = 16       # block factor in grid generation
 amr.max_grid_size   = 64
 
 # ERROR TAGGING
@@ -86,14 +85,15 @@ tagging.max_int_lev = 10
 
 # CHECKPOINT FILES
 amr.checkpoint_files_output = 0     # 0 will disable checkpoint files
-amr.check_file              = chk/MHM/ss_nozzle/0256/plt   # root name of checkpoint file
-amr.check_int               = 10    # number of timesteps between checkpoints
+amr.check_file              = chk/MHM/ss_nozzle_ext/amr/plt   # root name of checkpoint file
+# amr.check_int               = 10    # number of timesteps between checkpoints
+amr.check_per = t_1/10
 
 # PLOTFILES
 amr.plot_files_output = 1      # 0 will disable plot files
 amr.plot_file         = plt    # root name of plot file
-amr.plot_int          = 100000 # number of timesteps between plot files
-amr.plot_at = t_0 t_0+0.0002 t_0+0.0004933 t_0+0.0010023 t_0+0.0015
-amr.plot_file = output/MHM/ss_nozzle/0256/plt
+# amr.plot_int          = 100000 # number of timesteps between plot files
+amr.plot_per = t_1/20
+amr.plot_file = output/MHM/ss_nozzle_ext/amr/plt
 
 write_exact=false

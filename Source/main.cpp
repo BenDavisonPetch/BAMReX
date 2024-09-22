@@ -21,9 +21,10 @@ int main(int argc, char *argv[])
 
     auto dRunTime1 = amrex::second();
 
-    int  max_step;
-    Real strt_time;
-    Real stop_time;
+    int          max_step;
+    Real         strt_time;
+    Real         stop_time;
+    Vector<Real> plot_times;
 
     {
         ParmParse pp;
@@ -35,6 +36,11 @@ int main(int argc, char *argv[])
         pp.query("max_step", max_step);
         pp.query("strt_time", strt_time);
         pp.query("stop_time", stop_time);
+
+        ParmParse ppamr("amr");
+        ppamr.queryarr("plot_at", plot_times);
+        plot_times.push_back(stop_time);
+        std::sort(plot_times.begin(), plot_times.end());
     }
 
     if (strt_time < 0.0)
@@ -64,6 +70,9 @@ int main(int argc, char *argv[])
 
         amr.init(strt_time, stop_time);
 
+        int  iplot_times    = 0;
+        Real next_stop_time = plot_times[iplot_times];
+
         while (amr.okToContinue()
                && (amr.levelSteps(0) < max_step || max_step < 0)
                && (amr.cumTime() < stop_time || stop_time < 0.0))
@@ -72,7 +81,16 @@ int main(int argc, char *argv[])
             //
             // Do a coarse timestep.  Recursively calls timeStep()
             //
-            amr.coarseTimeStep(stop_time);
+            amr.coarseTimeStep(next_stop_time);
+            if (amr.cumTime() >= next_stop_time * (1 - 1e-12))
+            {
+                iplot_times++;
+                if (iplot_times >= plot_times.size())
+                    continue;
+                next_stop_time = plot_times[iplot_times];
+                if (amr.stepOfLastPlotFile() < amr.levelSteps(0))
+                    amr.writePlotFile();
+            }
         }
 
         // Write final checkpoint and plotfile

@@ -31,6 +31,7 @@ void advance_geometric(const amrex::Geometry &geom, amrex::Real dt, int alpha,
                        amrex::MultiFab &stateout)
 {
 #if AMREX_SPACEDIM == 1 || AMREX_SPACEDIM == 2
+    BL_PROFILE("advance_geometric()");
     AMREX_ASSERT(rot_axis < AMREX_SPACEDIM);
     //! Spherical symmetry not implemented
     AMREX_ASSERT(alpha == 1);
@@ -119,6 +120,7 @@ void advance_geometric_visc(const amrex::Geometry &geom, amrex::Real dt,
                             amrex::MultiFab &stateout, const bamrexBCData &bc)
 {
 #if AMREX_SPACEDIM == 1 || AMREX_SPACEDIM == 2
+    BL_PROFILE("advance_geometric_visc()");
     AMREX_ASSERT(rot_axis < AMREX_SPACEDIM);
     //! Spherical symmetry not implemented
     AMREX_ASSERT(alpha == 1);
