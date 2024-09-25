@@ -20,3 +20,6 @@ target_link_libraries(jet_2d AMReX::amrex_2d)
 
 file(CREATE_LINK ${CMAKE_CURRENT_SOURCE_DIR}/inputs
     ${CMAKE_CURRENT_BINARY_DIR}/inputs SYMBOLIC)
+
+file(CREATE_LINK ${CMAKE_CURRENT_SOURCE_DIR}/geometry
+    ${CMAKE_CURRENT_BINARY_DIR}/geometry SYMBOLIC)
