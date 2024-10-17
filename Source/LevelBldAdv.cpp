@@ -3,6 +3,7 @@
 #include <AmrLevelAdv.H>
 
 using namespace amrex;
+using namespace bamrex;
 
 class LevelBldAdv : public LevelBld
 {

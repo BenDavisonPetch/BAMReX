@@ -3,15 +3,15 @@
 #include <iostream>
 #include <new>
 
-#include <AMReX_Amr.H>
-#include <AMReX_AmrLevel.H>
 #include <AMReX_ParallelDescriptor.H>
 #include <AMReX_ParmParse.H>
 
 #include "AmrLevelAdv.H"
 #include "Geometry/MakeSDF.H"
+#include "MultiAdvAmr/MultiAdvAmr.H"
 
 using namespace amrex;
+using namespace bamrex;
 
 amrex::LevelBld *getLevelBld();
 
@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
     }
 
     {
-        Amr amr(getLevelBld());
+        MultiAdvAmr amr(getLevelBld());
 
 #ifdef AMREX_USE_EB
         AmrLevel::SetEBSupportLevel(EBSupport::full);

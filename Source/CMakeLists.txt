@@ -34,6 +34,8 @@ set (SRC_NO_MAIN ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/BoundaryConditions/bc_ss_jet.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Parm.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Visc/Visc.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/MultiAdvAmr/MultiAdvAmr.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/MultiAdvAmr/MultiAdvAmrLevel.cpp
 )
 
 set (SRC_NO_MAIN ${SRC_NO_MAIN} PARENT_SCOPE)

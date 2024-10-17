@@ -28,6 +28,7 @@
 //#include "Kernels.H"
 
 using namespace amrex;
+using namespace bamrex;
 
 int  AmrLevelAdv::verbose = 0;
 Real AmrLevelAdv::cfl
@@ -64,10 +65,10 @@ AmrLevelAdv::AmrLevelAdv() = default;
 /**
  * The basic constructor.
  */
-AmrLevelAdv::AmrLevelAdv(Amr &papa, int lev, const Geometry &level_geom,
-                         const BoxArray &bl, const DistributionMapping &dm,
-                         Real time)
-    : AmrLevel(papa, lev, level_geom, bl, dm, time)
+AmrLevelAdv::AmrLevelAdv(Amr &papa, int lev,
+                         const Geometry &level_geom, const BoxArray &bl,
+                         const DistributionMapping &dm, Real time)
+    : MultiAdvAmrLevel(papa, lev, level_geom, bl, dm, time)
 {
     if (level > 0 && do_reflux)
     {

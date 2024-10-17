@@ -1,13 +1,13 @@
 #ifndef AmrLevelAdv_H_
 #define AmrLevelAdv_H_
 
-#include <AMReX_AmrLevel.H>
 #include <AMReX_FArrayBox.H>
 #include <AMReX_FluxRegister.H>
 #include <AMReX_PhysBCFunct.H>
 
 #include "BoundaryConditions/BCs.H"
 #include "IMEX/IMEXSettings.H"
+#include "MultiAdvAmr/MultiAdvAmrLevel.H"
 #include "NumericalMethods.H"
 #include "RCM/PseudoRandom.H"
 
@@ -36,7 +36,7 @@ enum StateType
 /**
  * AmrLevel-derived class for hyperbolic conservation equations
  */
-class AmrLevelAdv : public amrex::AmrLevel
+class AmrLevelAdv : public bamrex::MultiAdvAmrLevel
 {
   public:
     /**
@@ -47,8 +47,8 @@ class AmrLevelAdv : public amrex::AmrLevel
     /**
      * The basic constructor.
      */
-    AmrLevelAdv(amrex::Amr &papa, int lev, const amrex::Geometry &level_geom,
-                const amrex::BoxArray            &bl,
+    AmrLevelAdv(bamrex::Amr &papa, int lev,
+                const amrex::Geometry &level_geom, const amrex::BoxArray &bl,
                 const amrex::DistributionMapping &dm, amrex::Real time);
 
     /**
@@ -106,11 +106,13 @@ class AmrLevelAdv : public amrex::AmrLevel
      */
     void init() override;
 
+    virtual int NumAdvances() noexcept override { return 1; }
+
     /**
      * Advance grids at this level in time.
      */
-    amrex::Real advance(amrex::Real time, amrex::Real dt, int iteration,
-                        int ncycle) override;
+    amrex::Real advance(amrex::Real time, amrex::Real dt, int cres_iter,
+                        int iteration, int ncycle) override;
 
     /**
      * Advance when using a fully explicit method (e.g. MHM, HLLC)

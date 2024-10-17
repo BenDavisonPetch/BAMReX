@@ -17,8 +17,8 @@ using namespace amrex;
  * Advance grids at this level in time.
  */
 //  This function is the one that actually calls the flux functions.
-Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
-                          int /*ncycle*/)
+Real AmrLevelAdv::advance(Real time, Real dt, int /*crse_iter*/,
+                          int /*iteration*/, int /*ncycle*/)
 {
     BL_PROFILE("AmrLevelAdv::advance()")
     if (verbose)
