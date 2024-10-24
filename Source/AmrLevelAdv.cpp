@@ -231,6 +231,9 @@ void AmrLevelAdv::variableCleanUp()
     delete h_parm;
     // This relates to freeing parameters on the GPU too
     The_Arena()->free(d_parm);
+
+    d_parm = nullptr;
+    h_parm = nullptr;
 }
 
 /**
@@ -824,16 +827,6 @@ void AmrLevelAdv::errorEst(TagBoxArray &tags, int /*clearval*/, int /*tagval*/,
  */
 void AmrLevelAdv::read_params()
 {
-    // Make sure that this is only done once
-    static bool done = false;
-
-    if (done)
-    {
-        return;
-    }
-
-    done = true;
-
     // A ParmParse object allows settings, with the correct prefix, to be read
     // in from the settings file The prefix can help identify what a settings
     // parameter is used for AMReX has some default ParmParse names, amr and

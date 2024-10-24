@@ -30,7 +30,7 @@ class UnitDomainTest : public testing::Test
     amrex::GpuArray<amrex::Real, AMREX_SPACEDIM> dx;
 
     amrex::LevelBld *adv_bld;
-    bool varsetup = false;
+    bool             varsetup = false;
 
     UnitDomainTest()
         : adv_bld(getLevelBld())
@@ -76,7 +76,14 @@ class UnitDomainTest : public testing::Test
         }
     }
 
-    void TearDown() override { adv_bld->variableCleanUp(); }
+    void TearDown() override
+    {
+        if (varsetup)
+        {
+            adv_bld->variableCleanUp();
+            varsetup = false;
+        }
+    }
 
     /**
      * @brief Gives the indices of the multifab corresponding to a given x
