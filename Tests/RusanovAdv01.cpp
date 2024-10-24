@@ -1,5 +1,5 @@
 #include "BoxTest.H"
-#include "Euler/NComp.H"
+#include "System/Euler/NComp.H"
 #include "IMEX/IMEX_Fluxes.H"
 #include "MFIterLoop.H"
 #include "UnitDomainTest.H"
@@ -25,7 +25,7 @@ TEST_F(ToroTest1, RusanovAdv)
     {
         BoxArray ba = mf.boxArray();
         ba.surroundingNodes(d);
-        fluxes[d].define(ba, dm, AmrLevelAdv::NUM_STATE, 0);
+        fluxes[d].define(ba, dm, EULER_NCOMP, 0);
     }
 
     // Fill input multifab
@@ -130,7 +130,7 @@ TEST_F(ToroTest2, RusanovAdv)
     {
         BoxArray ba = mf.boxArray();
         ba.surroundingNodes(d);
-        fluxes[d].define(ba, dm, AmrLevelAdv::NUM_STATE, 0);
+        fluxes[d].define(ba, dm, EULER_NCOMP, 0);
     }
 
     // Fill input multifab

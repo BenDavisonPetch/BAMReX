@@ -3,7 +3,7 @@
 
 #include <AMReX.H>
 
-//! Conservative indices
+//! Conservative indices for fluid system
 struct UInd
 {
     static constexpr int RHO = 0;
@@ -13,9 +13,20 @@ struct UInd
     static constexpr int E   = (1 + AMREX_SPACEDIM);
 
     static constexpr int size = E + 1;
+
+    static inline constexpr int Mdir(int dir)
+    {
+        switch (dir)
+        {
+        case 0: return MX;
+        case 1: return MY;
+        case 2: return MZ;
+        };
+        return -1;
+    }
 };
 
-//! Primitive indices
+//! Primitive indices for fluid system
 struct QInd
 {
     static constexpr int RHO = 0;
@@ -31,6 +42,17 @@ struct QInd
 
     static constexpr int size  = P + 1;
     static constexpr int vsize = KAPPA + 1;
+
+    static inline constexpr int Qdir(int dir)
+    {
+        switch (dir)
+        {
+        case 0: return U;
+        case 1: return V;
+        case 2: return W;
+        };
+        return -1;
+    }
 };
 
 #endif

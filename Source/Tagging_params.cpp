@@ -3,8 +3,7 @@
 #include <AMReX_Vector.H>
 
 #include "AmrLevelAdv.H"
-#include "Index.H"
-#include "VarNames.H"
+#include "System/Index.H"
 
 using namespace amrex;
 
@@ -48,8 +47,8 @@ void AmrLevelAdv::get_tagging_params()
         pp.query("phierr_var", var_name);
         if (!var_name.empty())
         {
-            phierr_var_idx      = var_name_to_idx(var_name);
-            phierr_var_is_primv = var_is_primv(var_name);
+            phierr_var_idx      = system->VariableIndex(var_name);
+            phierr_var_is_primv = system->VariableIsPrimitive(var_name);
         }
     }
     if (max_phigrad_lev != -1)
@@ -60,8 +59,8 @@ void AmrLevelAdv::get_tagging_params()
         pp.query("phigrad_var", var_name);
         if (!var_name.empty())
         {
-            phigrad_var_idx      = var_name_to_idx(var_name);
-            phigrad_var_is_primv = var_is_primv(var_name);
+            phigrad_var_idx      = system->VariableIndex(var_name);
+            phigrad_var_is_primv = system->VariableIsPrimitive(var_name);
         }
     }
     if (max_int_lev != -1)

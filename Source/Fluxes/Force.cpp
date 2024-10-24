@@ -1,4 +1,3 @@
-#include "AmrLevelAdv.H"
 #include "Fluxes/Fluxes.H"
 
 #include <AMReX_Box.H>
@@ -13,12 +12,11 @@ compute_force_flux(amrex::Real time, const amrex::Box &bx,
                    const amrex::Array4<amrex::Real>       &flux,
                    const amrex::Array4<const amrex::Real> &consv_values,
                    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr,
-                   amrex::Real                                      dt)
+                   amrex::Real dt, const System *system, const Parm *h_parm,
+                   const Parm *d_parm)
 {
-    const amrex::Real adiabatic = AmrLevelAdv::h_parm->adiabatic;
-    const amrex::Real epsilon   = AmrLevelAdv::h_parm->epsilon;
     compute_force_flux_LR<dir>(time, bx, flux, consv_values, consv_values,
-                               adiabatic, adiabatic, epsilon, dx_arr, dt);
+                               dx_arr, dt, system, h_parm, d_parm);
 }
 
 template <int dir>
@@ -27,10 +25,9 @@ compute_force_flux_LR(amrex::Real time, const amrex::Box &bx,
                       const amrex::Array4<amrex::Real>       &flux,
                       const amrex::Array4<const amrex::Real> &consv_values_L,
                       const amrex::Array4<const amrex::Real> &consv_values_R,
-                      const amrex::Real                       adiabatic_L,
-                      const amrex::Real adiabatic_R, const amrex::Real epsilon,
                       amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr,
-                      amrex::Real                                      dt)
+                      amrex::Real dt, const System *system, const Parm *h_parm,
+                      const Parm *d_parm)
 {
     const Real &dx = dx_arr[dir];
     // define boxes (i.e. index domains) for cell-centred values with ghost
@@ -46,7 +43,7 @@ compute_force_flux_LR(amrex::Real time, const amrex::Box &bx,
     FArrayBox tmpfab;
     // We size the temporary fab to cover the same indices as convs_values,
     // i.e. including ghost cells We only need to store
-    const int NSTATE = AmrLevelAdv::NUM_STATE;
+    const int NSTATE = system->StateSize();
     tmpfab.resize(ghost_bx, NSTATE * 3);
     Elixir tmpeli = tmpfab.elixir();
 
@@ -57,11 +54,10 @@ compute_force_flux_LR(amrex::Real time, const amrex::Box &bx,
     Array4<Real> flux_func_values_R  = tmpfab.array(NSTATE, NSTATE);
     Array4<Real> half_updated_values = tmpfab.array(NSTATE * 2, NSTATE);
 
-    // compute primitive values and flux function values
-    compute_flux_function<dir>(time, ghost_bx, flux_func_values_L,
-                               consv_values_L, adiabatic_L, epsilon);
-    compute_flux_function<dir>(time, ghost_bx, flux_func_values_R,
-                               consv_values_R, adiabatic_R, epsilon);
+    system->FillFluxes(dir, time, ghost_bx, flux_func_values_L, consv_values_L,
+                       h_parm, d_parm);
+    system->FillFluxes(dir, time, ghost_bx, flux_func_values_R, consv_values_R,
+                       h_parm, d_parm);
 
     int i_offset = (dir == 0) ? 1 : 0;
     int j_offset = (dir == 1) ? 1 : 0;
@@ -70,7 +66,7 @@ compute_force_flux_LR(amrex::Real time, const amrex::Box &bx,
     // add half of the Lax Friedrichs flux to the force flux,
     // and compute half updated values
     ParallelFor(
-        flux_bx, AmrLevelAdv::NUM_STATE,
+        flux_bx, NSTATE,
         [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
         {
             flux(i, j, k, n)
@@ -96,12 +92,12 @@ compute_force_flux_LR(amrex::Real time, const amrex::Box &bx,
         });
 
     // we just reuse the L flux func values
-    compute_flux_function<dir>(time, flux_bx, flux_func_values_L,
-                               half_updated_values, adiabatic_L, epsilon);
+    system->FillFluxes(dir, time, flux_bx, flux_func_values_L,
+                       half_updated_values, h_parm, d_parm);
 
     // Now flux_func_values contains the Richtmeyer flux, so we add half to the
     // total flux.
-    ParallelFor(flux_bx, AmrLevelAdv::NUM_STATE,
+    ParallelFor(flux_bx, NSTATE,
                 [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
                 { flux(i, j, k, n) += 0.5 * flux_func_values_L(i, j, k, n); });
 
@@ -111,33 +107,34 @@ compute_force_flux_LR(amrex::Real time, const amrex::Box &bx,
 template <int dir>
 AMREX_GPU_HOST void
 compute_LF_flux(amrex::Real time, const amrex::Box &bx,
-                const amrex::Array4<amrex::Real>       &flux,
-                const amrex::Array4<const amrex::Real> &consv_values,
-                const amrex::Real adiabatic, const amrex::Real epsilon,
+                const amrex::Array4<amrex::Real>                &flux,
+                const amrex::Array4<const amrex::Real>          &consv_values,
                 amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr,
-                amrex::Real                                      dt)
+                amrex::Real dt, const System *system, const Parm *h_parm,
+                const Parm *d_parm)
 {
     const Real dx = dx_arr[dir];
 
-    const Box &ghost_bx = grow(bx, AmrLevelAdv::NUM_GROW);
+    const Box &ghost_bx = grow(bx, 1);
     const Box &flux_bx  = surroundingNodes(bx, dir);
 
+    const int NSTATE = system->StateSize();
+
     FArrayBox tmpfab;
-    tmpfab.resize(ghost_bx, AmrLevelAdv::NUM_STATE);
+    tmpfab.resize(ghost_bx, NSTATE);
     Elixir tmpeli = tmpfab.elixir();
 
-    const Array4<Real> &flux_func_values
-        = tmpfab.array(0, AmrLevelAdv::NUM_STATE);
+    const Array4<Real> &flux_func_values = tmpfab.array(0, NSTATE);
 
-    compute_flux_function<dir>(time, ghost_bx, flux_func_values, consv_values,
-                               adiabatic, epsilon);
+    system->FillFluxes(dir, time, ghost_bx, flux_func_values, consv_values,
+                       h_parm, d_parm);
 
     int i_off = (dir == 0) ? 1 : 0;
     int j_off = (dir == 1) ? 1 : 0;
     int k_off = (dir == 2) ? 1 : 0;
 
     ParallelFor(
-        flux_bx, AmrLevelAdv::NUM_STATE,
+        flux_bx, NSTATE,
         [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
         {
             flux(i, j, k, n)
@@ -154,65 +151,74 @@ compute_LF_flux(amrex::Real time, const amrex::Box &bx,
 // Template instantiations
 //
 
-template AMREX_GPU_HOST void compute_force_flux<0>(
-    amrex::Real, const amrex::Box &, const amrex::Array4<amrex::Real> &,
-    const amrex::Array4<const amrex::Real> &,
-    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &, amrex::Real);
+template AMREX_GPU_HOST void
+compute_force_flux<0>(amrex::Real, const amrex::Box &,
+                      const amrex::Array4<amrex::Real> &,
+                      const amrex::Array4<const amrex::Real> &,
+                      amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &,
+                      amrex::Real, const System *, const Parm *, const Parm *);
 
 #if AMREX_SPACEDIM >= 2
-template AMREX_GPU_HOST void compute_force_flux<1>(
-    amrex::Real, const amrex::Box &, const amrex::Array4<amrex::Real> &,
-    const amrex::Array4<const amrex::Real> &,
-    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &, amrex::Real);
+template AMREX_GPU_HOST void
+compute_force_flux<1>(amrex::Real, const amrex::Box &,
+                      const amrex::Array4<amrex::Real> &,
+                      const amrex::Array4<const amrex::Real> &,
+                      amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &,
+                      amrex::Real, const System *, const Parm *, const Parm *);
 #endif
 #if AMREX_SPACEDIM >= 3
-template AMREX_GPU_HOST void compute_force_flux<2>(
-    amrex::Real, const amrex::Box &, const amrex::Array4<amrex::Real> &,
-    const amrex::Array4<const amrex::Real> &,
-    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &, amrex::Real);
+template AMREX_GPU_HOST void
+compute_force_flux<2>(amrex::Real, const amrex::Box &,
+                      const amrex::Array4<amrex::Real> &,
+                      const amrex::Array4<const amrex::Real> &,
+                      amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &,
+                      amrex::Real, const System *, const Parm *, const Parm *);
 #endif
 
 template AMREX_GPU_HOST void compute_force_flux_LR<0>(
     amrex::Real, const amrex::Box &, const amrex::Array4<amrex::Real> &,
     const amrex::Array4<const amrex::Real> &,
-    const amrex::Array4<const amrex::Real> &, const amrex::Real,
-    const amrex::Real, const amrex::Real,
-    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &, amrex::Real);
+    const amrex::Array4<const amrex::Real> &,
+    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &, amrex::Real,
+    const System *, const Parm *, const Parm *);
 
 #if AMREX_SPACEDIM >= 2
 template AMREX_GPU_HOST void compute_force_flux_LR<1>(
     amrex::Real, const amrex::Box &, const amrex::Array4<amrex::Real> &,
     const amrex::Array4<const amrex::Real> &,
-    const amrex::Array4<const amrex::Real> &, const amrex::Real,
-    const amrex::Real, const amrex::Real,
-    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &, amrex::Real);
+    const amrex::Array4<const amrex::Real> &,
+    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &, amrex::Real,
+    const System *, const Parm *, const Parm *);
 #endif
 #if AMREX_SPACEDIM >= 3
 template AMREX_GPU_HOST void compute_force_flux_LR<2>(
     amrex::Real, const amrex::Box &, const amrex::Array4<amrex::Real> &,
     const amrex::Array4<const amrex::Real> &,
-    const amrex::Array4<const amrex::Real> &, const amrex::Real,
-    const amrex::Real, const amrex::Real,
-    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &, amrex::Real);
+    const amrex::Array4<const amrex::Real> &,
+    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &, amrex::Real,
+    const System *, const Parm *, const Parm *);
 #endif
 
-template AMREX_GPU_HOST void compute_LF_flux<0>(
-    amrex::Real, const amrex::Box &, const amrex::Array4<amrex::Real> &,
-    const amrex::Array4<const amrex::Real> &, const amrex::Real,
-    const amrex::Real, amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &,
-    amrex::Real);
+template AMREX_GPU_HOST void
+compute_LF_flux<0>(amrex::Real, const amrex::Box &,
+                   const amrex::Array4<amrex::Real> &,
+                   const amrex::Array4<const amrex::Real> &,
+                   amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &,
+                   amrex::Real, const System *, const Parm *, const Parm *);
 
 #if AMREX_SPACEDIM >= 2
-template AMREX_GPU_HOST void compute_LF_flux<1>(
-    amrex::Real, const amrex::Box &, const amrex::Array4<amrex::Real> &,
-    const amrex::Array4<const amrex::Real> &, const amrex::Real,
-    const amrex::Real, amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &,
-    amrex::Real);
+template AMREX_GPU_HOST void
+compute_LF_flux<1>(amrex::Real, const amrex::Box &,
+                   const amrex::Array4<amrex::Real> &,
+                   const amrex::Array4<const amrex::Real> &,
+                   amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &,
+                   amrex::Real, const System *, const Parm *, const Parm *);
 #endif
 #if AMREX_SPACEDIM >= 3
-template AMREX_GPU_HOST void compute_LF_flux<2>(
-    amrex::Real, const amrex::Box &, const amrex::Array4<amrex::Real> &,
-    const amrex::Array4<const amrex::Real> &, const amrex::Real,
-    const amrex::Real, amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &,
-    amrex::Real);
+template AMREX_GPU_HOST void
+compute_LF_flux<2>(amrex::Real, const amrex::Box &,
+                   const amrex::Array4<amrex::Real> &,
+                   const amrex::Array4<const amrex::Real> &,
+                   amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &,
+                   amrex::Real, const System *, const Parm *, const Parm *);
 #endif

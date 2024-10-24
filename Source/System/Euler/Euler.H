@@ -8,7 +8,7 @@
 #include <AMReX_MultiFab.H>
 
 #include "AmrLevelAdv.H"
-#include "Euler/NComp.H"
+#include "NComp.H"
 
 /**
  * \brief Computes the flux function values (for a given direction) across the
@@ -25,7 +25,8 @@ compute_flux_function(amrex::Real time, const amrex::Box &gbx,
                       const amrex::Real adiabatic, const amrex::Real epsilon);
 
 AMREX_GPU_HOST
-amrex::Real max_wave_speed(amrex::Real time, const amrex::MultiFab &S_new);
+amrex::Real max_wave_speed(amrex::Real time, const amrex::MultiFab &S_new,
+                           amrex::Real adia, amrex::Real eps);
 
 AMREX_GPU_HOST
 amrex::Real max_speed(const amrex::MultiFab &state);

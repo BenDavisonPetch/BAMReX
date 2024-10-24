@@ -12,10 +12,8 @@ TEST_F(BoxTest, ConsvFromPrimvArray3D)
 #endif
 {
     setup(false);
-    const Real epsilon      = AmrLevelAdv::h_parm->epsilon;
-    const Real adiabatic    = AmrLevelAdv::h_parm->adiabatic;
-    const auto consv_L_calc = consv_from_primv(primv_L, adiabatic, epsilon);
-    const auto consv_R_calc = consv_from_primv(primv_R, adiabatic, epsilon);
+    const auto consv_L_calc = consv_from_primv(primv_L, adia, eps);
+    const auto consv_R_calc = consv_from_primv(primv_R, adia, eps);
     for (int n = 0; n < EULER_NCOMP; ++n)
     {
         EXPECT_NEAR(consv_L[n], consv_L_calc[n], 1e-12);
@@ -30,12 +28,10 @@ TEST_F(BoxTest, PrimvFromConsv3D)
 #endif
 {
     setup(false);
-    const Real epsilon   = AmrLevelAdv::h_parm->epsilon;
-    const Real adiabatic = AmrLevelAdv::h_parm->adiabatic;
     const auto primv_L_calc
-        = primv_from_consv(statein[0].array(), adiabatic, epsilon, 0, 0, 0);
+        = primv_from_consv(statein[0].array(), adia, eps, 0, 0, 0);
     const auto primv_R_calc
-        = primv_from_consv(statein[0].array(), adiabatic, epsilon, 3, 0, 0);
+        = primv_from_consv(statein[0].array(), adia, eps, 3, 0, 0);
     for (int n = 0; n < EULER_NCOMP; ++n)
     {
         EXPECT_NEAR(primv_L[n], primv_L_calc[n], 1e-12);
@@ -51,9 +47,7 @@ TEST_F(BoxTest, MaxWaveSpeed3D)
 #endif
 {
     setup(true);
-    ASSERT_EQ(AmrLevelAdv::h_parm->epsilon, 0.5);
-    ASSERT_EQ(AmrLevelAdv::h_parm->adiabatic, 1.6);
-    const Real speed = max_wave_speed(0, statein);
+    const Real speed = max_wave_speed(0, statein, adia, eps);
 #if AMREX_SPACEDIM == 3
     // |v|_L = sqrt(14)
     // c_L = sqrt(0.48)

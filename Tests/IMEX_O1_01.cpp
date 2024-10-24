@@ -9,6 +9,7 @@
 #include "IMEX/IMEX_Fluxes.H"
 #include "IMEX/IMEX_O1.H"
 #include "IMEX_K/euler_K.H"
+#include "System/FluidSystem.H"
 
 using namespace amrex;
 
@@ -26,7 +27,9 @@ class IMEXO1 : public BoxTest
     {
         BoxTest::setup(split_grid);
         m_pressure.define(ba, dm, 1, 2);
-        bc_data.build(&geom);
+        System   *system = new FluidSystem;
+        ParmParse ppbc("bc");
+        bc_data.build(&geom, system, ppbc);
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -78,8 +81,10 @@ TEST_F(IMEXO1, SplitKEEnergyMatch)
                          bc_data, settings);
 
     ASSERT_FALSE(fluxes[0].contains_nan());
+#if AMREX_SPACEDIM > 1
     ASSERT_FALSE(fluxes[1].contains_nan());
-#if AMREX_SPACEDIM == 3
+#endif
+#if AMREX_SPACEDIM > 2
     ASSERT_FALSE(fluxes[2].contains_nan());
 #endif
 
@@ -221,8 +226,10 @@ TEST_F(IMEXO1, ExplicitKEEnergyMatch)
                          bc_data, settings);
 
     ASSERT_FALSE(fluxes[0].contains_nan());
+#if AMREX_SPACEDIM > 1
     ASSERT_FALSE(fluxes[1].contains_nan());
-#if AMREX_SPACEDIM == 3
+#endif
+#if AMREX_SPACEDIM > 2
     ASSERT_FALSE(fluxes[2].contains_nan());
 #endif
 

@@ -51,9 +51,8 @@ const int AmrLevelAdv::NUM_GROW_P
          // for GFM
 
 // Mechanism for getting code to work on GPU
-Parm   *AmrLevelAdv::h_parm = nullptr;
-Parm   *AmrLevelAdv::d_parm = nullptr;
-System *AmrLevelAdv::system = nullptr;
+Parm *AmrLevelAdv::h_parm = nullptr;
+Parm *AmrLevelAdv::d_parm = nullptr;
 
 /**
  * Default constructor.  Builds invalid object.
@@ -149,8 +148,8 @@ void AmrLevelAdv::variableSetUp()
     d_parm = (Parm *)The_Arena()->alloc(sizeof(Parm));
 
     // Initialize polymorphic class which determines solved set of equations
-    ParmParse   pp("prob");
-    std::string sys_type = "fluid";
+    ParmParse  pp("prob");
+    SystemType sys_type = SystemType::fluid;
     pp.queryAdd("system", sys_type);
     system = System::NewSystem(pp);
 
@@ -238,11 +237,6 @@ void AmrLevelAdv::variableCleanUp()
     delete h_parm;
     // This relates to freeing parameters on the GPU too
     The_Arena()->free(d_parm);
-    delete system;
-
-    d_parm = nullptr;
-    h_parm = nullptr;
-    system = nullptr;
 }
 
 /**
@@ -843,6 +837,16 @@ void AmrLevelAdv::errorEst(TagBoxArray &tags, int /*clearval*/, int /*tagval*/,
  */
 void AmrLevelAdv::read_params()
 {
+    // Make sure that this is only done once
+    static bool done = false;
+
+    if (done)
+    {
+        return;
+    }
+
+    done = true;
+
     // A ParmParse object allows settings, with the correct prefix, to be read
     // in from the settings file The prefix can help identify what a settings
     // parameter is used for AMReX has some default ParmParse names, amr and

@@ -1,7 +1,7 @@
 #ifndef PROB_H_
 #define PROB_H_
 
-#include "Euler/Euler.H"
+#include "System/Euler/Euler.H"
 
 #include <AMReX_Geometry.H>
 

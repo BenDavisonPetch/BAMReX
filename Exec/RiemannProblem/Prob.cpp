@@ -6,8 +6,8 @@
 #include <cmath>
 
 #include "AmrLevelAdv.H"
-#include "Euler/Euler.H"
-#include "Euler/RiemannSolver.H"
+#include "System/Euler/Euler.H"
+#include "System/Euler/RiemannSolver.H"
 #include "Prob.H"
 
 /**
@@ -86,7 +86,7 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
         const Array4<Real> &phi = S_tmp.array(mfi);
 
         // Populate MultiFab data
-        ParallelFor(box, AmrLevelAdv::NUM_STATE,
+        ParallelFor(box, EULER_NCOMP,
                     [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
                     {
 #if AMREX_SPACEDIM == 1
@@ -121,7 +121,7 @@ void write_exact_solution(
     Box                            domain(dom_lo, dom_hi);
     BoxArray                       ba(domain);
     DistributionMapping            dm(ba);
-    MultiFab                       mf(ba, dm, AmrLevelAdv::NUM_STATE, 0);
+    MultiFab                       mf(ba, dm, EULER_NCOMP, 0);
     GpuArray<Real, AMREX_SPACEDIM> prob_lo({ AMREX_D_DECL(0., 0., 0.) });
     RealBox    real_box(AMREX_D_DECL(0., 0., 0.), AMREX_D_DECL(1., 1., 1.));
     Geometry   geom(domain, &real_box);

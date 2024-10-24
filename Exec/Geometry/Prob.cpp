@@ -1,14 +1,6 @@
-
-#include <AMReX_Math.H>
-#include <AMReX_MultiFab.H>
-#include <AMReX_ParmParse.H>
-#include <AMReX_PlotFileUtil.H>
-#include <cmath>
-
-#include "AmrLevelAdv.H"
-#include "Euler/Euler.H"
-#include "Euler/RiemannSolver.H"
 #include "Prob.H"
+
+#include <AMReX_MultiFab.H>
 
 /**
  * Initialize Data on Multifab

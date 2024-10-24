@@ -41,6 +41,9 @@ class BoxTest : public UnitDomainTest
     amrex::MultiFab                               statein, stateout;
     amrex::Array<amrex::MultiFab, AMREX_SPACEDIM> fluxes;
 
+    const amrex::Real adia = 1.6;
+    const amrex::Real eps  = 0.5;
+
     BoxTest()
         : UnitDomainTest()
     {
@@ -50,8 +53,8 @@ class BoxTest : public UnitDomainTest
     {
         using namespace amrex;
         ParmParse pp("prob");
-        pp.add("adiabatic", 1.6);
-        pp.add("epsilon", 0.5);
+        pp.add("adiabatic", adia);
+        pp.add("epsilon", eps);
         if (split_grid)
             UnitDomainTest::setup(4, 2);
         else

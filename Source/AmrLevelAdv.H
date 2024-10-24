@@ -10,6 +10,7 @@
 #include "IMEX/IMEXSettings.H"
 #include "NumericalMethods.H"
 #include "RCM/PseudoRandom.H"
+#include "System/System.H"
 
 #ifdef AMREX_PARTICLES
 #include <AMReX_AmrParticles.H>
@@ -21,9 +22,6 @@
 #ifdef AMREX_USE_OMP
 #include <omp.h>
 #endif
-
-// Problem-dependent struct. Defined under Exec directory.
-#include "Parm.H"
 
 enum StateType
 {
@@ -184,13 +182,15 @@ class AmrLevelAdv : public amrex::AmrLevel
     }
 #endif
 
-    const static int NUM_STATE;
+    const int NUM_STATE = -1;
     const static int NUM_GROW;
     const static int NUM_GROW_P;
 
     // Parm class instances
     static Parm *h_parm;
     static Parm *d_parm;
+    // System class instance
+    static System *system;
 
 #if REUSE_PRESSURE
     static amrex::MultiFab MFpressure;

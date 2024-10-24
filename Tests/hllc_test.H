@@ -6,7 +6,7 @@
  */
 
 #include "AmrLevelAdv.H"
-#include "Euler/Euler.H"
+#include "System/Euler/Euler.H"
 
 #include <AMReX_Arena.H>
 #include <gtest/gtest.h>

@@ -1,10 +1,12 @@
 #ifndef PROB_PARM_H_
 #define PROB_PARM_H_
 
-#include "Euler/NComp.H"
 #include "Fluxes/Limiters.H"
+#include "System/Euler/NComp.H"
 #include <AMReX_Array.H>
 #include <AMReX_REAL.H>
+
+#define MAX_NCOMP EULER_NCOMP
 
 using namespace amrex::literals;
 
@@ -53,13 +55,9 @@ struct Parm
 
     //! MHM slope limiting options
     Limiter                                    limiter;
-    amrex::GpuArray<unsigned int, EULER_NCOMP> limiter_indices;
-    amrex::GpuArray<bool, EULER_NCOMP>         limit_on_primv;
-
-    //! Set default values
-    void set_defaults();
-    //! Finish initialisation
-    void init();
+    amrex::GpuArray<unsigned int, MAX_NCOMP> limiter_indices;
+    amrex::GpuArray<bool, MAX_NCOMP>         limit_on_primv;
+    bool need_primitive_for_limiting;
 };
 
 #endif

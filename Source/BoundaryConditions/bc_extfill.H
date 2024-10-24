@@ -5,8 +5,8 @@
 #ifndef bc_extfill_H_
 #define bc_extfill_H_
 
-#include "Euler/Euler.H"
-#include "Euler/NComp.H"
+#include "System/Euler/Euler.H"
+#include "System/Euler/NComp.H"
 
 #include <AMReX_FArrayBox.H>
 #include <AMReX_Geometry.H>

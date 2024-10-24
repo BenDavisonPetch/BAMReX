@@ -3,8 +3,8 @@
 
 #include <AMReX_Array4.H>
 
-#include "Index.H"
-#include "Parm.H"
+#include "System/Index.H"
+#include "System/Parm.H"
 
 AMREX_FORCE_INLINE AMREX_GPU_DEVICE void
 visc_ctop(int i, int j, int k, const amrex::Array4<amrex::Real> &Q,

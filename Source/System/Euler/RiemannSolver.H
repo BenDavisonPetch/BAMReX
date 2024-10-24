@@ -1,7 +1,7 @@
 #ifndef RiemannSolver_H_
 #define RiemannSolver_H_
 
-#include "Euler/Euler.H"
+#include "System/Euler/Euler.H"
 #include "RootFinding.H"
 #include <AMReX_Extension.H>
 #include <AMReX_GpuQualifiers.H>

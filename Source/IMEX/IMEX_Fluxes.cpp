@@ -20,7 +20,7 @@ void advance_rusanov_adv(const amrex::Real /*time*/, const amrex::Box &bx,
                          const amrex::Real                            dt)
 {
     BL_PROFILE("advance_rusanov_adv()");
-    const int     NSTATE  = AmrLevelAdv::NUM_STATE;
+    const int     NSTATE  = EULER_NCOMP;
     constexpr int STENSIL = 1;
     const Box     gbx     = amrex::grow(bx, STENSIL);
     // Temporary fab

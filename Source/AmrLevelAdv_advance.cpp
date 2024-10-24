@@ -7,6 +7,7 @@
 #include "NumericalMethods.H"
 #include "RCM/RCM.H"
 #include "SourceTerms/GeometricSource.H"
+#include "System/System.H"
 #include "Visc/Visc.H"
 #include <AMReX_Arena.H>
 #include <AMReX_MFIter.H>
@@ -109,7 +110,8 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     // fill rigid body ghost states
     if (bc_data.rb_enabled())
     {
-        fill_ghost_rb(geom, Sborder, LS, gfm_flags, bc_data.rigidbody_bc());
+        system->FillRBGhostCells(geom, Sborder, LS, gfm_flags,
+                                 bc_data.rigidbody_bc());
         bc_data.fill_consv_boundary(geom, Sborder, time);
     }
 
@@ -125,7 +127,12 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
         advance_explicit(time, dt, fluxes, Sborder, Sborder2, S_new);
     else if (num_method == NumericalMethods::imex)
     {
-        AMREX_ASSERT_WITH_MESSAGE(
+        if (system->GetSystemType() != SystemType::fluid)
+        {
+            throw RuntimeError(
+                "IMEX is not supported for phases other than fluids!");
+        }
+        AMREX_ALWAYS_ASSERT_WITH_MESSAGE(
             !(imex_settings.stabilize && do_reflux
               && this->parent->maxLevel() > 0),
             "Refluxing with high-Mach number stabilisation not "
@@ -300,9 +307,10 @@ void AmrLevelAdv::advance_explicit(
 
                 if (num_method == NumericalMethods::muscl_hancock)
                     compute_MUSCL_hancock_flux(d, time, bx, fluxarr, Uin, dx,
-                                               dt);
+                                               dt, system, h_parm, d_parm);
                 else if (num_method == NumericalMethods::hllc)
-                    compute_HLLC_flux(d, time, bx, fluxarr, Uin, dx, dt);
+                    compute_HLLC_flux(d, time, bx, fluxarr, Uin, dx, dt,
+                                      system, h_parm, d_parm);
                 else
                     throw std::logic_error("Internal error");
 
@@ -341,6 +349,11 @@ void AmrLevelAdv::advance_explicit(
 
     if (visc == ViscMethods::op_split_explicit)
     {
+        if (system->GetSystemType() != SystemType::fluid)
+        {
+            throw RuntimeError(
+                "Viscous fluxes for non-fluids not yet supported!");
+        }
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
 #endif
@@ -381,6 +394,11 @@ void AmrLevelAdv::advance_explicit(
 
     if (rot_axis != -1 && alpha != 0 && AMREX_SPACEDIM < 3)
     {
+        if (system->GetSystemType() != SystemType::fluid)
+        {
+            throw RuntimeError(
+                "Geometric source terms for non-fluids not yet supported!");
+        }
         //! Euler equation geometric source
         //! Doesn't need boundaries to be filled
         advance_geometric(geom, dt, alpha, rot_axis, (*MFin), (*MFout));

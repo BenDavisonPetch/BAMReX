@@ -5,7 +5,7 @@
 #include <cmath>
 
 #include "AmrLevelAdv.H"
-#include "Euler/Euler.H"
+#include "System/Euler/Euler.H"
 
 /**
  * Initialize Data on Multifab
@@ -60,7 +60,7 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
         const Array4<Real> &phi = S_tmp.array(mfi);
 
         // Populate MultiFab data
-        ParallelFor(box, AmrLevelAdv::NUM_STATE,
+        ParallelFor(box, EULER_NCOMP,
                     [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
                     {
 #if AMREX_SPACEDIM == 1

@@ -8,6 +8,9 @@ set (SRC_NO_MAIN ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/LevelBldAdv.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Tagging_params.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/MFIterLoop.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/System/Euler/Euler.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/System/System.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/System/FluidSystem.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Fluxes/Force.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Fluxes/SLIC.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Fluxes/Flux_Helpers.cpp
@@ -18,7 +21,6 @@ set (SRC_NO_MAIN ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/IMEX/IMEX_RK.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/IMEX/IMEXSettings.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/IMEX/ButcherTableau.cpp
-                 ${CMAKE_CURRENT_SOURCE_DIR}/Euler/Euler.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/LinearSolver/MLALaplacianGrad.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/SourceTerms/GeometricSource.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/RCM/RCM.cpp
@@ -32,7 +34,6 @@ set (SRC_NO_MAIN ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/BoundaryConditions/bc_nullfill.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/BoundaryConditions/bc_jet.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/BoundaryConditions/bc_ss_jet.cpp
-                 ${CMAKE_CURRENT_SOURCE_DIR}/Parm.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Visc/Visc.cpp
 )
 

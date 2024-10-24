@@ -1,5 +1,5 @@
-#include "Euler/Euler.H"
-#include "Euler/RiemannSolver.H"
+#include "System/Euler/Euler.H"
+#include "System/Euler/RiemannSolver.H"
 
 #include "UnitDomainTest.H"
 
@@ -44,7 +44,7 @@ TEST_F(ToroTest1, ExactRiemann)
         std::cout << "Compute primitive values" << std::endl;
         std::cout << "Comparing..." << std::endl;
 
-        for (int n = 0; n < AmrLevelAdv::NUM_STATE; ++n)
+        for (int n = 0; n < EULER_NCOMP; ++n)
         {
             EXPECT_NEAR(primv_L_new[n], primv_L[n],
                         std::fabs(primv_L[n] * 1e-12));
@@ -84,7 +84,7 @@ TEST_F(ToroTest2, ExactRiemann)
         const auto primv_L_new
             = primv_from_consv(arr, adiabatic, 1, L_idx[0], 0, 0);
 
-        for (int n = 0; n < AmrLevelAdv::NUM_STATE; ++n)
+        for (int n = 0; n < EULER_NCOMP; ++n)
         {
             EXPECT_NEAR(primv_L_new[n], primv_L[n],
                         std::fabs(primv_L[n] * 1e-12));
@@ -124,7 +124,7 @@ TEST_F(ToroTest3, ExactRiemann)
         const auto primv_L_new
             = primv_from_consv(arr, adiabatic, 1, L_idx[0], 0, 0);
 
-        for (int n = 0; n < AmrLevelAdv::NUM_STATE; ++n)
+        for (int n = 0; n < EULER_NCOMP; ++n)
         {
             EXPECT_NEAR(primv_L_new[n], primv_L[n],
                         std::fabs(primv_L[n] * 1e-12));
@@ -167,7 +167,7 @@ TEST_F(ToroTest4, ExactRiemann)
         const auto primv_L_new
             = primv_from_consv(arr, adiabatic, 1, L_idx[0], 0, 0);
 
-        for (int n = 0; n < AmrLevelAdv::NUM_STATE; ++n)
+        for (int n = 0; n < EULER_NCOMP; ++n)
         {
             EXPECT_NEAR(primv_L_new[n], primv_L[n],
                         std::fabs(primv_L[n] * 1e-12));
@@ -207,7 +207,7 @@ TEST_F(ToroTest5, ExactRiemann)
         const auto primv_L_new
             = primv_from_consv(arr, adiabatic, 1, L_idx[0], 0, 0);
 
-        for (int n = 0; n < AmrLevelAdv::NUM_STATE; ++n)
+        for (int n = 0; n < EULER_NCOMP; ++n)
         {
             EXPECT_NEAR(primv_L_new[n], primv_L[n],
                         std::fabs(primv_L[n] * 1e-12));
@@ -258,7 +258,7 @@ TEST_F(ToroTest1Scaled, ExactRiemann)
         std::cout << "Compute primitive values" << std::endl;
         std::cout << "Comparing..." << std::endl;
 
-        for (int n = 0; n < AmrLevelAdv::NUM_STATE; ++n)
+        for (int n = 0; n < EULER_NCOMP; ++n)
         {
             EXPECT_NEAR(primv_L_new[n], primv_L[n],
                         std::fabs(primv_L[n] * 1e-12));

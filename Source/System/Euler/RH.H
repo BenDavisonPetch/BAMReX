@@ -7,7 +7,7 @@
 #include <AMReX_Array.H>
 #include <AMReX_REAL.H>
 
-#include "Parm.H"
+#include "System/Parm.H"
 
 /**
  * Calculates post-shock conditions for a shock defined with Mach number

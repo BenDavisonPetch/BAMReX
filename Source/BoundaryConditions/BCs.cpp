@@ -4,9 +4,9 @@
 #include "BoundaryConditions/bc_jet.H"
 #include "BoundaryConditions/bc_nullfill.H"
 #include "BoundaryConditions/bc_ss_jet.H"
-#include "Euler/Euler.H"
-#include "Euler/NComp.H"
 #include "MultiBCFunct.H"
+#include "System/Euler/Euler.H"
+#include "System/Euler/NComp.H"
 
 #include <AMReX_BC_TYPES.H>
 #include <AMReX_LO_BCTYPES.H>
@@ -14,19 +14,24 @@
 using namespace amrex;
 
 bamrexBCData::bamrexBCData()
-    : bndryfunc_consv(nullfill)
+    : ncomp(0)
+    , system_type(SystemType::fluid)
+    , bndryfunc_consv(nullfill)
     , bndryfunc_p(nullfill)
     , bndryfunc_consv_sd(nullfill)
     , bndryfunc_p_sd(nullfill)
     , bndryfunc_ls_sd(nullfill)
-    , consv_bcrecs(CONSV_NCOMP)
     , m_rb_enabled(false)
 {
 }
 
-void bamrexBCData::build(const amrex::Geometry *top_geom)
+void bamrexBCData::build(const Geometry *top_geom, const System *system,
+                         ParmParse &pp)
 {
-    ParmParse pp("bc");
+    ncomp       = system->StateSize();
+    system_type = system->GetSystemType();
+    consv_bcrecs.resize(ncomp);
+
     if (pp.contains("x"))
     {
         std::array<std::string, 2> bc_in;
@@ -162,12 +167,13 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
             pp.query("epsilon", eps);
         }
         AMREX_ALWAYS_ASSERT(eps == 1);
-        AMREX_ASSERT(CONSV_NCOMP == EULER_NCOMP);
+        AMREX_ALWAYS_ASSERT(system_type == SystemType::fluid);
+        AMREX_ASSERT(ncomp == EULER_NCOMP);
 
         const Real                        dens    = 1;
         const Real                        p_0     = dens / (adia * M * M);
         const Real                        p_infty = p_0 - 2 + 4 * log(2);
-        const GpuArray<Real, CONSV_NCOMP> primv{ dens, AMREX_D_DECL(0, 0, 0),
+        const GpuArray<Real, EULER_NCOMP> primv{ dens, AMREX_D_DECL(0, 0, 0),
                                                  p_infty };
         const GpuArray<Real, 1>           p_fill{ p_infty };
         const auto &consv  = consv_from_primv(primv, adia, eps);
@@ -221,7 +227,7 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
         {
         case BAMReXBCType::transmissive:
         {
-            for (int n = 0; n < CONSV_NCOMP; ++n)
+            for (int n = 0; n < ncomp; ++n)
             {
                 consv_bcrecs[n].setLo(dir, amrex::BCType::foextrap);
             }
@@ -234,7 +240,7 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
         }
         case BAMReXBCType::periodic:
         {
-            for (int n = 0; n < CONSV_NCOMP; ++n)
+            for (int n = 0; n < ncomp; ++n)
             {
                 consv_bcrecs[n].setLo(dir, amrex::BCType::int_dir);
             }
@@ -245,8 +251,9 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
         }
         case BAMReXBCType::reflective:
         {
-            AMREX_ASSERT(CONSV_NCOMP == EULER_NCOMP);
-            for (int n = 0; n < CONSV_NCOMP; ++n)
+            AMREX_ASSERT(ncomp == EULER_NCOMP);
+            AMREX_ALWAYS_ASSERT(system_type == SystemType::fluid);
+            for (int n = 0; n < ncomp; ++n)
             {
                 consv_bcrecs[n].setLo(dir, amrex::BCType::reflect_even);
             }
@@ -259,8 +266,9 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
         }
         case BAMReXBCType::gresho:
         {
-            AMREX_ASSERT(CONSV_NCOMP == EULER_NCOMP);
-            for (int n = 0; n < CONSV_NCOMP; ++n)
+            AMREX_ASSERT(ncomp == EULER_NCOMP);
+            AMREX_ALWAYS_ASSERT(system_type == SystemType::fluid);
+            for (int n = 0; n < ncomp; ++n)
             {
                 consv_bcrecs[n].setLo(dir, amrex::BCType::ext_dir);
             }
@@ -271,7 +279,9 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
         }
         case BAMReXBCType::coaxial_jet:
         {
-            for (int n = 0; n < CONSV_NCOMP; ++n)
+            AMREX_ASSERT(ncomp == EULER_NCOMP);
+            AMREX_ALWAYS_ASSERT(system_type == SystemType::fluid);
+            for (int n = 0; n < ncomp; ++n)
             {
                 consv_bcrecs[n].setLo(dir, amrex::BCType::user_1);
             }
@@ -287,7 +297,9 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
         }
         case BAMReXBCType::supersonic_jet:
         {
-            for (int n = 0; n < CONSV_NCOMP; ++n)
+            AMREX_ASSERT(ncomp == EULER_NCOMP);
+            AMREX_ALWAYS_ASSERT(system_type == SystemType::fluid);
+            for (int n = 0; n < ncomp; ++n)
             {
                 consv_bcrecs[n].setLo(dir, amrex::BCType::user_1);
             }
@@ -305,7 +317,7 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
         {
         case BAMReXBCType::transmissive:
         {
-            for (int n = 0; n < CONSV_NCOMP; ++n)
+            for (int n = 0; n < ncomp; ++n)
             {
                 consv_bcrecs[n].setHi(dir, amrex::BCType::foextrap);
             }
@@ -318,7 +330,7 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
         }
         case BAMReXBCType::periodic:
         {
-            for (int n = 0; n < CONSV_NCOMP; ++n)
+            for (int n = 0; n < ncomp; ++n)
             {
                 consv_bcrecs[n].setHi(dir, amrex::BCType::int_dir);
             }
@@ -329,8 +341,9 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
         }
         case BAMReXBCType::reflective:
         {
-            AMREX_ASSERT(CONSV_NCOMP == EULER_NCOMP);
-            for (int n = 0; n < CONSV_NCOMP; ++n)
+            AMREX_ASSERT(ncomp == EULER_NCOMP);
+            AMREX_ALWAYS_ASSERT(system_type == SystemType::fluid);
+            for (int n = 0; n < ncomp; ++n)
             {
                 consv_bcrecs[n].setHi(dir, amrex::BCType::reflect_even);
             }
@@ -343,8 +356,9 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
         }
         case BAMReXBCType::gresho:
         {
-            AMREX_ASSERT(CONSV_NCOMP == EULER_NCOMP);
-            for (int n = 0; n < CONSV_NCOMP; ++n)
+            AMREX_ASSERT(ncomp == EULER_NCOMP);
+            AMREX_ALWAYS_ASSERT(system_type == SystemType::fluid);
+            for (int n = 0; n < ncomp; ++n)
             {
                 consv_bcrecs[n].setHi(dir, amrex::BCType::ext_dir);
             }
@@ -355,7 +369,7 @@ void bamrexBCData::build(const amrex::Geometry *top_geom)
         }
         case BAMReXBCType::coaxial_jet:
         {
-            for (int n = 0; n < CONSV_NCOMP; ++n)
+            for (int n = 0; n < ncomp; ++n)
             {
                 consv_bcrecs[n].setHi(dir, amrex::BCType::user_1);
             }

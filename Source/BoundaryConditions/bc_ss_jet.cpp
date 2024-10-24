@@ -2,9 +2,9 @@
  * Boundary conditions for a co-axial jet
  */
 #include "BoundaryConditions/bc_ss_jet.H"
-#include "Euler/Euler.H"
-#include "Euler/NComp.H"
-#include "Euler/RH.H"
+#include "System/Euler/Euler.H"
+#include "System/Euler/NComp.H"
+#include "System/Euler/RH.H"
 #include <AMReX_FArrayBox.H>
 #include <AMReX_Geometry.H>
 #include <AMReX_PhysBCFunct.H>

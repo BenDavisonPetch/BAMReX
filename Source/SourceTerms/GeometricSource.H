@@ -2,8 +2,8 @@
 #define GeometricSource_H_
 
 #include "BoundaryConditions/BCs.H"
-#include "Index.H"
-#include "Parm.H"
+#include "System/Index.H"
+#include "System/Parm.H"
 
 #include <AMReX_AmrLevel.H>
 #include <AMReX_Array4.H>

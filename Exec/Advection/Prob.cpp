@@ -6,8 +6,8 @@
 #include <cmath>
 
 #include "AmrLevelAdv.H"
-#include "Euler/Euler.H"
-#include "Euler/RiemannSolver.H"
+#include "System/Euler/Euler.H"
+#include "System/Euler/RiemannSolver.H"
 #include "Prob.H"
 
 /**

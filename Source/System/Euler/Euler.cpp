@@ -44,11 +44,10 @@ compute_flux_function(amrex::Real /*time*/, const amrex::Box &bx,
 }
 
 AMREX_GPU_HOST
-amrex::Real max_wave_speed(amrex::Real /*time*/, const amrex::MultiFab &S_new)
+amrex::Real max_wave_speed(amrex::Real /*time*/, const amrex::MultiFab &S_new,
+                           amrex::Real adiabatic, amrex::Real epsilon)
 {
     BL_PROFILE("max_wave_speed()");
-    const Real adiabatic = AmrLevelAdv::h_parm->adiabatic;
-    const Real epsilon   = AmrLevelAdv::h_parm->epsilon;
 
     auto const &ma         = S_new.const_arrays();
     auto        wave_speed = ParReduce(

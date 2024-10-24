@@ -2,7 +2,7 @@
 #define BCs_H_
 
 #include "BoundaryConditions/bc_jet.H"
-#include "Euler/NComp.H"
+#include "System/System.H"
 
 #include <AMReX.H>
 #include <AMReX_Array.H>
@@ -11,79 +11,11 @@
 #include <AMReX_ParmParse.H>
 #include <AMReX_StateDescriptor.H>
 
-#include <string>
-
-/**
- * BC type definitions
- */
-namespace BAMReXBCType
-{
-enum bctype
-{
-    transmissive,
-    reflective,
-    periodic,
-    gresho,
-    pressure_outlet,
-    coaxial_jet,
-    supersonic_jet
-};
-
-/**
- * Helper functions
- */
-inline bctype enum_from_string(const std::string &name)
-{
-    if (name == "transmissive")
-        return transmissive;
-    else if (name == "reflective")
-        return reflective;
-    else if (name == "periodic")
-        return periodic;
-    else if (name == "gresho")
-        return gresho;
-    else if (name == "pressure_outlet")
-        return pressure_outlet;
-    else if (name == "coaxial_jet")
-        return coaxial_jet;
-    else if (name == "supersonic_jet")
-        return supersonic_jet;
-    else
-    {
-        amrex::Abort("Invalid BC type specified");
-        return transmissive;
-    }
-}
-}
-
-namespace RigidBodyBCType
-{
-enum rigidbodybctype
-{
-    reflective,
-    no_slip,
-    foextrap
-};
-
-inline rigidbodybctype enum_from_string(const std::string &name)
-{
-    if (name == "reflective")
-        return reflective;
-    else if (name == "no_slip")
-        return no_slip;
-    else
-    {
-        amrex::Abort("Invalid rigid body BC type specified");
-        return reflective;
-    }
-}
-}
+#include "BCTypes.H"
 
 class bamrexBCData
 {
   public:
-    static constexpr int CONSV_NCOMP = EULER_NCOMP;
-
     /**
      * Default constructor. Builds an invalid object
      */
@@ -92,7 +24,8 @@ class bamrexBCData
     /**
      * Used to initialise the object
      */
-    void build(const amrex::Geometry *top_geom);
+    void build(const amrex::Geometry *top_geom, const System *system,
+               amrex::ParmParse &pp);
 
     /**
      * Used to fill boundaries on pressure
@@ -167,6 +100,9 @@ class bamrexBCData
     inline bool rb_enabled() const { return m_rb_enabled; }
 
   protected:
+    int        ncomp;
+    SystemType system_type;
+
     amrex::Array<BAMReXBCType::bctype, 2 * AMREX_SPACEDIM> bcs;
     RigidBodyBCType::rigidbodybctype                       rb_bc;
 

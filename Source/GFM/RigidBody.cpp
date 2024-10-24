@@ -1,12 +1,12 @@
 #include "RigidBody.H"
 #include "BoundaryConditions/BCs.H"
-#include "Euler/Euler.H"
-#include "Euler/NComp.H"
-#include "Euler/RiemannSolver.H"
+#include "System/Euler/Euler.H"
+#include "System/Euler/NComp.H"
+#include "System/Euler/RiemannSolver.H"
 #include "GFM/Extrapolate.H"
 #include "GFM/GFMFlag.H"
 #include "GFM/Interp_K.H"
-#include "Index.H"
+#include "System/Index.H"
 #include <AMReX_RealVect.H>
 
 using namespace amrex;

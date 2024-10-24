@@ -1,7 +1,7 @@
 #include "RCM.H"
 #include "AmrLevelAdv.H"
-#include "Euler/Euler.H"
-#include "Euler/RiemannSolver.H"
+#include "System/Euler/Euler.H"
+#include "System/Euler/RiemannSolver.H"
 #include <AMReX_FArrayBox.H>
 
 using namespace amrex;

@@ -19,13 +19,12 @@ AMREX_GPU_HOST void compute_HLLC_flux_LR(
     const amrex::Array4<amrex::Real>       &flux,
     const amrex::Array4<const amrex::Real> &consv_values_L,
     const amrex::Array4<const amrex::Real> &consv_values_R,
-    const amrex::Real adiabatic_L, const amrex::Real adiabatic_R,
-    const amrex::Real epsilon,
     amrex::GpuArray<amrex::Real, BL_SPACEDIM> const & /*dx_arr*/,
-    amrex::Real /*dt*/)
+    amrex::Real /*dt*/, const System *system, const Parm *h_parm,
+    const Parm *d_parm)
 {
     BL_PROFILE("compute_HLLC_flux_LR()");
-    const int NSTATE = AmrLevelAdv::NUM_STATE;
+    const int NSTATE = system->StateSize();
     // const Real         dx     = dx_arr[dir];
 
     const auto &flux_bx = surroundingNodes(bx, dir);
@@ -33,6 +32,13 @@ AMREX_GPU_HOST void compute_HLLC_flux_LR(
     const int i_off = (dir == 0) ? 1 : 0;
     const int j_off = (dir == 1) ? 1 : 0;
     const int k_off = (dir == 2) ? 1 : 0;
+
+    AMREX_ALWAYS_ASSERT(system->GetSystemType() == SystemType::fluid);
+    ignore_unused(d_parm);
+
+    const Real adiabatic_L = h_parm->adiabatic;
+    const Real adiabatic_R = h_parm->adiabatic;
+    const Real epsilon     = h_parm->epsilon;
 
     ParallelFor(
         flux_bx,
@@ -123,23 +129,23 @@ AMREX_GPU_HOST void compute_HLLC_flux_LR(
 template AMREX_GPU_HOST void compute_HLLC_flux_LR<0>(
     amrex::Real, const amrex::Box &, const amrex::Array4<amrex::Real> &,
     const amrex::Array4<const amrex::Real> &,
-    const amrex::Array4<const amrex::Real> &, const amrex::Real,
-    const amrex::Real, const amrex::Real,
-    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &, amrex::Real);
+    const amrex::Array4<const amrex::Real> &,
+    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &, amrex::Real,
+    const System *, const Parm *, const Parm *);
 
 #if AMREX_SPACEDIM >= 2
 template AMREX_GPU_HOST void compute_HLLC_flux_LR<1>(
     amrex::Real, const amrex::Box &, const amrex::Array4<amrex::Real> &,
     const amrex::Array4<const amrex::Real> &,
-    const amrex::Array4<const amrex::Real> &, const amrex::Real,
-    const amrex::Real, const amrex::Real,
-    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &, amrex::Real);
+    const amrex::Array4<const amrex::Real> &,
+    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &, amrex::Real,
+    const System *, const Parm *, const Parm *);
 #endif
 #if AMREX_SPACEDIM >= 3
 template AMREX_GPU_HOST void compute_HLLC_flux_LR<2>(
     amrex::Real, const amrex::Box &, const amrex::Array4<amrex::Real> &,
     const amrex::Array4<const amrex::Real> &,
-    const amrex::Array4<const amrex::Real> &, const amrex::Real,
-    const amrex::Real, const amrex::Real,
-    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &, amrex::Real);
+    const amrex::Array4<const amrex::Real> &,
+    amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &, amrex::Real,
+    const System *, const Parm *, const Parm *);
 #endif

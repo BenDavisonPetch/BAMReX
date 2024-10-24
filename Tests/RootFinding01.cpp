@@ -1,5 +1,5 @@
-#include "Euler/Euler.H"
-#include "Euler/RiemannSolver.H"
+#include "System/Euler/Euler.H"
+#include "System/Euler/RiemannSolver.H"
 #include "RootFinding.H"
 
 #include "UnitDomainTest.H"

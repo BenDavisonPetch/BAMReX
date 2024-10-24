@@ -2,7 +2,7 @@
 #define UnitDomainTest_H_
 
 #include "AmrLevelAdv.H"
-#include "Euler/Euler.H"
+#include "System/Euler/Euler.H"
 
 #include <AMReX_IntVect.H>
 #include <AMReX_LevelBld.H>
@@ -49,7 +49,7 @@ class UnitDomainTest : public testing::Test
         if (max_grid_size > 0)
             ba.maxSize(max_grid_size);
         dm = DistributionMapping(ba);
-        mf.define(ba, dm, AmrLevelAdv::NUM_STATE, 0);
+        mf.define(ba, dm, EULER_NCOMP, 0);
         prob_lo  = { AMREX_D_DECL(0.0, 0.0, 0.0) };
         prob_hi  = { AMREX_D_DECL(1.0, 1.0, 1.0) };
         real_box = RealBox(AMREX_D_DECL(0.0, 0.0, 0.0),

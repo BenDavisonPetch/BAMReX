@@ -2,7 +2,7 @@
 #define HLLC_H_
 
 #include "AmrLevelAdv.H"
-#include "Euler/Euler.H"
+#include "System/Euler/Euler.H"
 #include "Exceptions.H"
 #include <AMReX_Array4.H>
 #include <AMReX_Box.H>

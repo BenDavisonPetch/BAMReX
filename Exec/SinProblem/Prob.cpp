@@ -6,8 +6,8 @@
 #include <cmath>
 
 #include "AmrLevelAdv.H"
-#include "Euler/Euler.H"
-#include "Euler/RiemannSolver.H"
+#include "System/Euler/Euler.H"
+#include "System/Euler/RiemannSolver.H"
 #include "Prob.H"
 
 using namespace amrex;
@@ -97,7 +97,7 @@ void write_exact_solution(amrex::Real time, amrex::Real p,
     Box                            domain(dom_lo, dom_hi);
     BoxArray                       ba(domain);
     DistributionMapping            dm(ba);
-    MultiFab                       mf(ba, dm, AmrLevelAdv::NUM_STATE, 0);
+    MultiFab                       mf(ba, dm, EULER_NCOMP, 0);
     GpuArray<Real, AMREX_SPACEDIM> prob_lo({ AMREX_D_DECL(-1., -1., -1.) });
     RealBox    real_box(AMREX_D_DECL(-1., -1., -1.), AMREX_D_DECL(1., 1., 1.));
     Geometry   geom(domain, &real_box);
