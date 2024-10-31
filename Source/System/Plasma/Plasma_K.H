@@ -118,42 +118,6 @@ mhd_flux(int i, int j, int k, const amrex::Array4<amrex::Real> &flux,
                                - Q[PQInd::W] * U(i, j, k, PUInd::Bdir(dir));
 }
 
-// template <>
-// AMREX_GPU_DEVICE AMREX_FORCE_INLINE void
-// mhd_flux<0>(int i, int j, int k, const amrex::Array4<amrex::Real> &flux,
-//             const amrex::Array4<const amrex::Real> &U, const Parm &parm)
-// {
-//     const auto Q = mhd_ctop_noB(i, j, k, U, parm);
-//     const auto p_tot
-//         = Q[PQInd::P]
-//           + 0.5
-//                 * (U(i, j, k, PUInd::BX) * U(i, j, k, PUInd::BX)
-//                    + U(i, j, k, PUInd::BY) * U(i, j, k, PUInd::BY)
-//                    + U(i, j, k, PUInd::BZ) * U(i, j, k, PUInd::BZ));
-//     // density flux
-//     flux(i, j, k, PUInd::RHO) = U(i, j, k, PUInd::MX);
-//     // momentum flux
-//     //     rho u x u - B x B term
-//     flux(i, j, k, PUInd::MX) = U(i, j, k, PUInd::MX) * Q[PQInd::U] + p_tot
-//                                - U(i, j, k, PUInd::BX) * U(i, j, k, PUInd::BX);
-//     flux(i, j, k, PUInd::MY) = U(i, j, k, PUInd::MY) * Q[PQInd::U]
-//                                - U(i, j, k, PUInd::BY) * U(i, j, k, PUInd::BX);
-//     flux(i, j, k, PUInd::MZ) = U(i, j, k, PUInd::MZ) * Q[PQInd::U]
-//                                - U(i, j, k, PUInd::BZ) * U(i, j, k, PUInd::BX);
-//     // energy flux
-//     const auto udotB = Q[PQInd::U] * U(i, j, k, PUInd::BX)
-//                        + Q[PQInd::V] * U(i, j, k, PUInd::BY)
-//                        + Q[PQInd::W] * U(i, j, k, PUInd::BZ);
-//     flux(i, j, k, PUInd::E) = (U(i, j, k, PUInd::E) + p_tot) * Q[PQInd::U]
-//                               - udotB * U(i, j, k, PUInd::BX);
-//     // induction fluxes
-//     flux(i, j, k, PUInd::BX) = 0;
-//     flux(i, j, k, PUInd::BY) = U(i, j, k, PUInd::BY) * Q[PQInd::U]
-//                                - Q[PQInd::V] * U(i, j, k, PUInd::BX);
-//     flux(i, j, k, PUInd::BZ) = U(i, j, k, PUInd::BZ) * Q[PQInd::U]
-//                                - Q[PQInd::W] * U(i, j, k, PUInd::BX);
-// }
-
 AMREX_GPU_DEVICE AMREX_FORCE_INLINE amrex::Real
                                     mhd_alfven_speed_sq(int i, int j, int k,
                                                         const amrex::Array4<const amrex::Real> &U)
@@ -192,26 +156,13 @@ AMREX_GPU_DEVICE AMREX_FORCE_INLINE amrex::Real mhd_exp_timestep_dim_split(
     const Real v_a_sq = mhd_alfven_speed_sq(i, j, k, U);
     const auto Q      = mhd_ctop_noB(i, j, k, U, parm);
     const Real c_s_sq = mhd_sound_speed_sq(Q, parm);
-    // Real       dt_est = 1e20;
-    // for (int d = 0; d < AMREX_SPACEDIM; ++d)
-    // {
-    //     dt_est = std::min(
-    //         dt_est, dx[d]
-    //                     / (std::fabs(Q[PQInd::Udir(d)])
-    //                        + mhd_fast_speed(i, j, k, d, c_s_sq, v_a_sq,
-    //                        U)));
-    // }
-    const Real u_mag
-        = std::sqrt(Q[PQInd::U] * Q[PQInd::U] + Q[PQInd::V] * Q[PQInd::V]
-                    + Q[PQInd::W] * Q[PQInd::W]);
-    const Real max_fast_speed
-        = std::max(mhd_fast_speed(i, j, k, 0, c_s_sq, v_a_sq, U),
-                   std::max(mhd_fast_speed(i, j, k, 1, c_s_sq, v_a_sq, U),
-                            mhd_fast_speed(i, j, k, 2, c_s_sq, v_a_sq, U)));
-    Real dt_est = 1e20;
+    Real       dt_est = 1e20;
     for (int d = 0; d < AMREX_SPACEDIM; ++d)
     {
-        dt_est = std::min(dt_est, dx[d] / (u_mag + max_fast_speed));
+        dt_est = std::min(
+            dt_est, dx[d]
+                        / (std::fabs(Q[PQInd::Udir(d)])
+                           + mhd_fast_speed(i, j, k, d, c_s_sq, v_a_sq, U)));
     }
     return dt_est;
 }

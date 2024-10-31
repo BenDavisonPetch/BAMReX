@@ -161,7 +161,7 @@ TEST_F(PlasmaSystemTest, MULTIDIM(FillFluxes))
     // rho = 1.2
     //  U = 2,    V = 3,    W = -1
     // MX = 2.4, MY = 3.6, MZ = -1.2
-    // p = 9, E = 23.4
+    // p = 9, E = 26.125
     // B_x = -1
     // B_y = 2.1
     // B_z = 0.2
@@ -175,7 +175,7 @@ TEST_F(PlasmaSystemTest, MULTIDIM(FillFluxes))
     U(i, j, k, PUInd::MX)  = 2.4;
     U(i, j, k, PUInd::MY)  = 3.6;
     U(i, j, k, PUInd::MZ)  = -1.2;
-    U(i, j, k, PUInd::E)   = 23.4;
+    U(i, j, k, PUInd::E)   = 26.125;
     U(i, j, k, PUInd::BX)  = -1;
     U(i, j, k, PUInd::BY)  = 2.1;
     U(i, j, k, PUInd::BZ)  = 0.2;
@@ -192,7 +192,7 @@ TEST_F(PlasmaSystemTest, MULTIDIM(FillFluxes))
     EXPECT_NEAR(FX(i, j, k, PUInd::MX), 15.525, 1e-12);
     EXPECT_NEAR(FX(i, j, k, PUInd::MY), 9.3, 1e-12);
     EXPECT_NEAR(FX(i, j, k, PUInd::MZ), -2.2, 1e-12);
-    EXPECT_NEAR(FX(i, j, k, PUInd::E), 74.35, 1e-12);
+    EXPECT_NEAR(FX(i, j, k, PUInd::E), 79.8, 1e-12);
     EXPECT_NEAR(FX(i, j, k, PUInd::BX), 0, 1e-12);
     EXPECT_NEAR(FX(i, j, k, PUInd::BY), 7.2, 1e-12);
     EXPECT_NEAR(FX(i, j, k, PUInd::BZ), -0.6, 1e-12);
@@ -202,7 +202,7 @@ TEST_F(PlasmaSystemTest, MULTIDIM(FillFluxes))
     EXPECT_NEAR(FY(i, j, k, PUInd::MX), 9.3, 1e-12);
     EXPECT_NEAR(FY(i, j, k, PUInd::MY), 18.115, 1e-12);
     EXPECT_NEAR(FY(i, j, k, PUInd::MZ), -4.02, 1e-12);
-    EXPECT_NEAR(FY(i, j, k, PUInd::E), 96.765, 1e-12);
+    EXPECT_NEAR(FY(i, j, k, PUInd::E), 104.94, 1e-12);
     EXPECT_NEAR(FY(i, j, k, PUInd::BX), -7.2, 1e-12);
     EXPECT_NEAR(FY(i, j, k, PUInd::BY), 0, 1e-12);
     EXPECT_NEAR(FY(i, j, k, PUInd::BZ), 2.7, 1e-12);
@@ -212,7 +212,7 @@ TEST_F(PlasmaSystemTest, MULTIDIM(FillFluxes))
     EXPECT_NEAR(FZ(i, j, k, PUInd::MX), -2.2, 1e-12);
     EXPECT_NEAR(FZ(i, j, k, PUInd::MY), -4.02, 1e-12);
     EXPECT_NEAR(FZ(i, j, k, PUInd::MZ), 12.885, 1e-12);
-    EXPECT_NEAR(FZ(i, j, k, PUInd::E), -35.945, 1e-12);
+    EXPECT_NEAR(FZ(i, j, k, PUInd::E), -38.67, 1e-12);
     EXPECT_NEAR(FZ(i, j, k, PUInd::BX), 0.6, 1e-12);
     EXPECT_NEAR(FZ(i, j, k, PUInd::BY), -2.7, 1e-12);
     EXPECT_NEAR(FZ(i, j, k, PUInd::BZ), 0, 1e-12);
@@ -240,7 +240,7 @@ TEST_F(PlasmaSystemTest, MULTIDIM(UtoQ))
     // rho = 1.2
     //  U = 2,    V = 3,    W = -1
     // MX = 2.4, MY = 3.6, MZ = -1.2
-    // p = 9, E = 23.4
+    // p = 9, E = 26.125
     // B_x = -1
     // B_y = 2.1
     // B_z = 0.2
@@ -254,7 +254,7 @@ TEST_F(PlasmaSystemTest, MULTIDIM(UtoQ))
     U(i, j, k, PUInd::MX)  = 2.4;
     U(i, j, k, PUInd::MY)  = 3.6;
     U(i, j, k, PUInd::MZ)  = -1.2;
-    U(i, j, k, PUInd::E)   = 23.4;
+    U(i, j, k, PUInd::E)   = 26.125;
     U(i, j, k, PUInd::BX)  = -1;
     U(i, j, k, PUInd::BY)  = 2.1;
     U(i, j, k, PUInd::BZ)  = 0.2;
@@ -291,7 +291,7 @@ TEST_F(PlasmaSystemTest, MULTIDIM(ExplicitTimeStepDimSplit))
     // rho = 1.2
     //  U = -2,    V = 3,    W = -1
     // MX = -2.4, MY = 3.6, MZ = -1.2
-    // p = 9, E = 23.4
+    // p = 9, E = 26.125
     // B_x = -1
     // B_y = 2.1
     // B_z = 0.2
@@ -305,7 +305,7 @@ TEST_F(PlasmaSystemTest, MULTIDIM(ExplicitTimeStepDimSplit))
     U(i, j, k, PUInd::MX)  = -2.4;
     U(i, j, k, PUInd::MY)  = 3.6;
     U(i, j, k, PUInd::MZ)  = -1.2;
-    U(i, j, k, PUInd::E)   = 23.4;
+    U(i, j, k, PUInd::E)   = 26.125;
     U(i, j, k, PUInd::BX)  = -1;
     U(i, j, k, PUInd::BY)  = 2.1;
     U(i, j, k, PUInd::BZ)  = 0.2;
