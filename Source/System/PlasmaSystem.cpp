@@ -1,5 +1,8 @@
 #include "PlasmaSystem.H"
+#include "AmrLevelAdv_derive.H"
 #include "GFM/RigidBody.H"
+#include "System/Euler/EulerDerive.H"
+#include "System/Plasma/PlasmaDerive.H"
 #include "System/Plasma/Plasma_K.H"
 #include "Visc/Visc_K.H"
 
@@ -116,6 +119,36 @@ AMREX_GPU_HOST amrex::Vector<std::string> PlasmaSystem::VariableNames() const
 {
     return amrex::Vector<std::string>{ "density", "mom_x", "mom_y", "mom_z",
                                        "energy",  "B_x",   "B_y",   "B_z" };
+}
+
+AMREX_GPU_HOST
+void PlasmaSystem::SetupDeriveList(amrex::DeriveList           &derive_lst,
+                                   const amrex::DescriptorList &desc_lst) const
+{
+    derive_lst.add("pressure", IndexType::TheCellType(), 1, mhd_derpres,
+                   the_same_box);
+    derive_lst.addComponent("pressure", desc_lst, Consv_Type, 0, PUInd::size);
+
+    derive_lst.add("u_x", IndexType::TheCellType(), 1, euler_dervel,
+                   the_same_box);
+    derive_lst.addComponent("u_x", desc_lst, Consv_Type, PUInd::RHO, 1);
+    derive_lst.addComponent("u_x", desc_lst, Consv_Type, PUInd::MX, 1);
+
+#if AMREX_SPACEDIM > 1
+    derive_lst.add("u_y", IndexType::TheCellType(), 1, euler_dervel,
+                   the_same_box);
+    derive_lst.addComponent("u_y", desc_lst, Consv_Type, PUInd::RHO, 1);
+    derive_lst.addComponent("u_y", desc_lst, Consv_Type, PUInd::MY, 1);
+#endif
+#if AMREX_SPACEDIM > 2
+    derive_lst.add("u_z", IndexType::TheCellType(), 1, euler_dervel,
+                   the_same_box);
+    derive_lst.addComponent("u_z", desc_lst, Consv_Type, UInd::RHO, 1);
+    derive_lst.addComponent("u_z", desc_lst, Consv_Type, UInd::MZ, 1);
+#endif
+    derive_lst.add("T", IndexType::TheCellType(), 1, mhd_dertemp,
+                   the_same_box);
+    derive_lst.addComponent("T", desc_lst, Consv_Type, 0, PUInd::size);
 }
 
 AMREX_GPU_HOST

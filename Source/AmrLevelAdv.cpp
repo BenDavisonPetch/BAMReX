@@ -221,6 +221,8 @@ void AmrLevelAdv::variableSetUp()
     derive_lst.add("rank", IndexType::TheCellType(), 1, derive_rank,
                    the_same_box);
     derive_lst.addComponent("rank", desc_lst, Consv_Type, 0, 1);
+
+    system->SetupDeriveList(derive_lst, desc_lst);
 }
 
 /**

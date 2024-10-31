@@ -9,9 +9,11 @@ set (SRC_NO_MAIN ${CMAKE_CURRENT_SOURCE_DIR}/AmrLevelAdv.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Tagging_params.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/MFIterLoop.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/System/Euler/Euler.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/System/Euler/EulerDerive.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/System/System.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/System/FluidSystem.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/System/PlasmaSystem.cpp
+                 ${CMAKE_CURRENT_SOURCE_DIR}/System/Plasma/PlasmaDerive.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Fluxes/Force.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Fluxes/SLIC.cpp
                  ${CMAKE_CURRENT_SOURCE_DIR}/Fluxes/Flux_Helpers.cpp

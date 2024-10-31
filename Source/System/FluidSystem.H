@@ -30,6 +30,11 @@ class FluidSystem : public System
     VariableNames() const override;
 
     AMREX_GPU_HOST
+    virtual void
+    SetupDeriveList(amrex::DeriveList           &derive_lst,
+                    const amrex::DescriptorList &desc_lst) const override;
+
+    AMREX_GPU_HOST
     virtual void FillFluxes(int dir, amrex::Real time, const amrex::Box &bx,
                             const amrex::Array4<amrex::Real>       &flux,
                             const amrex::Array4<const amrex::Real> &U,

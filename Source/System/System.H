@@ -2,11 +2,13 @@
 #define SYSTEM_H_
 
 #include <AMReX_Array.H>
+#include <AMReX_Derive.H>
 #include <AMReX_Enum.H>
 #include <AMReX_FArrayBox.H>
 #include <AMReX_MultiFab.H>
 #include <AMReX_ParmParse.H>
 #include <AMReX_REAL.H>
+#include <AMReX_StateDescriptor.H>
 
 #include "BoundaryConditions/BCTypes.H"
 #include "Fluxes/Limiters.H"
@@ -63,6 +65,9 @@ class System
     VariableIsPrimitive(const std::string &var_name) const = 0;
     AMREX_GPU_HOST virtual amrex::Vector<std::string>
     VariableNames() const = 0;
+
+    AMREX_GPU_HOST
+    virtual void SetupDeriveList(amrex::DeriveList &, const amrex::DescriptorList&) const {}
 
     /**
      * \brief Fills \c flux with the flux function of direction \c dir

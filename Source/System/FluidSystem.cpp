@@ -1,6 +1,8 @@
 #include "FluidSystem.H"
+#include "AmrLevelAdv_derive.H"
 #include "GFM/RigidBody.H"
 #include "System/Euler/Euler.H"
+#include "System/Euler/EulerDerive.H"
 #include "Visc/Visc_K.H"
 
 using namespace amrex;
@@ -103,6 +105,36 @@ AMREX_GPU_HOST amrex::Vector<std::string> FluidSystem::VariableNames() const
     return amrex::Vector<std::string>{ "density",
                                        AMREX_D_DECL("mom_x", "mom_y", "mom_z"),
                                        "energy" };
+}
+
+AMREX_GPU_HOST
+void FluidSystem::SetupDeriveList(amrex::DeriveList           &derive_lst,
+                                  const amrex::DescriptorList &desc_lst) const
+{
+    derive_lst.add("pressure", IndexType::TheCellType(), 1, euler_derpres,
+                   the_same_box);
+    derive_lst.addComponent("pressure", desc_lst, Consv_Type, 0, UInd::size);
+
+    derive_lst.add("u_x", IndexType::TheCellType(), 1, euler_dervel,
+                   the_same_box);
+    derive_lst.addComponent("u_x", desc_lst, Consv_Type, UInd::RHO, 1);
+    derive_lst.addComponent("u_x", desc_lst, Consv_Type, UInd::MX, 1);
+
+#if AMREX_SPACEDIM > 1
+    derive_lst.add("u_y", IndexType::TheCellType(), 1, euler_dervel,
+                   the_same_box);
+    derive_lst.addComponent("u_y", desc_lst, Consv_Type, UInd::RHO, 1);
+    derive_lst.addComponent("u_y", desc_lst, Consv_Type, UInd::MY, 1);
+#endif
+#if AMREX_SPACEDIM > 2
+    derive_lst.add("u_z", IndexType::TheCellType(), 1, euler_dervel,
+                   the_same_box);
+    derive_lst.addComponent("u_z", desc_lst, Consv_Type, UInd::RHO, 1);
+    derive_lst.addComponent("u_z", desc_lst, Consv_Type, UInd::MZ, 1);
+#endif
+    derive_lst.add("T", IndexType::TheCellType(), 1, euler_dertemp,
+                   the_same_box);
+    derive_lst.addComponent("T", desc_lst, Consv_Type, 0, UInd::size);
 }
 
 //! For backwards compatability reasons, all of the functions here call
