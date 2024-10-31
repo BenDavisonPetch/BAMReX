@@ -1,0 +1,28 @@
+stop_time = 80.0
+
+imex.acoustic_timestep_end_time = 0.01
+
+prob.system = plasma
+prob.adiabatic  = 2.0
+prob.epsilon    = 1
+init.density_L  = 1.0
+init.velocity_L = 0.0 0.0 0.0
+init.pressure_L = 1.0
+init.B_L        = 0.75 1.0 0
+
+init.density_R  = 0.125
+init.velocity_R = 0.0 0.0 0.0
+init.pressure_R = 0.1
+init.B_R        = 0.75 -1.0 0.0
+init.rotation   = 90
+
+geometry.is_periodic =  0  0  0
+geometry.coord_sys   =  0       # 0 => cart
+geometry.prob_lo     =  0.0  0.0  0.0 
+geometry.prob_hi     =  800  1.0  1.0
+
+limiting.limiter = van_leer
+limiting.density = density
+limiting.mom     = mom_x mom_y mom_z
+limiting.energy  = energy
+limiting.B = B_x B_y B_z

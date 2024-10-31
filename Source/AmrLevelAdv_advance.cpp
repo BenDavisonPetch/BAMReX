@@ -123,7 +123,10 @@ Real AmrLevelAdv::advance(Real time, Real dt, int /*iteration*/,
     BL_PROFILE_VAR("AmrLevelAdv::flux_computation", pflux_computation);
 
     if (num_method == NumericalMethods::muscl_hancock
-        || num_method == NumericalMethods::hllc)
+        || num_method == NumericalMethods::hllc
+        || num_method == NumericalMethods::slic
+        || num_method == NumericalMethods::force
+        || num_method == NumericalMethods::lax_friedrichs)
         advance_explicit(time, dt, fluxes, Sborder, Sborder2, S_new);
     else if (num_method == NumericalMethods::imex)
     {
@@ -311,6 +314,15 @@ void AmrLevelAdv::advance_explicit(
                 else if (num_method == NumericalMethods::hllc)
                     compute_HLLC_flux(d, time, bx, fluxarr, Uin, dx, dt,
                                       system, h_parm, d_parm);
+                else if (num_method == NumericalMethods::slic)
+                    compute_SLIC_flux(d, time, bx, fluxarr, Uin, dx, dt,
+                                      system, h_parm, d_parm);
+                else if (num_method == NumericalMethods::force)
+                    compute_force_flux(d, time, bx, fluxarr, Uin, dx, dt,
+                                       system, h_parm, d_parm);
+                else if (num_method == NumericalMethods::lax_friedrichs)
+                    compute_LF_flux(d, time, bx, fluxarr, Uin, dx, dt, system,
+                                    h_parm, d_parm);
                 else
                     throw std::logic_error("Internal error");
 

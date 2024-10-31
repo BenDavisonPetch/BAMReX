@@ -196,10 +196,7 @@ void AmrLevelAdv::variableSetUp()
     // output to identify what is being plotted bc: Boundary condition
     // object for this variable (defined above) bndryfunc: The boundary
     // condition function set above
-    Vector<std::string> consv_names{ "density",
-                                     AMREX_D_DECL("mom_x", "mom_y", "mom_z"),
-                                     "energy" };
-    desc_lst.setComponent(Consv_Type, 0, consv_names,
+    desc_lst.setComponent(Consv_Type, 0, system->VariableNames(),
                           bc_data.get_consv_bcrecs(),
                           bc_data.get_consv_bndryfunc());
     desc_lst.setComponent(Pressure_Type, 0, "IMEX_pressure",
@@ -407,18 +404,13 @@ Real AmrLevelAdv::estTimeStep(Real)
     Real dt_est = 1.0e+20;
     if (num_method == NumericalMethods::muscl_hancock
         || num_method == NumericalMethods::hllc
-        || num_method == NumericalMethods::rcm)
+        || num_method == NumericalMethods::rcm
+        || num_method == NumericalMethods::slic
+        || num_method == NumericalMethods::force
+        || num_method == NumericalMethods::lax_friedrichs)
     {
-        const Real wave_speed
-            = system->MaxWaveSpeed(cur_time, S_new, h_parm, d_parm);
-
-        if (verbose)
-            Print() << "Maximum wave speed: " << wave_speed << std::endl;
-
-        for (unsigned int d = 0; d < amrex::SpaceDim; ++d)
-        {
-            dt_est = std::min(dt_est, dx[d] / wave_speed);
-        }
+        dt_est = system->ExplicitTimeStepDimSplit(cur_time, geom, S_new,
+                                                  h_parm, d_parm);
     }
     else if (num_method == NumericalMethods::imex)
     {
@@ -427,16 +419,12 @@ Real AmrLevelAdv::estTimeStep(Real)
             throw RuntimeError(
                 "Cannot use IMEX on systems other than fluids!");
         }
-        Real wave_speed;
         if (cur_time < acoustic_timestep_end_time)
         {
             if (verbose)
                 Print() << "\tUsing acoustic time step" << std::endl;
-            wave_speed = system->MaxWaveSpeed(cur_time, S_new, h_parm, d_parm);
-            for (unsigned int d = 0; d < amrex::SpaceDim; ++d)
-            {
-                dt_est = std::min(dt_est, dx[d] / wave_speed);
-            }
+            dt_est = system->ExplicitTimeStepDimSplit(cur_time, geom, S_new,
+                                                      h_parm, d_parm);
         }
         else
         {

@@ -32,7 +32,7 @@ compute_force_flux_LR(amrex::Real time, const amrex::Box &bx,
     const Real &dx = dx_arr[dir];
     // define boxes (i.e. index domains) for cell-centred values with ghost
     // cells, and for fluxes in this direction
-    const Box &ghost_bx = grow(bx, 1);
+    const Box &ghost_bx = grow(bx, dir, 1);
     const Box &flux_bx  = growHi(bx, dir, 1);
     // Create a temporary fab to store our intermediate values. This is done
     // with FArrayBox, which is the datatype that MultiFab contains and
@@ -44,6 +44,9 @@ compute_force_flux_LR(amrex::Real time, const amrex::Box &bx,
     // We size the temporary fab to cover the same indices as convs_values,
     // i.e. including ghost cells We only need to store
     const int NSTATE = system->StateSize();
+    AMREX_ASSERT(flux.nComp() == NSTATE);
+    AMREX_ASSERT(consv_values_L.nComp() == NSTATE);
+    AMREX_ASSERT(consv_values_R.nComp() == NSTATE);
     tmpfab.resize(ghost_bx, NSTATE * 3);
     Elixir tmpeli = tmpfab.elixir();
 

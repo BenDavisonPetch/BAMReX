@@ -43,7 +43,7 @@ struct QInd
     static constexpr int size  = P + 1;
     static constexpr int vsize = KAPPA + 1;
 
-    static inline constexpr int Qdir(int dir)
+    static inline constexpr int Udir(int dir)
     {
         switch (dir)
         {

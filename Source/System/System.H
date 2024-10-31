@@ -61,6 +61,8 @@ class System
     VariableIndex(const std::string &var_name) const = 0;
     AMREX_GPU_HOST AMREX_FORCE_INLINE virtual bool
     VariableIsPrimitive(const std::string &var_name) const = 0;
+    AMREX_GPU_HOST virtual amrex::Vector<std::string>
+    VariableNames() const = 0;
 
     /**
      * \brief Fills \c flux with the flux function of direction \c dir
@@ -103,11 +105,14 @@ class System
                          const amrex::Array4<const amrex::Real> &U,
                          const Parm *h_parm, const Parm *d_parm) const = 0;
 
+    //! Maximum allowable time step when using a dimensionally split
+    //! fully-explicit method
     AMREX_GPU_HOST
-    virtual amrex::Real MaxWaveSpeed(const amrex::Real      time,
-                                     const amrex::MultiFab &U,
-                                     const Parm            *h_parm,
-                                     const Parm            *d_parm) const = 0;
+    virtual amrex::Real ExplicitTimeStepDimSplit(const amrex::Real      time,
+                                                 const amrex::Geometry &geom,
+                                                 const amrex::MultiFab &U,
+                                                 const Parm            *h_parm,
+                                                 const Parm *d_parm) const = 0;
 
     AMREX_GPU_HOST
     virtual void

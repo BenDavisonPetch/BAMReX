@@ -98,6 +98,15 @@ void FluidSystem::init_parm(Parm &parm)
     }
 }
 
+AMREX_GPU_HOST amrex::Vector<std::string> FluidSystem::VariableNames() const
+{
+    return amrex::Vector<std::string>{ "density",
+                                       AMREX_D_DECL("mom_x", "mom_y", "mom_z"),
+                                       "energy" };
+}
+
+//! For backwards compatability reasons, all of the functions here call
+//! functions in Euler.H/Euler.cpp
 AMREX_GPU_HOST
 void FluidSystem::FillFluxes(int dir, amrex::Real time, const amrex::Box &bx,
                              const amrex::Array4<amrex::Real>       &flux,
@@ -151,12 +160,17 @@ void FluidSystem::UtoExtQ(const amrex::Box                       &bx,
 }
 
 AMREX_GPU_HOST
-amrex::Real FluidSystem::MaxWaveSpeed(const amrex::Real      time,
-                                      const amrex::MultiFab &U,
-                                      const Parm            *h_parm,
-                                      const Parm * /*d_parm*/) const
+amrex::Real FluidSystem::ExplicitTimeStepDimSplit(
+    const amrex::Real time, const amrex::Geometry &geom,
+    const amrex::MultiFab &U, const Parm *h_parm,
+    const Parm * /*d_parm*/) const
 {
-    return max_wave_speed(time, U, h_parm->adiabatic, h_parm->epsilon);
+    const Real max_speed
+        = max_wave_speed(time, U, h_parm->adiabatic, h_parm->epsilon);
+    Real dt_est = 1.0e20;
+    for (int d = 0; d < AMREX_SPACEDIM; ++d)
+        dt_est = std::min(dt_est, geom.CellSize(d) / max_speed);
+    return dt_est;
 }
 
 AMREX_GPU_HOST

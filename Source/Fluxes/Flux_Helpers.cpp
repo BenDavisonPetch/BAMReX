@@ -21,7 +21,7 @@ AMREX_GPU_HOST void reconstruct_and_half_time_step(
     amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr, amrex::Real dt,
     const System *system, const Parm *h_parm, const Parm *d_parm)
 {
-    switch (AmrLevelAdv::h_parm->limiter)
+    switch (h_parm->limiter)
     {
     case (Limiter::minbee):
         reconstruct_and_half_time_step<Limiter::minbee, dir>(
@@ -60,7 +60,7 @@ AMREX_GPU_HOST void reconstruct_and_half_time_step(
 {
     BL_PROFILE("reconstruct_and_half_time_step()");
     const Real &dx   = dx_arr[dir];
-    const Box  &gbx2 = grow(gbx, 1);
+    const Box  &gbx2 = grow(gbx, dir, 1);
     // Temporary fab
     FArrayBox tmpfab;
     // We size the temporary fab to cover the same indices as convs_values,

@@ -1,6 +1,7 @@
 #include "System.H"
 #include "FluidSystem.H"
 #include "Fluxes/Limiters.H"
+#include "PlasmaSystem.H"
 #include <AMReX_Print.H>
 
 using namespace amrex;
@@ -19,9 +20,8 @@ System *System::NewSystem(ParmParse &pp)
         sys->system = SystemType::fluid;
         break;
     case SystemType::plasma:
-        amrex::Abort("Not implemented!");
-        sys = new FluidSystem;
-        // sys->system = SystemType::plasma;
+        sys         = new PlasmaSystem;
+        sys->system = SystemType::plasma;
         break;
     default: sys = nullptr;
     }

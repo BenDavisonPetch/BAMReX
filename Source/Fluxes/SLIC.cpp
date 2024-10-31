@@ -23,7 +23,7 @@ compute_SLIC_flux(amrex::Real time, const amrex::Box &bx,
     // cells, and for fluxes in this direction
     AMREX_ASSERT(AmrLevelAdv::NUM_GROW >= 2);
     // box grown by 1
-    const Box &bx_g1 = grow(bx, 1);
+    const Box &bx_g1 = grow(bx, dir, 1);
     // const Box &flux_bx = growHi(bx, dir, 1);
 
     // Temporary fab

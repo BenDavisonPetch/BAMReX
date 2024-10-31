@@ -12,7 +12,10 @@ enum Method
     muscl_hancock,
     hllc,
     imex,
-    rcm
+    rcm,
+    slic,
+    force,
+    lax_friedrichs
 };
 
 inline Method enum_from_string(const std::string &name)
@@ -25,6 +28,12 @@ inline Method enum_from_string(const std::string &name)
         return imex;
     else if (name == "rcm")
         return rcm;
+    else if (name == "slic")
+        return slic;
+    else if (name == "force")
+        return force;
+    else if (name == "lax_friedrichs")
+        return lax_friedrichs;
     else
     {
         amrex::Abort("Invalid numerical method \"" + name

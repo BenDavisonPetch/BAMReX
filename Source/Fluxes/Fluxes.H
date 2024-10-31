@@ -32,6 +32,29 @@ compute_force_flux(amrex::Real time, const amrex::Box &bx,
                    amrex::Real dt, const System *system, const Parm *h_parm,
                    const Parm *d_parm);
 
+AMREX_GPU_HOST AMREX_FORCE_INLINE void
+compute_force_flux(int dir, amrex::Real time, const amrex::Box &bx,
+                   const amrex::Array4<amrex::Real>       &flux,
+                   const amrex::Array4<const amrex::Real> &consv_values,
+                   amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr,
+                   amrex::Real dt, const System *system, const Parm *h_parm,
+                   const Parm *d_parm)
+{
+    if (dir == 0)
+        compute_force_flux<0>(time, bx, flux, consv_values, dx_arr, dt, system,
+                              h_parm, d_parm);
+#if AMREX_SPACEDIM > 1
+    if (dir == 1)
+        compute_force_flux<1>(time, bx, flux, consv_values, dx_arr, dt, system,
+                              h_parm, d_parm);
+#endif
+#if AMREX_SPACEDIM > 2
+    if (dir == 2)
+        compute_force_flux<2>(time, bx, flux, consv_values, dx_arr, dt, system,
+                              h_parm, d_parm);
+#endif
+}
+
 /**
  * Allows for calculation of the FORCE flux using a different set of values for
  * left and right conservative variables
@@ -72,6 +95,29 @@ compute_LF_flux(amrex::Real time, const amrex::Box &bx,
                 amrex::Real dt, const System *system, const Parm *h_parm,
                 const Parm *d_parm);
 
+AMREX_GPU_HOST AMREX_FORCE_INLINE void
+compute_LF_flux(int dir, amrex::Real time, const amrex::Box &bx,
+                const amrex::Array4<amrex::Real>                &flux,
+                const amrex::Array4<const amrex::Real>          &consv_values,
+                amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr,
+                amrex::Real dt, const System *system, const Parm *h_parm,
+                const Parm *d_parm)
+{
+    if (dir == 0)
+        compute_LF_flux<0>(time, bx, flux, consv_values, dx_arr, dt, system,
+                           h_parm, d_parm);
+#if AMREX_SPACEDIM > 1
+    else if (dir == 1)
+        compute_LF_flux<1>(time, bx, flux, consv_values, dx_arr, dt, system,
+                           h_parm, d_parm);
+#endif
+#if AMREX_SPACEDIM > 2
+    else if (dir == 2)
+        compute_LF_flux<2>(time, bx, flux, consv_values, dx_arr, dt, system,
+                           h_parm, d_parm);
+#endif
+}
+
 template <int dir>
 AMREX_GPU_HOST void
 compute_SLIC_flux(amrex::Real time, const amrex::Box &bx,
@@ -80,6 +126,30 @@ compute_SLIC_flux(amrex::Real time, const amrex::Box &bx,
                   amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr,
                   amrex::Real dt, const System *system, const Parm *h_parm,
                   const Parm *d_parm);
+
+//! For convenience
+AMREX_GPU_HOST AMREX_FORCE_INLINE void
+compute_SLIC_flux(int dir, amrex::Real time, const amrex::Box &bx,
+                  const amrex::Array4<amrex::Real>       &flux,
+                  const amrex::Array4<const amrex::Real> &consv_values,
+                  amrex::GpuArray<amrex::Real, BL_SPACEDIM> const &dx_arr,
+                  amrex::Real dt, const System *system, const Parm *h_parm,
+                  const Parm *d_parm)
+{
+    if (dir == 0)
+        compute_SLIC_flux<0>(time, bx, flux, consv_values, dx_arr, dt, system,
+                             h_parm, d_parm);
+#if AMREX_SPACEDIM > 1
+    else if (dir == 1)
+        compute_SLIC_flux<1>(time, bx, flux, consv_values, dx_arr, dt, system,
+                             h_parm, d_parm);
+#endif
+#if AMREX_SPACEDIM > 2
+    else if (dir == 2)
+        compute_SLIC_flux<2>(time, bx, flux, consv_values, dx_arr, dt, system,
+                             h_parm, d_parm);
+#endif
+}
 
 /**
  * Allows for calculation of the HLLC flux using a different set of values for

@@ -6,9 +6,10 @@
 #include <cmath>
 
 #include "AmrLevelAdv.H"
+#include "Prob.H"
 #include "System/Euler/Euler.H"
 #include "System/Euler/RiemannSolver.H"
-#include "Prob.H"
+#include "System/Plasma/Plasma_K.H"
 
 /**
  * Initialize Data on Multifab
@@ -21,6 +22,15 @@
 using namespace amrex;
 
 void initdata(MultiFab &S_tmp, const Geometry &geom)
+{
+    switch (AmrLevelAdv::system->GetSystemType())
+    {
+    case SystemType::fluid: initdata_euler(S_tmp, geom); break;
+    case SystemType::plasma: initdata_mhd(S_tmp, geom); break;
+    }
+}
+
+void initdata_euler(MultiFab &S_tmp, const Geometry &geom)
 {
 
     const GpuArray<Real, AMREX_SPACEDIM> dx      = geom.CellSizeArray();
@@ -123,6 +133,75 @@ void initdata(MultiFab &S_tmp, const Geometry &geom)
         // Populate MultiFab data
         ParallelFor(box, EULER_NCOMP,
                     [=] AMREX_GPU_DEVICE(int i, int j, int k, int n)
+                    {
+                        const Real x = prob_lo[0] + (i + Real(0.5)) * dx[0];
+                        const Real y = prob_lo[1] + (j + Real(0.5)) * dx[1];
+#if AMREX_SPACEDIM == 3
+                        const Real z = prob_lo[2] + (k + Real(0.5)) * dx[2];
+#endif
+                        const Real d = AMREX_D_TERM((x - 0.5) * dn[0],
+                                                    +(y - 0.5) * dn[1],
+                                                    +(z - 0.5) * dn[2])
+                                       - int_offset;
+                        if (d <= 0)
+                            phi(i, j, k, n) = consv_L[n];
+                        else
+                            phi(i, j, k, n) = consv_R[n];
+                    });
+    }
+}
+
+void initdata_mhd(MultiFab &S_tmp, const Geometry &geom)
+{
+    Print() << "initialising for MHD" << std::endl;
+    const GpuArray<Real, AMREX_SPACEDIM> dx      = geom.CellSizeArray();
+    const GpuArray<Real, AMREX_SPACEDIM> prob_lo = geom.ProbLoArray();
+
+    Real           density_L, pressure_L, density_R, pressure_R;
+    Array<Real, 3> velocity_L, velocity_R, B_L, B_R;
+    Real           int_offset; // interface offset
+    RealArray      hn;         // host interface normal
+
+    {
+        ParmParse pp("init");
+        pp.query("int_offset", int_offset);
+        pp.get("int_normal", hn);
+        pp.get("density_L", density_L);
+        pp.get("velocity_L", velocity_L);
+        pp.get("pressure_L", pressure_L);
+        pp.get("B_L", B_L);
+
+        pp.get("density_R", density_R);
+        pp.get("velocity_R", velocity_R);
+        pp.get("pressure_R", pressure_R);
+        pp.get("B_R", B_R);
+    }
+
+    const Real nmag
+        = sqrt(AMREX_D_TERM(hn[0] * hn[0], +hn[1] * hn[1], +hn[2] * hn[2]));
+    const GpuArray<Real, AMREX_SPACEDIM> dn{ AMREX_D_DECL(
+        hn[0] / nmag, hn[1] / nmag, hn[2] / nmag) };
+
+    GpuArray<Real, PQInd::size> primv_L{ density_L,     velocity_L[0],
+                                         velocity_L[1], velocity_L[2],
+                                         pressure_L,    B_L[0],
+                                         B_L[1],        B_L[2] };
+    GpuArray<Real, PQInd::size> primv_R{ density_R,     velocity_R[0],
+                                         velocity_R[1], velocity_R[2],
+                                         pressure_R,    B_R[0],
+                                         B_R[1],        B_R[2] };
+
+    const auto consv_L = mhd_ptoc(primv_L, *AmrLevelAdv::h_parm);
+    const auto consv_R = mhd_ptoc(primv_R, *AmrLevelAdv::h_parm);
+
+    for (MFIter mfi(S_tmp); mfi.isValid(); ++mfi)
+    {
+        const Box          &box = mfi.validbox();
+        const Array4<Real> &phi = S_tmp.array(mfi);
+
+        // Populate MultiFab data
+        ParallelFor(box, PUInd::size,
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k, int n) noexcept
                     {
                         const Real x = prob_lo[0] + (i + Real(0.5)) * dx[0];
                         const Real y = prob_lo[1] + (j + Real(0.5)) * dx[1];

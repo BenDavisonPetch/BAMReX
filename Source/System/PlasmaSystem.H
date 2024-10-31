@@ -1,10 +1,10 @@
-#ifndef FluidSystem_H_
-#define FluidSystem_H_
+#ifndef PlasmaSystem_H_
+#define PlasmaSystem_H_
 
 #include "System.H"
-#include "System/Index.H"
+#include "System/PlasmaIndex.H"
 
-class FluidSystem : public System
+class PlasmaSystem : public System
 {
   public:
     AMREX_GPU_HOST
@@ -14,12 +14,12 @@ class FluidSystem : public System
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE virtual int
     StateSize() const override
     {
-        return UInd::size;
+        return PUInd::size;
     }
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE virtual int
     ExtStateSize() const override
     {
-        return QInd::vsize;
+        return PQInd::vsize;
     }
 
     AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE virtual unsigned int
@@ -35,6 +35,14 @@ class FluidSystem : public System
                             const amrex::Array4<const amrex::Real> &U,
                             const Parm                             *h_parm,
                             const Parm *d_parm) const override;
+
+    //! Templated direction for performance
+    template <int dir>
+    AMREX_GPU_HOST void FillFluxes(amrex::Real time, const amrex::Box &bx,
+                                   const amrex::Array4<amrex::Real> &flux,
+                                   const amrex::Array4<const amrex::Real> &U,
+                                   const Parm *h_parm,
+                                   const Parm *d_parm) const;
 
     /**
      * \brief Fills Q with the primitive variables calculated using U, where
@@ -83,42 +91,49 @@ class FluidSystem : public System
 // Implementations
 //
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE unsigned int
-FluidSystem::VariableIndex(const std::string &var_name) const
+PlasmaSystem::VariableIndex(const std::string &var_name) const
 {
     if (var_name == "density")
-        return UInd::RHO;
+        return PUInd::RHO;
     else if (var_name == "mom_x")
-        return UInd::MX;
+        return PUInd::MX;
     else if (var_name == "mom_y")
-        return UInd::MY;
+        return PUInd::MY;
     else if (var_name == "mom_z")
-        return UInd::MZ;
+        return PUInd::MZ;
     else if (var_name == "energy")
-        return UInd::E;
+        return PUInd::E;
+    else if (var_name == "B_x")
+        return PUInd::BX;
+    else if (var_name == "B_y")
+        return PUInd::BY;
+    else if (var_name == "B_z")
+        return PUInd::BZ;
     else if (var_name == "u_x")
-        return QInd::U;
+        return PQInd::U;
     else if (var_name == "u_y")
-        return QInd::V;
+        return PQInd::V;
     else if (var_name == "u_z")
-        return QInd::W;
+        return PQInd::W;
     else if (var_name == "p")
-        return QInd::P;
+        return PQInd::P;
     else if (var_name == "T")
-        return QInd::T;
+        return PQInd::T;
     else if (var_name == "eta")
-        return QInd::ETA;
+        return PQInd::ETA;
     else if (var_name == "zeta")
-        return QInd::ZETA;
+        return PQInd::ZETA;
     else if (var_name == "kappa")
-        return QInd::KAPPA;
-    amrex::Abort("Invalid variable name " + var_name);
+        return PQInd::KAPPA;
+    throw amrex::RuntimeError("Invalid variable name " + var_name);
     return 0;
 }
 AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE bool
-FluidSystem::VariableIsPrimitive(const std::string &var_name) const
+PlasmaSystem::VariableIsPrimitive(const std::string &var_name) const
 {
     if (var_name == "density" || var_name == "mom_x" || var_name == "mom_y"
-        || var_name == "mom_z" || var_name == "energy")
+        || var_name == "mom_z" || var_name == "energy" || var_name == "B_x"
+        || var_name == "B_y" || var_name == "B_z")
         return false;
     else if (var_name == "u_x" || var_name == "u_y" || var_name == "u_z"
              || var_name == "p" || var_name == "T" || var_name == "eta"
@@ -130,21 +145,5 @@ FluidSystem::VariableIsPrimitive(const std::string &var_name) const
         return true;
     }
 }
-
-// AMREX_GPU_DEVICE AMREX_FORCE_INLINE amrex::Real
-// FluidSystem::LimitingVarVal(const amrex::Array4<const amrex::Real> &U, int
-// i,
-//                             int j, int k, int n) const
-// {
-//     if (limit_on_primv[n])
-//     {
-//         const auto Q = UtoQ(U, i, j, k);
-//         return Q[limiter_indices[n]];
-//     }
-//     else
-//     {
-//         return U(i, j, k, limiter_indices[n]);
-//     }
-// }
 
 #endif

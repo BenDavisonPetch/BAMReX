@@ -2,11 +2,11 @@
 #define PROB_PARM_H_
 
 #include "Fluxes/Limiters.H"
-#include "System/Euler/NComp.H"
+#include "System/PlasmaIndex.H"
 #include <AMReX_Array.H>
 #include <AMReX_REAL.H>
 
-#define MAX_NCOMP EULER_NCOMP
+#define MAX_NCOMP PUInd::size
 
 using namespace amrex::literals;
 
