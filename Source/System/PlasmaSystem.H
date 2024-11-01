@@ -11,20 +11,20 @@ class PlasmaSystem : public System
     virtual void ReadParameters(Parm &parm, amrex::ParmParse &pp,
                                 amrex::ParmParse &pp_limiting) override;
 
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE virtual int
+    AMREX_GPU_HOST AMREX_FORCE_INLINE virtual int
     StateSize() const override
     {
         return PUInd::size;
     }
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE virtual int
+    AMREX_GPU_HOST AMREX_FORCE_INLINE virtual int
     ExtStateSize() const override
     {
         return PQInd::vsize;
     }
 
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE virtual unsigned int
+    AMREX_GPU_HOST AMREX_FORCE_INLINE virtual unsigned int
     VariableIndex(const std::string &var_name) const override;
-    AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE virtual bool
+    AMREX_GPU_HOST AMREX_FORCE_INLINE virtual bool
     VariableIsPrimitive(const std::string &var_name) const override;
     AMREX_GPU_HOST virtual amrex::Vector<std::string>
     VariableNames() const override;
@@ -95,7 +95,7 @@ class PlasmaSystem : public System
 //
 // Implementations
 //
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE unsigned int
+AMREX_GPU_HOST AMREX_FORCE_INLINE unsigned int
 PlasmaSystem::VariableIndex(const std::string &var_name) const
 {
     if (var_name == "density")
@@ -133,7 +133,7 @@ PlasmaSystem::VariableIndex(const std::string &var_name) const
     throw amrex::RuntimeError("Invalid variable name " + var_name);
     return 0;
 }
-AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE bool
+AMREX_GPU_HOST AMREX_FORCE_INLINE bool
 PlasmaSystem::VariableIsPrimitive(const std::string &var_name) const
 {
     if (var_name == "density" || var_name == "mom_x" || var_name == "mom_y"

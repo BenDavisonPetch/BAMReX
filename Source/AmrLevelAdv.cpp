@@ -759,11 +759,13 @@ void AmrLevelAdv::errorEst(TagBoxArray &tags, int /*clearval*/, int /*tagval*/,
                 const Real  phierr_lev = phierr[level];
                 const auto &arr
                     = (phierr_var_is_primv) ? Q.const_array() : Uarr;
+                const auto& phierr_var_idx_loc = phierr_var_idx;
                 amrex::ParallelFor(
                     tilebx,
-                    [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
+                    [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+                    {
                         state_error(i, j, k, tagarr, arr, phierr_lev,
-                                    phierr_var_idx, tagval);
+                                    phierr_var_idx_loc, tagval);
                     });
             }
 
@@ -773,11 +775,12 @@ void AmrLevelAdv::errorEst(TagBoxArray &tags, int /*clearval*/, int /*tagval*/,
                 const Real  phigrad_lev = phigrad[level];
                 const auto &arr
                     = (phigrad_var_is_primv) ? Q.const_array() : Uarr;
+                const auto& phigrad_var_idx_loc = phigrad_var_idx;
                 amrex::ParallelFor(
                     tilebx,
                     [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept {
                         grad_error(i, j, k, tagarr, arr, phigrad_lev,
-                                   phigrad_var_idx, tagval);
+                                   phigrad_var_idx_loc, tagval);
                     });
             }
 

@@ -1143,7 +1143,7 @@ void MLABecLaplacianGradT<MF>::Fapply(int amrlev, int mglev, MF &out,
                     {
                         mlalapgrad_adotx(
                             i, j, k, n, yma[box_no], xma[box_no], ama[box_no],
-                            cma[box_no] AMREX_D_DECL(
+                            cma[box_no], AMREX_D_DECL(
                                 bxma[box_no], byma[box_no], bzma[box_no]),
                             dxinv, ascalar, bscalar, cscalar);
                     });
@@ -1267,7 +1267,7 @@ void MLABecLaplacianGradT<MF>::Fsmooth(int amrlev, int mglev, MF &sol,
         const auto &solnma = sol.arrays();
         const auto &rhsma  = rhs.const_arrays();
         const auto &ama    = acoef.const_arrays();
-
+        const auto &cma = ccoef.arrays();
         AMREX_D_TERM(const auto &bxma = bxcoef.const_arrays();
                      , const auto &byma = bycoef.const_arrays();
                      , const auto &bzma = bzcoef.const_arrays(););
@@ -1312,7 +1312,8 @@ void MLABecLaplacianGradT<MF>::Fsmooth(int amrlev, int mglev, MF &sol,
                     Box vbx(ama[box_no]);
                     alapgrad_gsrb(
                         i, j, k, n, solnma[box_no], rhsma[box_no], alpha,
-                        ama[box_no], AMREX_D_DECL(dhx, dhy, dhz),
+                        ama[box_no], cma[box_no], AMREX_D_DECL(dhx, dhy, dhz),
+                        AMREX_D_DECL(cdhx, cdhy, cdhz),
                         AMREX_D_DECL(bxma[box_no], byma[box_no], bzma[box_no]),
                         AMREX_D_DECL(m0ma[box_no], m2ma[box_no], m4ma[box_no]),
                         AMREX_D_DECL(m1ma[box_no], m3ma[box_no], m5ma[box_no]),
@@ -1543,7 +1544,7 @@ void MLABecLaplacianGradT<MF>::normalize(int amrlev, int mglev, MF &mf) const
             [=] AMREX_GPU_DEVICE(int box_no, int i, int j, int k, int n)
                 noexcept
             {
-                mlabeclap_normalize(
+                mlalapgrad_normalize(
                     i, j, k, n, ma[box_no], ama[box_no],
                     AMREX_D_DECL(bxma[box_no], byma[box_no], bzma[box_no]),
                     dxinv, ascalar, bscalar);

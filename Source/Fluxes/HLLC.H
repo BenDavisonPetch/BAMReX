@@ -235,6 +235,7 @@ AMREX_GPU_DEVICE AMREX_FORCE_INLINE void estimate_wave_speed_HLLC_Toro(
     const amrex::Real u_R       = primv_R[1 + dir];
 
 #ifdef AMREX_DEBUG
+#ifndef AMREX_USE_GPU
     if (density_L < 0)
         amrex::AllPrint() << "WARNING: density_L < 0 at cell " << i << " " << j
                           << " " << k << " (= " << density_L << ")"
@@ -249,6 +250,7 @@ AMREX_GPU_DEVICE AMREX_FORCE_INLINE void estimate_wave_speed_HLLC_Toro(
     if (p_R < 0)
         amrex::AllPrint() << "WARNING: p_R < 0 at cell " << i << " " << j
                           << " " << k << " (= " << p_R << ")" << std::endl;
+#endif
 #endif
     constexpr amrex::Real min_rho = 1e-14;
     constexpr amrex::Real min_p   = 1e-14;

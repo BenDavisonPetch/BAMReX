@@ -1,11 +1,11 @@
 #include "IMEX_RK.H"
 #include "AmrLevelAdv.H"
-#include "System/Euler/Euler.H"
-#include "System/Euler/NComp.H"
 #include "Fluxes/Update.H"
 #include "IMEX/ButcherTableau.H"
 #include "IMEX/IMEXSettings.H"
 #include "IMEX_K/euler_K.H"
+#include "System/Euler/Euler.H"
+#include "System/Euler/NComp.H"
 
 #include <AMReX_AmrLevel.H>
 #include <AMReX_Arena.H>
@@ -202,6 +202,10 @@ void sum_fluxes(
 {
     BL_PROFILE("sum_fluxes()");
     AMREX_ASSERT(fluxes.size() == weighting.size());
+
+#ifdef AMREX_USE_GPU
+    Abort("sum_fluxes is not implemented for GPU");
+#else
     int size = fluxes.size();
 #ifdef AMREX_USE_OMP
 #pragma omp parallel if (Gpu::notInLaunchRegion())
@@ -233,6 +237,7 @@ void sum_fluxes(
                             });
             }
     }
+#endif
 }
 
 AMREX_GPU_HOST

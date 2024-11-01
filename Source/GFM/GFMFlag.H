@@ -23,17 +23,18 @@ struct GFMFillInfo
     bool fill_diagonals{ false };
 };
 
-inline bool is_ghost(int gfm_flag) noexcept
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE bool is_ghost(int gfm_flag) noexcept
 {
     return (gfm_flag & GFMFlag::ghost);
 }
 
-inline bool at_interface(int gfm_flag) noexcept
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE bool
+at_interface(int gfm_flag) noexcept
 {
     return (gfm_flag & GFMFlag::interface);
 }
 
-inline bool needs_fill(int gfm_flag) noexcept
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE bool needs_fill(int gfm_flag) noexcept
 {
     return (gfm_flag & GFMFlag::fill);
 }

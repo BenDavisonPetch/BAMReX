@@ -289,11 +289,12 @@ void compute_velocity(const amrex::Box &bx, const amrex::FArrayBox &state,
     AMREX_ASSERT(dst.nComp() == AMREX_SPACEDIM);
     const auto &in  = state.const_array();
     const auto &out = dst.array();
-    ParallelFor(
-        bx, AMREX_GPU_DEVICE[=](int i, int j, int k) {
-            for (int d = 0; d < AMREX_SPACEDIM; ++d)
-                out(i, j, k, d) = in(i, j, k, 1 + d) / in(i, j, k, 0);
-        });
+    ParallelFor(bx,
+                [=] AMREX_GPU_DEVICE(int i, int j, int k) noexcept
+                {
+                    for (int d = 0; d < AMREX_SPACEDIM; ++d)
+                        out(i, j, k, d) = in(i, j, k, 1 + d) / in(i, j, k, 0);
+                });
 }
 
 AMREX_GPU_HOST

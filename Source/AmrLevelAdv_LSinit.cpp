@@ -43,10 +43,20 @@ void AmrLevelAdv::init_levelset(amrex::MultiFab &LS) const
     }
     else
     {
+#ifdef AMREX_USE_GPU
+        // This is harder than it looks because of how make_sdf() has to cast
+        // to a common type for all of the different SDF objects. We need a
+        // make_sdf function because we use the implicit function both in the
+        // EB2 initialisation and here. It might be possible to get the EB2
+        // initialisation working on GPU and then using amrex to fill the
+        // levelset, but I cannot figure out how to do that
+        Abort("Level set initialisation currently not implemented on GPU");
+#else
         auto sdf = SDF::make_sdf();
         fill_from_IF(geom, LS, sdf);
         // normal vectors (point into fluid)
         fill_ls_normals(geom, LS);
+#endif
     }
 
     AMREX_ASSERT(!LS.contains_nan(0, 1, LS.nGrow()));

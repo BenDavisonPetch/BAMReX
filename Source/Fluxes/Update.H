@@ -143,6 +143,9 @@ void conservative_update(
     AMREX_ASSERT(fluxes.size() >= N);
     AMREX_ASSERT(dt.size() >= N);
 
+#ifdef AMREX_USE_GPU
+    Abort("This version of conservative_update is not implemented for GPU");
+#else
     const auto &idx = geom.InvCellSizeArray();
 
 #ifdef AMREX_USE_OMP
@@ -160,6 +163,7 @@ void conservative_update(
                                 stateout.array(mfi), dt, idx, N);
         }
     }
+#endif
 }
 
 AMREX_GPU_HOST
@@ -179,6 +183,9 @@ void conservative_update(
     AMREX_ASSERT(fluxes.size() >= N);
     AMREX_ASSERT(dt.size() >= N);
 
+#ifdef AMREX_USE_GPU
+    Abort("This version of conservative_update is not implemented for GPU");
+#else
     AMREX_D_TERM(Vector<Real> dtdx(N);, Vector<Real> dtdy(N);
                  , Vector<Real>                      dtdz(N);)
     for (int iN = 0; iN < N; ++iN)
@@ -205,6 +212,7 @@ void conservative_update(
                                    - fluxes[iN][2](i, j, k, n)));
                     }
                 });
+#endif
 }
 
 AMREX_GPU_HOST
