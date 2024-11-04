@@ -32,6 +32,7 @@ add_executable(tests_1d
   Interp01.cpp
   PlasmaSystem01.cpp
   Limiting01.cpp
+  HLLC02.cpp
 )
 
 add_executable(tests_2d
@@ -46,6 +47,7 @@ add_executable(tests_2d
   Geometry01.cpp
   PlasmaSystem01.cpp
   Limiting01.cpp
+  HLLC02.cpp
 )
 
 add_executable(tests_3d
@@ -59,6 +61,7 @@ add_executable(tests_3d
   Interp01.cpp
   PlasmaSystem01.cpp
   Limiting01.cpp
+  HLLC02.cpp
 )
 
 if (AMReX_GPU_BACKEND STREQUAL "CUDA")
