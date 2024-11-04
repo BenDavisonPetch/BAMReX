@@ -26,9 +26,10 @@ mhd_ctop(int i, int j, int k, const amrex::Array4<amrex::Real> &Q,
         = parm.adia[2]
           * (U(i, j, k, PUInd::E) - 0.5 * U(i, j, k, PQInd::RHO) * u_sq
              - 0.5 * B_sq);
-    Q(i, j, k, PQInd::BX) = U(i, j, k, PQInd::BX);
-    Q(i, j, k, PQInd::BY) = U(i, j, k, PQInd::BY);
-    Q(i, j, k, PQInd::BZ) = U(i, j, k, PQInd::BZ);
+    Q(i, j, k, PQInd::PTOT) = Q(i, j, k, PQInd::P) + 0.5 * B_sq;
+    Q(i, j, k, PQInd::BX)   = U(i, j, k, PUInd::BX);
+    Q(i, j, k, PQInd::BY)   = U(i, j, k, PUInd::BY);
+    Q(i, j, k, PQInd::BZ)   = U(i, j, k, PUInd::BZ);
 }
 
 AMREX_GPU_DEVICE
@@ -50,6 +51,7 @@ mhd_ctop_noB(int i, int j, int k, const amrex::Array4<const amrex::Real> &U,
     Q[PQInd::P]
         = parm.adia[2]
           * (U(i, j, k, PUInd::E) - 0.5 * Q[PQInd::RHO] * u_sq - 0.5 * B_sq);
+    Q[PQInd::PTOT] = Q[PQInd::P] + 0.5 * B_sq;
     return Q;
 }
 
@@ -80,13 +82,8 @@ AMREX_GPU_DEVICE AMREX_FORCE_INLINE void
 mhd_flux(int i, int j, int k, const amrex::Array4<amrex::Real> &flux,
          const amrex::Array4<const amrex::Real> &U, const Parm &parm)
 {
-    const auto Q = mhd_ctop_noB(i, j, k, U, parm);
-    const auto p_tot
-        = Q[PQInd::P]
-          + 0.5
-                * (U(i, j, k, PUInd::BX) * U(i, j, k, PUInd::BX)
-                   + U(i, j, k, PUInd::BY) * U(i, j, k, PUInd::BY)
-                   + U(i, j, k, PUInd::BZ) * U(i, j, k, PUInd::BZ));
+    const auto Q     = mhd_ctop_noB(i, j, k, U, parm);
+    const auto p_tot = Q[PQInd::PTOT];
     // density flux
     flux(i, j, k, PUInd::RHO) = U(i, j, k, PUInd::Mdir(dir));
     // momentum flux

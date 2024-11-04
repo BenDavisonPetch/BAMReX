@@ -137,6 +137,7 @@ TEST_F(PlasmaSystemTest, MULTIDIM(FillFluxes))
     ParmParse pp("prob");
     pp.add("system", (std::string) "plasma");
     pp.add("adiabatic", 1.6);
+    pp.add("epsilon", 1);
     IntVect                        dom_lo(AMREX_D_DECL(2, 3, 4));
     IntVect                        dom_hi(AMREX_D_DECL(2, 3, 4));
     GpuArray<Real, AMREX_SPACEDIM> prob_lo{ AMREX_D_DECL(0., 0., 0.) };
@@ -224,6 +225,7 @@ TEST_F(PlasmaSystemTest, MULTIDIM(UtoQ))
     ParmParse pp("prob");
     pp.add("system", (std::string) "plasma");
     pp.add("adiabatic", 1.6);
+    pp.add("epsilon", 1);
     IntVect                        dom_lo(AMREX_D_DECL(2, 3, 4));
     IntVect                        dom_hi(AMREX_D_DECL(2, 3, 4));
     GpuArray<Real, AMREX_SPACEDIM> prob_lo{ AMREX_D_DECL(0., 0., 0.) };
@@ -231,7 +233,7 @@ TEST_F(PlasmaSystemTest, MULTIDIM(UtoQ))
     setup(dom_lo, dom_hi, prob_lo, prob_hi, pp, pp);
 
     MultiFab MF_U(ba, dm, PUInd::size, 0);
-    MultiFab MF_Q(ba, dm, PUInd::size, 0);
+    MultiFab MF_Q(ba, dm, PQInd::size, 0);
 
     const auto &U = MF_U.arrays()[0];
     const auto &Q = MF_Q.arrays()[0];
@@ -276,6 +278,7 @@ TEST_F(PlasmaSystemTest, MULTIDIM(ExplicitTimeStepDimSplit))
     ParmParse pp("prob");
     pp.add("system", (std::string) "plasma");
     pp.add("adiabatic", 1.6);
+    pp.add("epsilon", 1);
     IntVect                        dom_lo(AMREX_D_DECL(2, 3, 4));
     IntVect                        dom_hi(AMREX_D_DECL(2, 3, 4));
     GpuArray<Real, AMREX_SPACEDIM> prob_lo{ AMREX_D_DECL(0., 0., 0.) };
@@ -318,6 +321,12 @@ TEST_F(PlasmaSystemTest, MULTIDIM(ExplicitTimeStepDimSplit))
     // dx = 1, dy = 2, dz = 3
     // dx / (|u| + c_f_x_sq) = 0.1669688036
 
+    ASSERT_EQ(h_parm->adiabatic, 1.6);
+    ASSERT_EQ(h_parm->epsilon, 1);
+
+    ASSERT_EQ(d_parm->adiabatic, 1.6);
+    ASSERT_EQ(d_parm->epsilon, 1);
+
     EXPECT_NEAR(
         system->ExplicitTimeStepDimSplit(0, geom, MF_U, h_parm, d_parm),
         0.1669688036, 1e-8);
@@ -329,6 +338,7 @@ TEST_F(PlasmaSystemTest, SLICEulerFluxEquivalence)
     ParmParse pp("prob");
     pp.add("system", (std::string) "plasma");
     pp.add("adiabatic", 1.6);
+    pp.add("epsilon", 1);
     IntVect                        dom_lo(AMREX_D_DECL(1, 3, 4));
     IntVect                        dom_hi(AMREX_D_DECL(5, 3, 4));
     GpuArray<Real, AMREX_SPACEDIM> prob_lo{ AMREX_D_DECL(0., 0., 0.) };

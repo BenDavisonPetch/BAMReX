@@ -147,15 +147,21 @@ void initdata_mhd(MultiFab &S_tmp, const Geometry &geom)
         ParmParse pp2;
         pp2.get("stop_time", stop_time);
     }
+    const Real p_t_L
+        = pressure_L
+          + 0.5 * (B_L[0] * B_L[0] + B_L[1] * B_L[1] + B_L[2] * B_L[2]);
+    const Real p_t_R
+        = pressure_R
+          + 0.5 * (B_R[0] * B_R[0] + B_R[1] * B_R[1] + B_R[2] * B_R[2]);
 
-    GpuArray<Real, PQInd::size> Q_L{ density_L,     velocity_L[0],
-                                     velocity_L[1], velocity_L[2],
-                                     pressure_L,    B_L[0],
-                                     B_L[1],        B_L[2] };
-    GpuArray<Real, PQInd::size> Q_R{ density_R,     velocity_R[0],
-                                     velocity_R[1], velocity_R[2],
-                                     pressure_R,    B_R[0],
-                                     B_R[1],        B_R[2] };
+    GpuArray<Real, PQInd::size> Q_L{
+        density_L, velocity_L[0], velocity_L[1], velocity_L[2], pressure_L,
+        p_t_L,     B_L[0],        B_L[1],        B_L[2]
+    };
+    GpuArray<Real, PQInd::size> Q_R{
+        density_R, velocity_R[0], velocity_R[1], velocity_R[2], pressure_R,
+        p_t_R,     B_R[0],        B_R[1],        B_R[2]
+    };
 
     const auto consv_L = mhd_ptoc(Q_L, *AmrLevelAdv::h_parm);
     const auto consv_R = mhd_ptoc(Q_R, *AmrLevelAdv::h_parm);

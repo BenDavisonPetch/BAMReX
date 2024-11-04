@@ -46,24 +46,25 @@ struct PUInd
 //! Primitive indices for plasma system
 struct PQInd
 {
-    static constexpr int RHO = 0;
-    static constexpr int U   = 1;
-    static constexpr int V   = 2;
-    static constexpr int W   = 3;
-    static constexpr int P   = 4;
-    static constexpr int BX  = 5;
-    static constexpr int BY  = 6;
-    static constexpr int BZ  = 7;
+    static constexpr int RHO  = 0;
+    static constexpr int U    = 1;
+    static constexpr int V    = 2;
+    static constexpr int W    = 3;
+    static constexpr int P    = 4;
+    static constexpr int PTOT = 5;
+    static constexpr int BX   = 6;
+    static constexpr int BY   = 7;
+    static constexpr int BZ   = 8;
     //! Extra parts for viscous computations
-    static constexpr int T     = 8;
-    static constexpr int ETA   = 9;
-    static constexpr int ZETA  = 10;
-    static constexpr int KAPPA = 11;
+    static constexpr int T     = 9;
+    static constexpr int ETA   = 10;
+    static constexpr int ZETA  = 11;
+    static constexpr int KAPPA = 12;
 
     static constexpr int size  = BZ + 1;
     static constexpr int vsize = KAPPA + 1;
     // Used to return primitive variables without having to copy over B
-    static constexpr int size_noB = P + 1;
+    static constexpr int size_noB = PTOT + 1;
 
     static inline constexpr int Udir(int dir)
     {
