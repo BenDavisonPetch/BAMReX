@@ -1,0 +1,52 @@
+# ------------------  INPUTS TO MAIN PROGRAM  -------------------
+max_step = 10000
+
+## PROBLEM INPUT
+stop_time = 1.0
+
+prob.system = plasma
+prob.adiabatic  = 5/3
+
+geometry.is_periodic =  1 1 1
+geometry.coord_sys   =  0       # 0 => cart
+geometry.prob_lo     =  0.0  0.0  0.0 
+geometry.prob_hi     =  1.0  1.0  1.0
+
+limiting.limiter = van_leer
+limiting.density = density
+limiting.mom     = mom_x mom_y mom_z
+limiting.energy  = energy
+limiting.B = B_x B_y B_z
+
+# RESOLUTION
+amr.n_cell         =  128 128 128
+
+# TIME STEP CONTROL
+adv.cfl            = 0.8  # cfl number for hyperbolic system
+
+## NUMERICAL METHOD SETTINGS
+adv.num_method = muscl_hancock
+
+# VERBOSITY
+adv.v              = 0       # verbosity in Adv
+amr.v              = 1       # verbosity in Amr
+#amr.grid_log         = grdlog  # name of grid logging file
+
+# REFINEMENT / REGRIDDING
+amr.max_level       = 0       # maximum level number allowed
+amr.ref_ratio       = 2 2 2 2 # refinement ratio
+amr.regrid_int      = 2       # how often to regrid
+amr.blocking_factor = 8       # block factor in grid generation
+amr.max_grid_size   = 64
+
+# CHECKPOINT FILES
+amr.checkpoint_files_output = 0     # 0 will disable checkpoint files
+amr.check_file              = chk   # root name of checkpoint file
+amr.check_int               = 10    # number of timesteps between checkpoints
+
+# PLOTFILES
+amr.plot_files_output = 1      # 0 will disable plot files
+amr.plot_file         = plt    # root name of plot file
+amr.plot_int          = 100000 # number of timesteps between plot files
+amr.plot_file = output/MHM/ot/0256/plt
+amr.plot_at = 0.5 1.0

@@ -10,6 +10,7 @@ add_subdirectory(IsentropicVortex)
 add_subdirectory(Advection)
 add_subdirectory(GreshoVortex)
 add_subdirectory(Jet)
+add_subdirectory(OrszagTang)
 
 FILE(CREATE_LINK
     ${CMAKE_SOURCE_DIR}/Tools/gen_visit_headers.sh

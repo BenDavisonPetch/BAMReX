@@ -77,6 +77,18 @@ mhd_ptoc(const amrex::GpuArray<amrex::Real, PQInd::size> &Q, const Parm &parm)
     return U;
 }
 
+//! Fills total pressure of Q assuming that gas pressure and magnetic fields
+//! have already been specified
+AMREX_GPU_HOST_DEVICE AMREX_FORCE_INLINE void
+mhd_fill_p_tot(amrex::GpuArray<amrex::Real, PQInd::size> &Q)
+{
+    Q[PQInd::PTOT]
+        = Q[PQInd::P]
+          + 0.5
+                * (Q[PQInd::BX] * Q[PQInd::BX] + Q[PQInd::BY] * Q[PQInd::BY]
+                   + Q[PQInd::BZ] * Q[PQInd::BZ]);
+}
+
 template <int dir>
 AMREX_GPU_DEVICE AMREX_FORCE_INLINE void
 mhd_flux(int i, int j, int k, const amrex::Array4<amrex::Real> &flux,
